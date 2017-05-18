@@ -1,0 +1,118 @@
+-- This file has been generated from package.yaml by hpack version 0.14.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           GUI-SDL2
+version:        0.1.0
+synopsis:       GUI-SDL2 is SDL2,SDL2_image and SDL2_ttf based desktop GUI.
+description:    GUI-SDL2 is SDL2,SDL2_image and SDL2_ttf based desktop GUI.
+category:       GUI SDL2
+homepage:       https://github.com/KolodeznyDiver/GUI-SDL2#readme
+bug-reports:    https://github.com/KolodeznyDiver/GUI-SDL2/issues
+maintainer:     Kolodezny Diver
+license:        BSD3
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    CHANGELOG.md
+    LICENSE.md
+    package.yaml
+    README.md
+    stack.yaml
+
+source-repository head
+  type: git
+  location: https://github.com/KolodeznyDiver/GUI-SDL2
+
+library
+  hs-source-dirs:
+      library
+  ghc-options: -Wall -Wname-shadowing -fwarn-tabs
+  extra-libraries:
+      SDL2
+      SDL2_ttf
+      SDL2_image
+  build-depends:
+      base
+    , template-haskell
+    , ghc
+    , bytestring
+    , exceptions
+    , linear
+    , StateVar
+    , text
+    , transformers
+    , vector
+    , containers
+    , unordered-containers
+    , data-default
+    , sdl2
+    , sdl2-ttf
+    , sdl2-image
+    , stm
+    , filepath
+    , directory
+  exposed-modules:
+      GUI.BaseLayer.Internal.Types
+      GUI.BaseLayer.Raw.Cursor
+      GUI.BaseLayer.Resource.Types
+      GUI.BaseLayer.BitFlags
+      GUI.BaseLayer.Canvas
+      GUI.BaseLayer.Color
+      GUI.BaseLayer.Cursor
+      GUI.BaseLayer.Event
+      GUI.BaseLayer.Geometry
+      GUI.BaseLayer.GUI
+      GUI.BaseLayer.Handlers
+      GUI.BaseLayer.Primitives
+      GUI.BaseLayer.Ref
+      GUI.BaseLayer.Resource
+      GUI.BaseLayer.Skin
+      GUI.BaseLayer.Types
+      GUI.BaseLayer.Utils
+      GUI.BaseLayer.Widget
+      GUI.BaseLayer.Window
+      GUI.Skin.DefaultSkin
+      GUI.Utils.TextWrap
+      GUI.Utils.Wrap
+      GUI.Widget.Container.ScrollArea
+      GUI.Widget.Layout.TH.LinearLayout
+      GUI.Widget.Layout.LinearLayout
+      GUI.Widget.Layout.Utils
+      GUI.Widget.TH.LinearTrackBar
+      GUI.Widget.Button
+      GUI.Widget.Handlers
+      GUI.Widget.Label
+      GUI.Widget.LinearTrackBar
+      GUI.Widget.Splitter
+      GUI.Widget.TH
+      GUI.Widget.Types
+      GUI
+      Data.Vector.Utils
+  other-modules:
+      Paths_GUI_SDL2
+  default-language: Haskell2010
+
+executable GUIDemo
+  main-is: Main.hs
+  hs-source-dirs:
+      executable
+  ghc-options: -Wall -Wname-shadowing -fwarn-tabs -rtsopts -threaded -with-rtsopts=-N
+  build-depends:
+      base
+    , GUI-SDL2
+    , bytestring
+    , exceptions
+    , linear
+    , StateVar
+    , text
+    , transformers
+    , vector
+    , sdl2
+    , sdl2-ttf
+    , sdl2-image
+    , stm
+    , ghc
+    , data-default
+  default-language: Haskell2010

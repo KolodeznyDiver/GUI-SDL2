@@ -1,0 +1,112 @@
+# This YAML file describes your package. Stack will automatically generate a
+# Cabal file when you run `stack build`. See the hpack website for help with
+# this file: <https://github.com/sol/hpack>.
+category: GUI SDL2
+description: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
+executables:
+  GUIDemo:
+    dependencies:
+    - base
+    - GUI-SDL2
+    - bytestring
+    - exceptions
+    - linear
+    - StateVar
+    - text
+    - transformers
+    - vector
+    - sdl2
+    - sdl2-ttf
+    - sdl2-image
+    - stm
+    - ghc
+    - data-default
+    main: Main.hs
+    source-dirs: executable
+    ghc-options:
+    - -Wall
+    - -Wname-shadowing
+    - -fwarn-tabs
+    - -rtsopts
+    - -threaded
+    - -with-rtsopts=-N
+extra-source-files:
+- CHANGELOG.md
+- LICENSE.md
+- package.yaml
+- README.md
+- stack.yaml
+github: KolodeznyDiver/GUI-SDL2
+library:
+  exposed-modules:
+  - GUI.BaseLayer.Internal.Types
+  - GUI.BaseLayer.Raw.Cursor
+  - GUI.BaseLayer.Resource.Types
+  - GUI.BaseLayer.BitFlags
+  - GUI.BaseLayer.Canvas
+  - GUI.BaseLayer.Color
+  - GUI.BaseLayer.Cursor
+  - GUI.BaseLayer.Event
+  - GUI.BaseLayer.Geometry
+  - GUI.BaseLayer.GUI
+  - GUI.BaseLayer.Handlers
+  - GUI.BaseLayer.Primitives
+  - GUI.BaseLayer.Ref
+  - GUI.BaseLayer.Resource
+  - GUI.BaseLayer.Skin
+  - GUI.BaseLayer.Types
+  - GUI.BaseLayer.Utils
+  - GUI.BaseLayer.Widget
+  - GUI.BaseLayer.Window
+  - GUI.Skin.DefaultSkin
+  - GUI.Utils.TextWrap
+  - GUI.Utils.Wrap
+  - GUI.Widget.Container.ScrollArea
+  - GUI.Widget.Layout.TH.LinearLayout
+  - GUI.Widget.Layout.LinearLayout
+  - GUI.Widget.Layout.Utils
+  - GUI.Widget.TH.LinearTrackBar
+  - GUI.Widget.Button
+  - GUI.Widget.Handlers
+  - GUI.Widget.Label
+  - GUI.Widget.LinearTrackBar
+  - GUI.Widget.Splitter
+  - GUI.Widget.TH
+  - GUI.Widget.Types
+  - GUI
+  - Data.Vector.Utils
+#  other-modules:
+  extra-libraries:
+  - SDL2
+  - SDL2_ttf
+  - SDL2_image
+  dependencies:
+  - base
+  - template-haskell
+  - ghc
+  - bytestring
+  - exceptions
+  - linear
+  - StateVar
+  - text
+  - transformers
+  - vector
+  - containers
+  - unordered-containers
+  - data-default
+  - sdl2
+  - sdl2-ttf
+  - sdl2-image
+  - stm
+  - filepath
+  - directory
+  ghc-options:
+  - -Wall
+  - -Wname-shadowing
+  - -fwarn-tabs
+  source-dirs: library
+license: BSD3
+maintainer: Kolodezny Diver
+name: GUI-SDL2
+synopsis: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
+version: '0.1.0'

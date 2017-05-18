@@ -1,0 +1,7 @@
+# Stack uses this directory as scratch space.
+/.stack-work/
+/.idea/
+/*.bat
+/*.log
+/*.iml
+
