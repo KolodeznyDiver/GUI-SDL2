@@ -11,20 +11,11 @@ module GUI.Widget.Splitter(
 
 import Control.Monad
 import Control.Monad.IO.Class
---import Data.Maybe
 import Data.Ix
 import Data.Bits
---import Data.IORef
-import Maybes (whenIsJust)
 import qualified SDL
 import SDL.Vect
 import GUI
---import GUI.Widget.Handlers
---import GUI.BaseLayer.Geometry
---import GUI.BaseLayer.Skin
---import GUI.Widget.Types
---import qualified GUI.BaseLayer.Primitives as P
---import Data.Default
 
 pattern SplitterWidth :: Coord
 pattern SplitterWidth = 6
@@ -36,11 +27,10 @@ data SplitterData = SplitterData
 
 splitter :: MonadIO m => Widget -> Skin -> m (GuiWidget SplitterData)
 splitter parent skin = do
---    colorRf <- newMonadIORef $ fromMaybe (foregroundColor skin) labelColor
     let noInitedSz = V2 1 1
         detectSplitterType (SDL.Rectangle (P (V2 xd yd)) (V2 wd hd)) -- drivenR
                            (SDL.Rectangle (P (V2 x y)) _)     -- selfR
-                            | wd <=0 || hd <=0 || (x == 0 && y == 0) = SplitterUnknown
+                            | wd <0 || hd <0 {- || (x == 0 && y == 0) -} = SplitterUnknown
                             | otherwise = let left' = (xd+wd)<=x
                                               up' = (yd+hd)<=y in
                                           if left' && not up' then HSplitter
@@ -48,11 +38,14 @@ splitter parent skin = do
                                                else SplitterUnknown
 --        prepare :: MonadIO m => Widget -> GuiRect -> m Bool
         prepare widget selfR@(SDL.Rectangle _ (V2 w h)) = do
-            mbDriven <- getPrevWidget widget
+            mbDriven <- getPrevNextWidgets widget
+--            liftIO $ putStrLn $ concat ["splitter.prepare selfR=", rectToBriefStr selfR,
+--               "  isJust widget0= ", show $ isJust $ fst mbDriven,"  isJust widget1= ", show $ isJust $ snd mbDriven]
             case mbDriven of
-                Just driven -> do
-                    drivenR@(SDL.Rectangle _ (V2 wd hd)) <- getWidgetRectWithMargin driven
+                (Just widget0,_) -> do
+                    drivenR@(SDL.Rectangle _ (V2 wd hd)) <- getWidgetRectWithMargin widget0
                     curIx <- getWidgetCursorIx widget
+--                    liftIO $ putStrLn $ concat ["splitter.prepare drivenR=",rectToBriefStr  drivenR]
                     let t = case curIx of
                                 SystemCursorSizeWE -> HSplitter
                                 SystemCursorSizeNS -> VSplitter
@@ -62,13 +55,13 @@ splitter parent skin = do
                             when (curIx /=SystemCursorSizeWE) $
                                 setWidgetCursorIx widget SystemCursorSizeWE
                             let n = h /= hd || w /= SplitterWidth
-                            when n $ notifyParentSizeWithMargin widget (V2 SplitterWidth hd)
+                            when n $ notifyParentAboutSize widget (V2 SplitterWidth hd)
                             return n
                         VSplitter -> do
                             when (curIx /=SystemCursorSizeNS) $
                                 setWidgetCursorIx widget SystemCursorSizeNS
                             let n = w /= wd || h /= SplitterWidth
-                            when n $ notifyParentSizeWithMargin widget (V2 wd SplitterWidth)
+                            when n $ notifyParentAboutSize widget (V2 wd SplitterWidth)
                             return n
                         _ -> return False
                 _ -> return False
@@ -84,23 +77,38 @@ splitter parent skin = do
                 markWidgetForRedraw widget
         ,onMouseMotion = \widget btnsLst (P (V2 x y)) (V2 dx dy) ->
             when ([SDL.ButtonLeft] == btnsLst ) $ do
-                (V2 selfW selfH) <- sizeOfRect <$> getWidgetRect widget
-                mbDriven <- getPrevWidget widget
-                whenIsJust mbDriven $ \driven -> do
-                    (V2 xd yd) <- sizeOfRect <$> getWidgetRect driven
+                mbDriven <- getPrevNextWidgets widget
+                case mbDriven of
+                  (Just widget0, Just widget1) -> do
+                    (SDL.Rectangle _ (V2 w0 h0)) <- getWidgetRect widget0
+                    (V2 mw0 mh0) <- getWidgetMarginSize widget0
+                    (SDL.Rectangle _ (V2 w1 h1)) <- getWidgetRect widget1
+                    (V2 mw1 mh1) <- getWidgetMarginSize widget1
+                    -- marg1 <- getWidgetMargin widget1
+                    (SDL.Rectangle _ (V2 wp hp)) <- getWidgetRect =<< getWidgetParent widget
+                    (SDL.Rectangle _ (V2 selfW selfH)) <- getWidgetRect widget
+--                    liftIO $ putStrLn $ concat ["splitter.onMouseMotion rp=", rectToBriefStr rp,
+--                      "  r0=", rectToBriefStr r0,"  r1=", rectToBriefStr r1]
                     curIx <- getWidgetCursorIx widget
                     case curIx of
-                        SystemCursorSizeWE -> do -- HSplitter
+                        SystemCursorSizeWE -> -- HSplitter
                             if inRange (0,selfH) y then
-                                notifyParentSizeWithMargin driven (V2 (max 1 (xd+dx)) yd)
-                            else resetMouseCapturedWidget widget
-                            markWidgetForRedraw widget
-                        SystemCursorSizeNS -> do -- VSplitter
+                                let newW = toBound 0 (wp - SplitterWidth - mw0 - mw1) $ w0+dx in
+                                when (w0 /= newW) $ do
+                                    notifyParentAboutSize widget0 (V2 newW h0)
+                                    notifyParentAboutSize widget1 (V2 (wp-newW-SplitterWidth - mw0 - mw1) h1)
+                                    markWidgetForRedraw widget
+                            else resetMouseCapturedWidget widget >> markWidgetForRedraw widget
+                        SystemCursorSizeNS -> -- VSplitter
                             if inRange (0,selfW) x then
-                                notifyParentSizeWithMargin driven (V2 xd (max 1 (yd+dy)))
-                            else resetMouseCapturedWidget widget
-                            markWidgetForRedraw widget
+                                let newH = toBound 0 (hp - SplitterWidth - mh0 - mh1) $ h0+dy in
+                                when (h0 /=newH) $ do
+                                    notifyParentAboutSize widget0 (V2 w0 newH)
+                                    notifyParentAboutSize widget1 (V2 w1 (hp-newH-SplitterWidth - mh0 - mh1))
+                                    markWidgetForRedraw widget
+                            else resetMouseCapturedWidget widget >> markWidgetForRedraw widget
                         _ -> return ()
+                  _ -> return ()
         ,onResizing= \widget newRect -> do
             chgd <- prepare widget newRect
             unless chgd $ onResizing fns widget newRect

@@ -1,19 +1,21 @@
 {-# LANGUAGE RecordWildCards #-}
 module GUI.BaseLayer.Primitives(
-    DrawStrMode(..),toSDLV2,fromSDLV2,toSDLRect
-    ,mousePointToGuiPoint,getTextureSize,drawTexture,drawTextureAligned,fromRawColor,toRawColor,strSize,getPixelFormat
+    DrawStrMode(..),toSDLV2,fromSDLV2,toSDLRect,mousePointToGuiPoint
+    ,getTextureSize,drawTexture,drawTextureAligned,fromRawColor,toRawColor,strSize,getPixelFormat
     ,createTargetTexture,renderStr,renderStrDraft,renderStrOpaque,drawStr,drawStrDraft,drawStrOpaque
     ,withStateVar,withColor,withRendererColor,withRendererTarget,withRendererClipRect,withRendererViewport
     ,drawStrAligned
                      ) where
 
+import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Trans.Class
+import Data.StateVar
+import Maybes (whenIsJust)
 import qualified SDL
 import qualified SDL.Raw as Raw
 import SDL.Vect
-import Data.StateVar
 import qualified SDL.TTF as TTF
 import SDL.TTF.FFI (TTFFont)
-import Control.Monad.IO.Class (MonadIO)
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Geometry
 
@@ -94,48 +96,64 @@ withRendererViewport renderer r = withStateVar (SDL.rendererViewport renderer) $
 {-# INLINE withRendererViewport #-}
 
 strSize :: MonadIO m => TTFFont -> String -> m (V2 Coord)
+strSize _ [] = return zero
 strSize fnt str = do
     (w,h) <- TTF.sizeUTF8 fnt str
     return (V2 (fromIntegral w) (fromIntegral h))
 {-# INLINE strSize #-}
 
-renderStr:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> String -> m SDL.Texture
-renderStr renderer fnt color str = do
-    sf <- TTF.renderUTF8Blended fnt str $ toRawColor color
-    SDL.createTextureFromSurface renderer sf <* SDL.freeSurface sf
+renderInternal :: MonadIO m => SDL.Renderer -> SDL.Surface -> m (Maybe SDL.Texture)
+renderInternal renderer sf = do
+    t <- SDL.createTextureFromSurface renderer sf
+    SDL.freeSurface sf
+    return $ Just t
+{-# INLINE renderInternal #-}
 
-renderStrDraft:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> String -> m SDL.Texture
-renderStrDraft renderer fnt color str = do
-    sf <- TTF.renderUTF8Solid fnt str $ toRawColor color
-    SDL.createTextureFromSurface renderer sf <* SDL.freeSurface sf
+renderStr:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> String -> m (Maybe SDL.Texture)
+renderStr _ _ _ [] = return Nothing
+renderStr renderer fnt color str =
+    TTF.renderUTF8Blended fnt str (toRawColor color) >>= renderInternal renderer
+{-# INLINE renderStr #-}
 
-renderStrOpaque:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> GuiColor -> String -> m SDL.Texture
-renderStrOpaque renderer fnt color bkColor str = do
-    sf <- TTF.renderUTF8Shaded fnt str (toRawColor color) $ toRawColor bkColor
-    SDL.createTextureFromSurface renderer sf <* SDL.freeSurface sf
+renderStrDraft:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> String -> m (Maybe SDL.Texture)
+renderStrDraft _ _ _ [] = return Nothing
+renderStrDraft renderer fnt color str =
+    TTF.renderUTF8Solid fnt str (toRawColor color) >>= renderInternal renderer
+{-# INLINE renderStrDraft #-}
+
+renderStrOpaque:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> GuiColor -> String -> m (Maybe SDL.Texture)
+renderStrOpaque _        _   _     _       [] = return Nothing
+renderStrOpaque renderer fnt color bkColor str =
+    TTF.renderUTF8Shaded fnt str (toRawColor color) (toRawColor bkColor) >>= renderInternal renderer
+{-# INLINE renderStrOpaque #-}
+
+drawInternal :: MonadIO m => SDL.Renderer -> GuiPoint -> Maybe SDL.Texture -> m ()
+drawInternal renderer pnt mbTexture =
+    whenIsJust mbTexture $ \ t -> do
+        drawTexture renderer t pnt
+        SDL.destroyTexture t
+{-# INLINE drawInternal #-}
 
 drawStr :: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> GuiPoint -> String -> m ()
-drawStr renderer fnt color pnt str = do
-    t <- renderStr renderer fnt color str
-    drawTexture renderer t pnt <* SDL.destroyTexture t
+drawStr renderer fnt color pnt str = renderStr renderer fnt color str >>= drawInternal renderer pnt
 {-# INLINE drawStr #-}
 
 drawStrDraft :: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> GuiPoint -> String -> m ()
-drawStrDraft renderer fnt color pnt str = do
-    t <- renderStrDraft renderer fnt color str
-    drawTexture renderer t pnt <* SDL.destroyTexture t
+drawStrDraft renderer fnt color pnt str = renderStrDraft renderer fnt color str >>= drawInternal renderer pnt
 {-# INLINE drawStrDraft #-}
 
 drawStrOpaque :: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> GuiColor -> GuiPoint -> String -> m ()
-drawStrOpaque renderer fnt color bkColor pnt str = do
-    t <- renderStrOpaque renderer fnt color bkColor str
-    drawTexture renderer t pnt <* SDL.destroyTexture t
+drawStrOpaque renderer fnt color bkColor pnt str = renderStrOpaque renderer fnt color bkColor str
+                                                            >>= drawInternal renderer pnt
 {-# INLINE drawStrOpaque #-}
 
-drawStrAligned :: MonadIO m => SDL.Renderer -> TTFFont -> Alignment -> DrawStrMode -> GuiColor -> GuiRect -> String -> m ()
-drawStrAligned renderer fnt align mode color rect str = do
-    t <- case mode of
+drawStrAligned :: MonadIO m => SDL.Renderer -> TTFFont -> Alignment -> GuiColor -> DrawStrMode ->
+                    GuiRect -> String -> m ()
+drawStrAligned renderer fnt align color mode rect str = do
+    mbTexture <- case mode of
             DrawStrFine -> renderStr renderer fnt color str
             DrawStrDraft -> renderStrDraft renderer fnt color str
             DrawStrOpaque bkColor -> renderStrOpaque renderer fnt color bkColor str
-    drawTextureAligned renderer t align rect <* SDL.destroyTexture t
+    whenIsJust mbTexture $ \ t -> do
+        drawTextureAligned renderer t align rect
+        SDL.destroyTexture t

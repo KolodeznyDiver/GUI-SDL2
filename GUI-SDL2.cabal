@@ -3,9 +3,9 @@
 -- see: https://github.com/sol/hpack
 
 name:           GUI-SDL2
-version:        0.1.0
-synopsis:       GUI-SDL2 is SDL2,SDL2_image and SDL2_ttf based desktop GUI.
-description:    GUI-SDL2 is SDL2,SDL2_image and SDL2_ttf based desktop GUI.
+version:        0.1.1
+synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
+description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
 homepage:       https://github.com/KolodeznyDiver/GUI-SDL2#readme
 bug-reports:    https://github.com/KolodeznyDiver/GUI-SDL2/issues
@@ -50,10 +50,12 @@ library
     , sdl2
     , sdl2-ttf
     , sdl2-image
-    , stm
     , filepath
     , directory
+    , monadplus
   exposed-modules:
+      GUI.BaseLayer.Action
+      GUI.BaseLayer.Internal.Action
       GUI.BaseLayer.Internal.Types
       GUI.BaseLayer.Raw.Cursor
       GUI.BaseLayer.Resource.Types
@@ -65,6 +67,8 @@ library
       GUI.BaseLayer.Geometry
       GUI.BaseLayer.GUI
       GUI.BaseLayer.Handlers
+      GUI.BaseLayer.Keyboard
+      GUI.BaseLayer.PopupWindow
       GUI.BaseLayer.Primitives
       GUI.BaseLayer.Ref
       GUI.BaseLayer.Resource
@@ -76,18 +80,22 @@ library
       GUI.Skin.DefaultSkin
       GUI.Utils.TextWrap
       GUI.Utils.Wrap
+      GUI.Widget.Container.Border
       GUI.Widget.Container.ScrollArea
+      GUI.Widget.Internal.LinearTrackBar
       GUI.Widget.Layout.TH.LinearLayout
       GUI.Widget.Layout.LinearLayout
       GUI.Widget.Layout.Utils
       GUI.Widget.TH.LinearTrackBar
       GUI.Widget.Button
       GUI.Widget.Handlers
+      GUI.Widget.Menu.Horizontal
       GUI.Widget.Label
       GUI.Widget.LinearTrackBar
       GUI.Widget.Splitter
       GUI.Widget.TH
       GUI.Widget.Types
+      GUI.Window.PopupMenu
       GUI
       Data.Vector.Utils
   other-modules:

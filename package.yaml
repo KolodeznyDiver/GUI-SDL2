@@ -39,6 +39,8 @@ extra-source-files:
 github: KolodeznyDiver/GUI-SDL2
 library:
   exposed-modules:
+  - GUI.BaseLayer.Action
+  - GUI.BaseLayer.Internal.Action
   - GUI.BaseLayer.Internal.Types
   - GUI.BaseLayer.Raw.Cursor
   - GUI.BaseLayer.Resource.Types
@@ -50,6 +52,8 @@ library:
   - GUI.BaseLayer.Geometry
   - GUI.BaseLayer.GUI
   - GUI.BaseLayer.Handlers
+  - GUI.BaseLayer.Keyboard
+  - GUI.BaseLayer.PopupWindow
   - GUI.BaseLayer.Primitives
   - GUI.BaseLayer.Ref
   - GUI.BaseLayer.Resource
@@ -61,18 +65,22 @@ library:
   - GUI.Skin.DefaultSkin
   - GUI.Utils.TextWrap
   - GUI.Utils.Wrap
+  - GUI.Widget.Container.Border
   - GUI.Widget.Container.ScrollArea
+  - GUI.Widget.Internal.LinearTrackBar
   - GUI.Widget.Layout.TH.LinearLayout
   - GUI.Widget.Layout.LinearLayout
   - GUI.Widget.Layout.Utils
   - GUI.Widget.TH.LinearTrackBar
   - GUI.Widget.Button
   - GUI.Widget.Handlers
+  - GUI.Widget.Menu.Horizontal
   - GUI.Widget.Label
   - GUI.Widget.LinearTrackBar
   - GUI.Widget.Splitter
   - GUI.Widget.TH
   - GUI.Widget.Types
+  - GUI.Window.PopupMenu
   - GUI
   - Data.Vector.Utils
 #  other-modules:
@@ -97,9 +105,10 @@ library:
   - sdl2
   - sdl2-ttf
   - sdl2-image
-  - stm
+#  - stm
   - filepath
   - directory
+  - monadplus
   ghc-options:
   - -Wall
   - -Wname-shadowing
@@ -109,4 +118,4 @@ license: BSD3
 maintainer: Kolodezny Diver
 name: GUI-SDL2
 synopsis: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
-version: '0.1.0'
+version: '0.1.1'

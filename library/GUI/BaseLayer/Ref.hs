@@ -6,7 +6,7 @@ module GUI.BaseLayer.Ref where
 --import GUI.BaseLayer.Types
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef
-import Control.Concurrent.STM
+-- import Control.Concurrent.STM
 
 newMonadIORef :: MonadIO m => a -> m (IORef a)
 newMonadIORef = liftIO . newIORef
@@ -23,7 +23,7 @@ writeMonadIORef r = liftIO . writeIORef r
 modifyMonadIORef' :: MonadIO m => IORef a -> (a -> a) -> m ()
 modifyMonadIORef' r = liftIO . modifyIORef' r
 {-# INLINE modifyMonadIORef' #-}
-
+{-
 atomicallyMonadIO :: MonadIO m => STM a -> m a
 atomicallyMonadIO = liftIO . atomically
 {-# INLINE atomicallyMonadIO #-}
@@ -35,3 +35,4 @@ newTVarMonadIO = liftIO . newTVarIO
 readTVarMonadIO :: MonadIO m => TVar a -> m a
 readTVarMonadIO = liftIO . readTVarIO
 {-# INLINE readTVarMonadIO #-}
+-}

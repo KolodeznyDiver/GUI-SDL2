@@ -35,13 +35,12 @@ linearLayoutCalc childs allSpace =
 
 addToLinearLayout:: MonadIO m => GuiWidget LinearLayoutData -> (Widget -> Skin -> m (GuiWidget a)) -> m (GuiWidget a)
 addToLinearLayout (GuiWidget widget LinearLayoutData{..}) initF = do
---    w <- readMonadIORef widget
     modifyMonadIORef' layoutSpaces (`VU.snoc` zero)
     createWidget widget initF
 
 instance WidgetComposer (GuiWidget LinearLayoutData) where
     ($+) = addToLinearLayout
--- foldl' :: Storable b => (a -> b -> a) -> a -> Vector b -> a
+
 maxSignedCoordFromVector :: VU.Vector Coord -> Coord
 maxSignedCoordFromVector = VU.foldl' go 0
     where go r x | r>=0 && x>=0 = max r x

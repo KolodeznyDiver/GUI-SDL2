@@ -3,8 +3,10 @@ module GUI.BaseLayer.Skin where
 --import qualified Data.Text as T
 import GUI.BaseLayer.Types
 
-data BorderType = BorderRound GuiColor
-                | Border3D { border3DLightColor :: GuiColor, border3DDarkColor :: GuiColor }
+data BtnBorderType = BtnBorderRound GuiColor
+                   | BtnBorder3D    { btnBrdr3DLightColor :: GuiColor
+                                    , btnBrdr3DDarkColor :: GuiColor
+                                    }
                                     deriving (Show)
 
 data DecoreState = DecoreState  { decoreBkColor   :: GuiColor
@@ -17,18 +19,20 @@ data ButtonDecore = ButtonDecore    { btnDecoreOut :: DecoreState
                                     , btnDecoreFocused  :: DecoreState
                                     , btnDecorePressed :: DecoreState
                                     , btnDecoreDisabled :: DecoreState
-                                    , btnDecoreBorder :: BorderType
+                                    , btnDecoreBorder :: BtnBorderType
                                     }
                                     deriving (Show)
 
 
 data Skin = Skin { skinName :: String
-                 , mainBkColor :: GuiColor
+--                 , mainBkColor :: GuiColor
                  , windowBkColor :: GuiColor
                  , bkColor :: GuiColor
                  , borderColor :: GuiColor
                  , widgetBorderColor :: GuiColor
                  , foregroundColor :: GuiColor
+                 , brdr3DLightColor :: GuiColor
+                 , brdr3DDarkColor :: GuiColor
 --                 , formItemsColor :: GuiColor
 --                 , formItemsBkColor :: GuiColor
                  , formItemsMargin  :: WidgetMargin
@@ -47,4 +51,11 @@ data Skin = Skin { skinName :: String
                  , scrollAreaSlidersColor :: GuiColor
                  , scrollAreaArrowsColor :: GuiColor
                  , splitterActive :: DecoreState
+                 , popupMnuBkColor  :: GuiColor
+                 , popupMnuInColor  :: GuiColor
+                 , popupMnuFgColor  :: GuiColor
+                 , popupMnuHotKeyColor  :: GuiColor
+                 , popupMnuSeparatorColor  :: GuiColor
+                 , popupMnu3DLightColor  :: GuiColor
+                 , popupMnu3DDarkColor  :: GuiColor
                  }

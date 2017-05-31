@@ -1,20 +1,29 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards #-}
 module GUI.BaseLayer.Utils(
     WidgetComposer(..),mulDiv,getWidgetCoordOffset,coordToWidget,mouseToWidget
     ,runProxyWinCanvas,runProxyCanvas,guiGetSkin,getSkinFromWin,getSkinFromWidget,guiGetResourceManager
-    ,guiSetCursor,getShftCtrlAlt,isEnterKey,clearFocusInWindow,clearWidgetFocus,setWidgetFocus
-    ,redrawAll,createWidget,mkWidget,SimpleWidget(..),mkSimpleWidget
+    ,guiSetCursor,setGuiState,getGuiState,getUniqueCode,notifyEachWidgetsInAllWin
+    ,clearFocusInWindow,clearWidgetFocus,setWidgetFocus
+    ,redrawAll,forEachWidgetsInAllWin,createWidget,mkWidget,SimpleWidget(..),mkSimpleWidget
     ,delWidget,delAllChildWidgets,lastChildReplaceFirst
-    ,delWindowByIx,delWindow,delAllWindows
+    ,delWindowByIx,delWindow,delAllWindows,delWindowsBy,windowsFold,getWindowsCount,showWindowsAsStr
+    ,delAllPopupWindows
+    ,markWidgetForRedraw,setWidgetFlag,notifyParentAboutSize,simpleOnResizing,simpleOnResizingMoveOnly
+    ,extendableOnResizing,enableWidget,visibleWidget,newWindow',newWindow,overlapsChildrenFns,setWinSize',setWinSize
+    ,guiApplicationExitSuccess,guiApplicationExitFailure,guiApplicationExitWithCode
                  ) where
 
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
+import qualified Data.Text as T
 import qualified Data.Map.Strict as Map
 import qualified Data.Vector as V
 import Data.Bits
+import System.Exit
 import Maybes (whenIsJust)
+import Data.StateVar
 import qualified SDL
 import SDL.Vect
 import GUI.BaseLayer.Types
@@ -29,6 +38,7 @@ import GUI.BaseLayer.Resource
 import GUI.BaseLayer.Cursor
 import Data.Vector.Utils
 import GUI.BaseLayer.Canvas
+import GUI.BaseLayer.Action
 
 infixr 0 $+
 
@@ -112,27 +122,52 @@ guiSetCursor :: MonadIO m => Gui -> CursorIx -> m ()
 guiSetCursor gui ix = (`rmSetCursor` ix) =<< guiGetResourceManager gui
 {-# INLINE guiSetCursor #-}
 
-getShftCtrlAlt :: SDL.KeyModifier -> (Bool,Bool,Bool)
-getShftCtrlAlt km = (SDL.keyModifierLeftShift km || SDL.keyModifierRightShift km,
-                     SDL.keyModifierLeftCtrl  km || SDL.keyModifierRightCtrl km,
-                     SDL.keyModifierLeftAlt km || SDL.keyModifierRightAlt km || SDL.keyModifierAltGr km)
-{-# INLINE getShftCtrlAlt #-}
+setGuiState :: MonadIO m => Gui -> GuiState -> m ()
+setGuiState gui n = do
+    g@GUIStruct{..} <- readMonadIORef gui
+    when (guiState /= n) $ do
+        writeMonadIORef gui g{guiState=n}
+        forEachWidgetsInAllWin gui $ \widget -> do
+            fns <- getWidgetFns widget
+            onGuiStateChange fns widget n
+{-# INLINE setGuiState #-}
 
-isEnterKey :: SDL.Keycode -> Bool
-isEnterKey keycode = keycode == SDL.KeycodeReturn || -- keycode == SDL.KeycodeReturn2 ||
-                     keycode == SDL.KeycodeCaret || keycode == SDL.KeycodeKPEnter
-{-# INLINE isEnterKey #-}
+getGuiState :: MonadIO m => Gui -> m GuiState
+getGuiState = fmap guiState . readMonadIORef
+{-# INLINE getGuiState #-}
+
+notifyEachWidgetsInAllWin :: MonadIO m => Gui -> GuiNotifyCode -> Maybe Widget -> m ()
+notifyEachWidgetsInAllWin gui nc mbW = forEachWidgetsInAllWin gui $ \widget -> do
+                                            fns <- getWidgetFns widget
+                                            onNotify fns widget nc mbW
+{-# INLINE notifyEachWidgetsInAllWin #-}
+
+getUniqueCode :: MonadIO m => Gui -> m UniqueCode
+getUniqueCode gui = do
+    g <- readMonadIORef gui
+    return (UniqueCode $ guiUnique g) <* writeMonadIORef gui g{guiUnique= 1 + guiUnique g}
+{-# INLINE getUniqueCode #-}
+
+clearWidgetFocusInternal :: MonadIO m => Widget -> m ()
+clearWidgetFocusInternal widget = widgetFlagsRemove widget WidgetFocused >> markWidgetForRedraw widget >>
+    getWidgetFns widget >>= (`onLostKeyboardFocus` widget)
+{-# INLINE clearWidgetFocusInternal #-}
 
 clearFocusInWindow :: MonadIO m => GuiWindow -> m ()
 clearFocusInWindow rfWin = do
     win <- readMonadIORef rfWin
     whenIsJust (focusedWidget win) $ \ widget -> do
         writeMonadIORef rfWin win{focusedWidget=Nothing}
-        widgetFlagsRemove widget WidgetFocused
-        markWidgetForRedraw widget
+        clearWidgetFocusInternal widget
+{-        widgetFlagsRemove widget WidgetFocused
+        fns <- getWidgetFns widget
+        onLostKeyboardFocus fns widget
+        markWidgetForRedraw widget -}
 
 clearWidgetFocus :: MonadIO m => Widget -> m ()
-clearWidgetFocus = (=<<) clearFocusInWindow .  getWidgetWindow
+clearWidgetFocus widget = do
+    focused <- allWidgetFlags widget WidgetFocused
+    when focused (clearFocusInWindow =<< getWidgetWindow widget)
 {-# INLINE clearWidgetFocus #-}
 
 setWidgetFocus :: MonadIO m => Widget -> m ()
@@ -147,17 +182,20 @@ setWidgetFocus widget = do
 --        liftIO $ putStrLn "setWidgetFocus  pass"
         let rfWin = windowOfWidget widg
         win <- readMonadIORef rfWin
-        whenIsJust (focusedWidget win) $ \ widget' -> do
+        whenIsJust (focusedWidget win) $ \ widget' -> -- do
 {-            sDbgR <- widgetCoordsToStr widget'
             dbgFsd <- allWidgetFlags widget' WidgetFocused
             liftIO $ putStrLn $ concat ["setWidgetFocus : remove previous  ",sDbgR,
                 " Focused=",show dbgFsd] -}
-            widgetFlagsRemove widget' WidgetFocused
-            markWidgetForRedraw widget'
-        writeMonadIORef rfWin win{focusedWidget=Just widget}
-        writeMonadIORef widget widg{widgetFlags=widgetFlags widg .|. WidgetFocused}
---        widgetFlagsAdd widget WidgetFocused
+            clearWidgetFocusInternal widget'
+        modifyMonadIORef' rfWin (\x -> x{focusedWidget=Just widget})
+        widgetFlagsAdd widget WidgetFocused
         markWidgetForRedraw widget
+        onGainedKeyboardFocus (widgetFns widg) widget
+
+forEachWidgetsInAllWin :: MonadIO m => Gui -> (Widget -> m ()) -> m ()
+forEachWidgetsInAllWin gui f = allWindowsMap_ ( (=<<) (`forEachWidgets` f) . getWindowMainWidget) gui
+{-# INLINE forEachWidgetsInAllWin #-}
 
 redrawAll :: MonadIO m => Gui -> m ()
 redrawAll = allWindowsMap_ (`redrawWindow` False)
@@ -203,7 +241,7 @@ delWidget widget = getWidgetWindow widget >>= go'
                     w <- readMonadIORef widget'
                     (onDestroy $ widgetFns w) widget'
                     V.mapM_ go $ cildrenWidgets w
-                    writeMonadIORef widget' $! w{cildrenWidgets=V.empty,parentWidget=widget'}
+                    modifyMonadIORef' widget' (\x -> x{cildrenWidgets=V.empty,parentWidget=widget'})
                     isSpec <- isSpecStateWidget win widget'
                     when isSpec $ modifyMonadIORef' win (\x -> x{specStateWidget=WidgetNoSpecState})
                     focusedWidg <- getFocusedWidget win
@@ -218,7 +256,7 @@ delAllChildWidgets  :: MonadIO m => Widget -> m ()
 delAllChildWidgets widget = do
     w <- readMonadIORef widget
     V.mapM_ delWidget $ cildrenWidgets w
-    writeMonadIORef widget w{cildrenWidgets=V.empty}
+    modifyMonadIORef' widget (\x -> x{cildrenWidgets=V.empty})
 
 
 lastChildReplaceFirst :: MonadIO m => Widget -> m ()
@@ -237,16 +275,20 @@ setWinMainWidget rfWin initF = do
 -}
 delWindowByIx:: MonadIO m => Gui -> GuiWindowIx -> m ()
 delWindowByIx gui winIx = do
-    gUI <- readMonadIORef gui
-    let m = guiWindows gUI
+    cWins' <- getWindowsCount gui
+    m <- getWindowsMap gui
     whenIsJust (Map.lookup winIx m) $ \ rfWin -> do
+            delWidget =<< getWindowMainWidget rfWin
             win <- readMonadIORef rfWin
-            delWidget $ mainWidget win
             SDL.destroyTexture $ winProxyTexture win
             SDL.destroyTexture $ winBuffer win
             SDL.destroyRenderer $ winRenderer win
             SDL.destroyWindow $ winSDL win
-            writeMonadIORef gui $! gUI{guiWindows= Map.delete winIx m}
+            modifyMonadIORef' gui (\x -> x{guiWindows= Map.delete winIx $ guiWindows x})
+            cWins <- getWindowsCount gui
+            sDbg <- showWindowsAsStr gui
+            liftIO $ putStrLn $ concat ["delWindowByIx cWins before = ",show cWins',
+                 "   cWins after = ", show cWins, "   deleted = ",show $ winSDL win, "      ",sDbg]
 
 delWindow:: MonadIO m => GuiWindow -> m ()
 delWindow rfWin = do
@@ -260,3 +302,161 @@ delAllWindows gui = do
         [] -> return ()
         ks -> forM_ ks (delWindowByIx gui) >> delAllWindows gui
 
+delWindowsBy:: MonadIO m => Gui -> (GuiWindow -> m Bool) -> m ()
+delWindowsBy gui predicate = do
+    m <- getWindowsMap gui
+    forM_ (Map.toList m) $ \ (winIx,win) -> do
+        b <- predicate win
+        when b $ delWindowByIx gui winIx
+
+windowsFold:: MonadIO m => Gui -> (a -> GuiWindow -> m a) -> a -> m a
+windowsFold gui f a = getWindowsMap gui >>= foldM f a . Map.elems
+{-# INLINE windowsFold #-}
+
+getWindowsCount :: MonadIO m => Gui -> m Int
+getWindowsCount gui = Map.size <$> getWindowsMap gui
+{-# INLINE getWindowsCount #-}
+
+showWindowsAsStr :: MonadIO m => Gui -> m String
+showWindowsAsStr gui = (show . Map.keys) <$> getWindowsMap gui
+
+delAllPopupWindows :: MonadIO m => Gui -> m ()
+delAllPopupWindows gui = delWindowsBy gui (`allWindowFlags` WindowPopupFlag)
+{-# INLINE delAllPopupWindows #-}
+
+--------------------------------------------------------------------------------------
+markWidgetForRedraw :: MonadIO m => Widget -> m ()
+markWidgetForRedraw widget = do
+    w <- readMonadIORef widget
+    when (not $ isWidgetMarkedForRedrawing' w) $ do
+        onMarkForRedrawNotiy (widgetFns w) widget
+        widgetFlagsAdd widget WidgetRedrawFlag
+        windowFlagsAdd (windowOfWidget w) WindowRedrawFlag
+{-# INLINE markWidgetForRedraw #-}
+
+setWidgetFlag :: MonadIO m => WidgetFlags -> GuiWidget a -> Bool -> m ()
+setWidgetFlag fl g ena = let widget = getWidget g in do
+    o <- allWidgetFlags widget fl
+    if ena then
+        unless o $ do
+            widgetFlagsAdd widget fl
+            markWidgetForRedraw widget
+    else when o $ do
+            widgetFlagsRemove widget fl
+            markWidgetForRedraw widget
+
+-- no exported
+notifyParentOnSizeChangedAndMarkForRedraw :: MonadIO m => Widget -> GuiSize -> m ()
+notifyParentOnSizeChangedAndMarkForRedraw widget sz = do (parent,fs) <- getWidgetParentFns widget
+                                                         markWidgetForRedraw parent
+                                                         onSizeChangedParentNotify fs parent widget sz
+
+notifyParentAboutSize :: MonadIO m => Widget -> GuiSize -> m ()
+notifyParentAboutSize widget initSz = calcWidgetSizeWithMargin widget initSz >>=
+            notifyParentOnSizeChangedAndMarkForRedraw widget
+{-# INLINE notifyParentAboutSize #-}
+
+simpleOnResizing' :: MonadIO m => (Widget -> GuiRect -> m GuiRect)
+                                    -> Widget -> GuiRect -> m GuiRect
+simpleOnResizing' recalcWithMargin widget newRect = do
+    r@(SDL.Rectangle _ sz) <- recalcWithMargin widget newRect
+    getWidgetParent widget >>=  markWidgetForRedraw
+    setWidgetCanvasRect widget $ SDL.Rectangle zero sz
+    return r
+
+simpleOnResizing :: MonadIO m => Widget -> GuiRect -> m GuiRect
+simpleOnResizing = simpleOnResizing' setWidgetRectWithMarginShrink
+{-# INLINE simpleOnResizing #-}
+
+simpleOnResizingMoveOnly :: MonadIO m => Widget -> GuiRect -> m GuiRect
+simpleOnResizingMoveOnly = simpleOnResizing' setWidgetRectWithMarginShrinkMoveOnly
+{-# INLINE simpleOnResizingMoveOnly #-}
+
+extendableOnResizing :: MonadIO m => GuiSize -> Widget -> GuiRect -> m GuiRect
+extendableOnResizing initSz@(V2 initW initH) widget newRect@(SDL.Rectangle _ sz) = do
+    r <- simpleOnResizing widget newRect
+    when (initW<0 || initH<0) $ notifyParentOnSizeChangedAndMarkForRedraw widget $ sizeRestoreNegative initSz sz
+    return r
+{-# INLINE extendableOnResizing #-}
+
+enableWidget :: MonadIO m => GuiWidget a -> Bool -> m ()
+enableWidget = setWidgetFlag WidgetEnable
+{-# INLINE enableWidget #-}
+
+visibleWidget :: MonadIO m => GuiWidget a -> Bool -> m ()
+visibleWidget = setWidgetFlag WidgetEnable
+{-# INLINE visibleWidget #-}
+
+newWindow':: MonadIO m => Gui -> T.Text -> WindowFlags -> SDL.WindowConfig -> m GuiWindow
+newWindow' rfGui winTitle winFl winCfg = do
+    wSDL  <- SDL.createWindow winTitle winCfg
+    rSDL  <- SDL.createRenderer wSDL (-1) SDL.defaultRenderer
+    sz <- P.fromSDLV2 <$> get (SDL.windowSize wSDL)
+    buf <- P.createTargetTexture rSDL sz
+    proxyTexture <- P.createTargetTexture rSDL $ V2 1 1
+    rfWin <- newMonadIORef WindowStruct  { guiOfWindow = rfGui
+                                   , winSDL = wSDL
+                                   , winRenderer = rSDL
+                                   , mainWidget = undefined
+                                   , winFlags = winFl
+                                   , specStateWidget = WidgetNoSpecState
+                                   , widgetUnderCursor = Nothing
+                                   , focusedWidget = Nothing
+                                   , curWinCursor = DefCursorIx
+                                   , winBuffer = buf
+                                   , winProxyTexture = proxyTexture
+                                   --, winPrev = Nothing
+                                   , winMainMenu = Nothing
+                                   }
+    rfW <- mkWidget' rfWin undefined WidgetVisible WidgetMarginNone (overlapsChildrenFns zero)
+    setWidgetParent rfW rfW
+    let rect = SDL.Rectangle zero sz
+    setWidgetRect rfW rect
+    setWidgetCanvasRect  rfW rect
+    modifyMonadIORef' rfWin (\x -> x{mainWidget=rfW})
+    modifyMonadIORef' rfGui (\x -> x{guiWindows= Map.insert wSDL rfWin $ guiWindows x})
+    sDbg <- showWindowsAsStr rfGui
+    liftIO $ putStrLn $ concat ["newWindow' new = ",show wSDL, "   ",sDbg]
+    return rfWin
+
+newWindow:: MonadIO m => Gui -> T.Text -> SDL.WindowConfig -> m GuiWindow
+newWindow rfGui winTitle = newWindow' rfGui winTitle WindowRedrawFlag
+{-# INLINE newWindow #-}
+
+overlapsChildrenFns :: GuiSize -> WidgetFunctions
+overlapsChildrenFns initInsideSz = defWidgFns{
+    onCreate = \widget -> notifyParentAboutSize widget initInsideSz
+    ,onSizeChangedParentNotify= \widget child _ -> getWidgetCanvasRect widget >>= widgetResizingIfChanged child
+    ,onResizing= \widget newRect -> do
+                r <- extendableOnResizing initInsideSz widget newRect
+                mapByWidgetChildren_ (\c -> do {fs <- getWidgetFns c; onResizing fs c r}) widget
+                             }
+
+setWinSize' :: MonadIO m => GuiWindow -> GuiSize -> m ()
+setWinSize' rfWin newSz = do
+    widget <- getWindowMainWidget rfWin
+    oldSz <- sizeOfRect <$> getWidgetRect widget
+    when (newSz /= oldSz) $ do
+        fs <- getWidgetFns widget
+        onResizing fs widget $ SDL.Rectangle zero newSz
+        markWidgetForRedraw widget
+
+setWinSize :: MonadIO m => GuiWindow -> GuiSize -> m ()
+setWinSize rfWin newSz = do
+    winSDL <- getSDLWindow rfWin
+    SDL.windowSize winSDL $= P.toSDLV2 newSz
+    setWinSize' rfWin newSz
+{-# INLINE setWinSize #-}
+
+guiApplicationExitSuccess :: MonadIO m => Gui -> m ()
+guiApplicationExitSuccess _gui = liftIO $ exitSuccess
+{-# INLINE guiApplicationExitSuccess #-}
+
+guiApplicationExitFailure :: MonadIO m => Gui -> m ()
+guiApplicationExitFailure _gui = liftIO $ exitSuccess
+{-# INLINE guiApplicationExitFailure #-}
+
+guiApplicationExitWithCode :: MonadIO m => Gui -> Int -> m ()
+guiApplicationExitWithCode gui 0 = guiApplicationExitSuccess gui
+guiApplicationExitWithCode _gui code = liftIO $ exitWith $ ExitFailure code
+{-# INLINE guiApplicationExitWithCode #-}

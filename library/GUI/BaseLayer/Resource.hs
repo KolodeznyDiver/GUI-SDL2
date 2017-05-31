@@ -178,7 +178,9 @@ rmGetTexture r renderer k = rmGetValue r load k def
                             bmp <- SDL.loadBMP path
 --                            throwIfNoSurface bmp
                             SDL.createTextureFromSurface renderer bmp <* SDL.freeSurface bmp
-                         | ext `elem` [".PNG",".JPG",".JPEG",".GIF",".ICO"] -> IMAGE.loadTexture renderer path
+-- from https://www.stackage.org/haddock/lts-8.13/sdl2-image-2.0.0/SDL-Image.html
+-- PNG, JPG, TIF, GIF, WEBP, CUR, ICO, BMP, PNM, XPM, XCF, PCX and XV formatted data
+                         | ext `elem` [".PNG",".JPG",".JPEG",".GIF",".ICO",".CUR"] -> IMAGE.loadTexture renderer path
                          | otherwise -> def
 {-          throwIfNoSurface (SDL.Surface ptr mb) = liftIO $ putStrLn $ "Surface=" ++ show (ptrToIntPtr ptr) ++ "   " ++
                                                     (maybe "Nothing" (show . VM.length) mb) -}

@@ -20,7 +20,7 @@ mkLinearTrackBarQ DirectionH
 mkLinearTrackBarQ DirectionV
 
 hvTrackBar :: forall m. MonadIO m =>
-    (forall m. MonadIO m => LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)) ->
+    (LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)) ->
     LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)
 hvTrackBar f dat parent skin@Skin{..} = f dat{
         linearTrackBarDraw = \ _ _ r -> do

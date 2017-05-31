@@ -2,18 +2,19 @@
 -- {- DuplicateRecordFields -}
 -- {- RecordWildCards -}
 module GUI.BaseLayer.Handlers(
-    noChildrenFns,noChildrenMoveOnlyFns,oneChildFns
+    noChildrenFns,noChildrenMoveOnlyFns
         ) where
 
 import Control.Monad
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Widget
 import GUI.BaseLayer.Internal.Types
+import GUI.BaseLayer.Utils
 
 noChildrenFns :: GuiSize -> WidgetFunctions
 noChildrenFns initInsideSz = defWidgFns{
-    onCreate = \widget -> notifyParentSizeWithMargin widget initInsideSz
-    ,onResizing= \widget -> void . simpleOnResizing widget
+    onCreate = \widget -> notifyParentAboutSize widget initInsideSz
+    ,onResizing= \widget -> void . extendableOnResizing initInsideSz widget
                              }
 {-# INLINE noChildrenFns #-}
 
@@ -23,10 +24,3 @@ noChildrenMoveOnlyFns initInsideSz = (noChildrenFns initInsideSz){
                              }
 {-# INLINE noChildrenMoveOnlyFns #-}
 
-oneChildFns :: WidgetFunctions
-oneChildFns = defWidgFns{
-     onSizeChangedParentNotiy= \widget child _ -> getWidgetCanvasRect widget >>= widgetResizingIfChanged child
-    ,onResizing= \widget newRect -> do
-                r <- simpleOnResizing widget newRect
-                mapByWidgetChildren_ (\c -> do {fs <- getWidgetFns c; onResizing fs c r}) widget
-                             }

@@ -10,6 +10,7 @@ module GUI.Widget.Label(
     ,LabelDef(..),LabelData(..),label
     ) where
 
+--import System.Exit -- for debug
 import Control.Monad
 import Control.Monad.IO.Class
 --import Control.Monad.Trans.Class
@@ -73,18 +74,20 @@ instance TextColorProperty (GuiWidget LabelData) where
 
 label :: MonadIO m => LabelDef -> Widget -> Skin -> m (GuiWidget LabelData)
 label LabelDef{..} parent skin = do
-    p <- prepareText parent skin DrawTextDef  { drawTextRect = SDL.Rectangle zero labelSize
+    p <- prepareText parent skin DrawTextDef  { drawTextRect = SDL.Rectangle zero $
+                                                    sizeReplaceIfNoPositive (V2 100 100) labelSize
                                                 , drawTextWrap = labelWrapMode
                                                 , drawTextFontKey = labelFontKey
                                                 , drawTextAlignment = labelAlignment
                                                 , drawTextText = labelText
                                                                    }
     let insideSz = unP $ getRectRB $ drawTextRect $ preparedTextDef p
+--    dbgCnt <- newMonadIORef (0::Int)
     prepRf <- newMonadIORef p
     colorRf <- newMonadIORef $ fromMaybe (foregroundColor skin) labelColor
     let bkgrndColor = fromMaybe (bkColor skin) labelBkColor
         bkTxtColor = textWrapModeToMbBkColor labelWrapMode skin bkgrndColor
-        fns = noChildrenFns insideSz
+        fns = noChildrenFns $ sizeRestoreNegative labelSize insideSz
     mkWidget labelFlags
             (fromMaybe (formItemsMargin skin) $ formItemMargin labelFormItemDef)
             (LabelData prepRf colorRf) parent fns{
@@ -100,8 +103,15 @@ label LabelDef{..} parent skin = do
 --            setColor $ rgb 255 0 0
 --            drawRect $ shrinkRect' 1 r
         ,onResizing= \widget newRect -> do
+{-            old <- getWidgetRectWithMargin widget
+            liftIO $ putStrLn $ concat ["label.onResizing  newRect=", rectToBriefStr newRect,
+                "  old=", rectToBriefStr old]
+            modifyMonadIORef' dbgCnt succ
+            cnt <- readMonadIORef dbgCnt
+            when (cnt>10) (getWidgetWindow widget >>= delWindow >> (liftIO exitFailure)) -}
             onResizing fns widget newRect
             PreparedText{..} <- readMonadIORef prepRf
+--            liftIO $ putStrLn $ concat ["label.onResizing  "]
             when (sizeOfRect newRect /= sizeOfRect (drawTextRect preparedTextDef)) $ do
                 r <- getWidgetCanvasRect widget
                 prepareText widget skin preparedTextDef{drawTextRect=r} >>= writeMonadIORef prepRf

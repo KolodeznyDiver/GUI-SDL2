@@ -9,7 +9,13 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Text as T
+--import qualified Data.Vector.Storable as V
+import qualified Data.Vector as V
 import Data.Bits
+import Data.Maybe
+import Data.Default
+import System.Exit
+import GHC.Conc
 import qualified SDL
 import SDL.Vect
 import GUI
@@ -21,14 +27,18 @@ import GUI.Widget.Button
 import GUI.Widget.LinearTrackBar
 import GUI.Widget.Container.ScrollArea
 import GUI.Widget.Splitter
-import Data.Default
+import GUI.Widget.Menu.Horizontal
+import GUI.Widget.Container.Border
+--import GUI.BaseLayer.PopupWindow
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением ("кожей", скином) по умолчанию
 
         -- Таблица предзагруженных шрифтов : ключ, имя файла, размер шрифта
         [GuiFontDef ""          "PTM55F.ttf" 14
-        ,GuiFontDef "label"     "PTN57F.ttf" 15]
+        ,GuiFontDef "label"     "PTN57F.ttf" 15
+        ,GuiFontDef "small"     "PTN57F.ttf" 13
+        ,GuiFontDef "menu"      "PTN57F.ttf" 14]
 
         $ \gui -> do
     putStr "SDL version " >> SDL.version >>= print
@@ -152,6 +162,95 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     void $ vL $+ label def{labelSize=V2 450 20, labelAlignment=AlignCenter,
                               labelText="Пример создания виджета отслеживающего мышь"}
     void $ vL $+ mouseChkWidget
+#elif EXAMPLE_NUM == 6
+    lb <- win $+ label def{labelAlignment=AlignCenter
+                           , labelFormItemDef= FormItemWidgetDef $ Just WidgetMarginNone
+                           , labelText= "Через 2 с здесь будут данные из трэда"}
+
+    pipe <- newGuiPipe gui $ \ _ v -> do
+        let toText ix = T.pack $ show $ v V.! ix
+        setText lb $ T.concat ["Разрешение дисплея ", toText 0,"x",toText 1]
+
+    void $ forkIO $ do
+        threadDelay 2000000
+        (V2 xRes yRes) <- (SDL.displayBoundsSize . head) <$> SDL.getDisplays
+        void $ sendToGuiPipe pipe $ V.singleton xRes `V.snoc` yRes
+#elif EXAMPLE_NUM == 7
+    vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
+
+    -- Define actions
+    addActions gui "File" [
+         ("New",def{actionText="Новый", actionHotKey=hkCtrl SDL.KeycodeN, actionPicture="new.ico"})
+        ,("Open",def{actionText="Открыть", actionHotKey=hkCtrl SDL.KeycodeO, actionPicture="open.png"})
+        ,("Save",def{actionText="Сохранить", actionHotKey=hkCtrl SDL.KeycodeS, actionPicture="save.png"})
+        ,("SaveAs",def{actionText="Сохранить как", actionPicture="saveas.png"})]
+
+    addActions gui "Edit" [
+         ("Cut",def{actionText="Вырезать", actionHotKey=hkCtrl SDL.KeycodeX, actionPicture="cut.png"})
+        ,("Copy",def{actionText="Копировать", actionHotKey=hkCtrl SDL.KeycodeC, actionPicture="copy.png"})
+        ,("Paste",def{actionText="Вставить", actionHotKey=hkCtrl SDL.KeycodeV, actionPicture="paste.png"})]
+
+    addActions gui "Application" [
+         ("Exit",def{actionText="Выход", actionHotKey=hkAlt SDL.KeycodeF4, actionPicture="exit.png"
+            , actionValue = def{onAction=guiApplicationExitSuccess gui}})]
+
+    addActions gui "Find" [
+         ("Find",def{actionText="Поиск"})
+        ,("Replace",def{actionText="Замена"})
+         ]
+
+    addActions gui "FileFind" [
+         ("Find",def{actionText="Поиск в файлах"})
+        ,("Replace",def{actionText="Замена в файлах"})
+         ]
+
+    addActions gui "doSubmenu" [
+         ("SomeSubmenu",def{actionText="Некое подменю"})
+         ]
+
+    addActions gui "ExamplSub" [
+         ("Item 1",def{actionText="Действие 1"})
+        ,("Item 2",def{actionText="Действие 2"})
+        ,("Item 3",def{actionText="Действие 3"})
+         ]
+
+    -- Define popup menus
+    let popupFile = mkMenu (mItem "File" "New") (mItem "File" "Open") (mItem "File" "Save") (mItem "File" "SaveAs")
+                           (mItemSub "doSubmenu" "SomeSubmenu" $ mkMenu (mItem "ExamplSub" "Item 1")
+                                                                        (mItem "ExamplSub" "Item 2")
+                                                                        (mItem "ExamplSub" "Item 3"))
+                           (mItem    "Application" "Exit")
+        popupEdit = mkMenu (mItem "Edit" "Cut") (mItem "Edit" "Copy") (mItem "Edit" "Paste")
+        popupFind = mkMenu (mItem "Find" "Find") (mItem "Find" "Replace")
+                           (mItem "FileFind" "Find") (mItem "FileFind" "Replace")
+
+    void $ vL $+ horizontalMenu def{hmenuItems = mkHMenu
+        def{hmenuText = "Файл", hmenuPopup = popupFile}
+        def{hmenuText = "Правка", hmenuPopup = popupEdit}
+        def{hmenuText = "Поиск", hmenuPopup = popupFind}
+                                    }
+
+    void $ vL $+ border def { borderFormItemDef = FormItemWidgetDef $ Just WidgetMarginNone
+                            , borderSize = V2 (-1) 2, borderType = BorderMono
+                            , borderBkgrnd = BorderBkColor $ grayColor 255
+                            }
+
+    let txtHotKeyPrompt = "Попробуйте нажать Alt-F2 или Ctrl-D"
+    lb <- vL $+ label def{labelSize=V2 (-1) 20, labelAlignment=AlignCenter, labelText=txtHotKeyPrompt}
+
+    hL0 <- vL $+ hLayout def
+    btn0 <- hL0 $+ button def{btnSize = V2 200 35, btnText = "Восстановить текст"}
+    onClick btn0 $ do
+        setText lb txtHotKeyPrompt
+{-        let widget = getWidget btn0
+        sz <- sizeOfRect <$> getWidgetRect widget
+        void $ mkPopupWindow widget $ SDL.Rectangle (P sz) (V2 200 400) -}
+    addActions gui "Hotkeys" [
+         ("hk0",def{actionHotKey= hkAlt SDL.KeycodeF2, actionValue=def{onAction= setText lb "Alt-F2"}})
+        ,("hk1",def{actionHotKey= hkCtrl SDL.KeycodeD, actionValue=def{onAction= setText lb "Ctrl-D"}})
+        ]
+
+    setAction gui "File" "Save" $ setText lb "Нажат пункт меню File/Save"
 #else
     #error EXAMPLE_NUM is out of range
 #endif
@@ -169,7 +268,7 @@ exampleTextGrid parent _ = mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFo
                                 WidgetMarginNone SimpleWidget
                                 parent defWidgFns{
         onCreate = \widget -> setWidgetCanvasRect widget (SDL.Rectangle zero (V2 500 800)) >>
-                                 notifyParentSizeWithMargin widget zero
+                                 notifyParentAboutSize widget zero
         , onResizing= setWidgetRect
         ,onMouseButton = \widget motion mouseButton _clicks _point ->
             -- Нужно установить на виджет фокус что бы можно было прокручивать колесом мыши
@@ -237,7 +336,7 @@ exampleWidgetHelloWorld parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent 
                 setColor $ V4 255 0 0 0
                 drawRect $ shrinkRect' 5 visibleRect
                 fnt <- getFont ""
-                drawStrAligned fnt AlignCenter DrawStrFine (V4 255 255 255 0) visibleRect "Привет, мир!"
+                drawStrAligned fnt AlignCenter (V4 255 255 255 0) DrawStrFine visibleRect "Привет, мир!"
                         }
 
 -- отображение картинки, возможно с прозрачными областями
@@ -264,7 +363,7 @@ blendModeTest parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent (noChildre
             -- withBlendMode SDL.BlendAdditive $ testDraw 70 -- линиц нет
             -- withBlendMode SDL.BlendMod $ testDraw 100 -- линии обычные
             fnt <- getFont ""
-            tRed <- renderStr fnt (V4 255 0 0 100) "Тест"
+            tRed <- fromJust <$> renderStr fnt (V4 255 0 0 100) "Тест"
             tPic <- getTexture "questmark.bmp"
             drawTexture tRed $ P (V2 70 10)
             drawTexture tPic $ P (V2 110 10)

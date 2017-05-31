@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+-- {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
 module GUI.Widget.Handlers(
     colorRectFns,grayRectFns
@@ -68,8 +69,8 @@ noChildrenClickableHndlr sz onClickAction = do
                  <- noChildrenMouseAnimatedHndlr sz onClickAction'
     return (MouseAnimatedClickableHndlr mouseState onCLick' fns{
         onKeyboard = \widget motion _repeated keycode km ->
-                        let (shifted,ctrled,alted) = getShftCtrlAlt km in
-                        when ((shifted,ctrled,alted) == (False,False,False) &&
+                        let shiftCtrlAlt = getShftCtrlAlt km in
+                        when (shiftCtrlAlt == ShiftCtrlAlt False False False &&
                            (isEnterKey keycode || keycode== SDL.KeycodeSpace)) $ -- do
 {-                                sDbg <- widgetCoordsToStr widget
                                 ms <- readMonadIORef mouseState

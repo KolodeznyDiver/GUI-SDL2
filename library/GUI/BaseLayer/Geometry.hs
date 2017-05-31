@@ -2,10 +2,11 @@
 {-# LANGUAGE RecordWildCards #-}
 module GUI.BaseLayer.Geometry(
     Alignment(..),VAlign(..),HAlign(..),DirectionVH(..)
-    ,xV2,yV2,pointOfRect,sizeOfRect,getVAlign,getHAlign,vAlignToOff,hAlignToOff
+    ,xV2,yV2,pointOfRect,sizeOfRect,hvAlignToAlignment,getVAlign,getHAlign,vAlignToOff,hAlignToOff
     ,rectToBriefStr,directionLetter,rectAlign,toBound,isInRect,rectIntersection,getRectLB,getRectRT,getRectRB
     ,rectCenter,isEmptyRect,marginSize,rectShrinkByMargin,rectGrowByMargin,marginToLTRB,marginToLT,marginToBriefStr
-    ,moveRect,moveRectTo,rectMove,shrinkRect,shrinkRect',mkDotLineVector,mkDotRectVector
+    ,moveRect,moveRectTo,rectMove,shrinkRect,shrinkRect',mkDotLineVector,sizeReplaceIfNoPositive,sizeRestoreNegative
+    ,mkDotRectVector
     ) where
 
 import Data.Ix
@@ -49,6 +50,18 @@ sizeOfRect:: SDL.Rectangle a -> V2 a
 sizeOfRect (SDL.Rectangle _ sz) = sz
 {-# INLINE sizeOfRect #-}
 
+hvAlignToAlignment :: HAlign -> VAlign -> Alignment
+hvAlignToAlignment HLeft VTop = AlignLeftTop
+hvAlignToAlignment HCenter VTop = AlignCenterTop
+hvAlignToAlignment HRight VTop = AlignRightTop
+hvAlignToAlignment HLeft VCenter = AlignLeftCenter
+hvAlignToAlignment HCenter VCenter = AlignCenter
+hvAlignToAlignment HRight VCenter = AlignRightCenter
+hvAlignToAlignment HLeft VBottom = AlignLeftBottom
+hvAlignToAlignment HCenter VBottom = AlignCenterBottom
+hvAlignToAlignment HRight VBottom = AlignRightBottom
+{-# INLINE hvAlignToAlignment #-}
+
 getVAlign :: Alignment -> VAlign
 getVAlign align | align == AlignLeftTop || align == AlignCenterTop || align == AlignRightTop = VTop
                 | align == AlignLeftCenter || align == AlignCenter || align == AlignRightCenter = VCenter
@@ -88,7 +101,7 @@ rectAlign align sz@(V2 wi hi) (SDL.Rectangle (P (V2 x y)) (V2 w h)) =
 {-# INLINE rectAlign #-}
 
 toBound:: Ord a => a -> a -> a -> a
-toBound l h x = max l $ min h x
+toBound l h x = if x<l then l else if x>h then h else x
 {-# INLINE toBound #-}
 
 isInRect:: (Ix a, Num a) => SDL.Rectangle a -> Point V2 a  -> Bool
@@ -129,10 +142,10 @@ marginSize MarginLTRB{..} = V2 (leftMargin + rightMargin) (topMargin + bottomMar
 
 rectShrinkByMargin :: (Ord a, Num a) => MarginLTRB a -> SDL.Rectangle a -> SDL.Rectangle a
 rectShrinkByMargin MarginLTRB{..} (SDL.Rectangle (P (V2 x0 y0)) (V2 w h)) =
-    let w' = w - leftMargin - rightMargin
-        h' = h - topMargin - bottomMargin
-    in if (w'<=0) || (h'<=0) then SDL.Rectangle zero zero
-       else SDL.Rectangle (P (V2 (x0+leftMargin) (y0+topMargin))) (V2 w' h')
+    let w' = if w <0 then w else max 0 (w - leftMargin - rightMargin)
+        h' = if h <0 then h else max 0 (h - topMargin - bottomMargin)
+    in SDL.Rectangle (P (V2 (if w <0 then x0 else x0+leftMargin)
+                            (if h <0 then y0 else y0+topMargin))) (V2 w' h')
 
 rectGrowByMargin :: (Ord a, Num a) => MarginLTRB a -> SDL.Rectangle a -> SDL.Rectangle a
 rectGrowByMargin m = rectShrinkByMargin $ fmap negate m
@@ -174,6 +187,18 @@ shrinkRect (V2 dx dy) (SDL.Rectangle (P (V2 x0 y0)) (V2 w h)) =
 shrinkRect' :: (Ord a, Num a) => a -> SDL.Rectangle a -> SDL.Rectangle a
 shrinkRect' dt = shrinkRect (V2 dt dt)
 {-# INLINE shrinkRect' #-}
+
+sizeReplaceIfNoPositive :: (Ord a, Num a) => V2 a -> V2 a -> V2 a
+sizeReplaceIfNoPositive (V2 minW minH) (V2 w h) = V2 (f minW w) (f minH h)
+    where f a b | b>0 = b
+                | otherwise = a
+{-# INLINE sizeReplaceIfNoPositive #-}
+
+sizeRestoreNegative :: (Ord a, Num a) => V2 a -> V2 a -> V2 a
+sizeRestoreNegative (V2 initW initH) (V2 w h) = V2 (f initW w) (f initH h)
+    where f a b | a<0 = a
+                | otherwise = b
+{-# INLINE sizeRestoreNegative #-}
 
 mkDotLineVector :: Coord -> GuiPoint -> GuiPoint -> V.Vector GuiPoint
 mkDotLineVector step p0 p1 =

@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveFunctor #-}
-module GUI.BaseLayer.Types where
+module GUI.BaseLayer.Types(
+    Coord,SDLCoord,ColorComponent,GuiTransparency,GuiColor,MousePoint,GuiSize,GuiCoordOffset,GuiPoint,GuiRect
+    ,GuiWindowId,GuiWindowIx,GuiCurDrawColor,MarginLTRB(..),GuiMargin,WidgetMargin(..)
+    ) where
 
 import qualified SDL
 import SDL.Vect

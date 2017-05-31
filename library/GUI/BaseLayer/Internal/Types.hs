@@ -1,7 +1,12 @@
 {-# LANGUAGE LiberalTypeSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StrictData #-} -- BangPatterns Strict
-module GUI.BaseLayer.Internal.Types where
+module GUI.BaseLayer.Internal.Types(
+    WidgetOpts,WindowOpts,WidgetFlags,WindowFlags,Widget,GuiWindow,Gui,Canvas(..),GuiCanvas
+    ,UniqueCode(..),GuiNotifyCode(..),GuiPipeId(..),WidgetFunctions(..),SpecStateWidget(..)
+    ,GuiWidgetCollection,GuiWindowCollection,UserMsgHandler(..),GuiPipeCollection
+    ,WidgetStruct(..),WindowStruct(..),GUIStruct(..)
+    ) where
 
 import Control.Monad.Trans.Reader
 import qualified SDL
@@ -14,16 +19,16 @@ import GUI.BaseLayer.Cursor (CursorIx)
 import qualified Data.Vector as V
 import qualified Data.Map.Strict as Map
 import Data.IORef
-import Control.Concurrent.STM.TVar
+import qualified Data.IntMap.Strict as IntMap
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as T
+import GUI.BaseLayer.Internal.Action
+import Foreign.Ptr
 
 data WidgetOpts
 data WindowOpts
 type WidgetFlags = Flags WidgetOpts
-type GuiWidgetFlags = WidgetFlags
 type WindowFlags = Flags WindowOpts
-type GuiRedrawFlag = TVar Bool
 type Widget     = IORef WidgetStruct
 type GuiWindow  = IORef WindowStruct
 type Gui        = IORef GUIStruct
@@ -35,11 +40,19 @@ data Canvas     = Canvas    { canvasRenderer    :: SDL.Renderer
 
 type GuiCanvas m a = ReaderT Canvas m a
 
+newtype UniqueCode = UniqueCode { unUniqueCode :: Int}
+            deriving (Eq)
+
+newtype GuiNotifyCode = GuiNotifyCode { unGuiNotifyCode :: Int}
+            deriving (Eq)
+
+newtype GuiPipeId = GuiPipeId { unGuiPipeId :: Int}
+            deriving (Eq)
 
 data WidgetFunctions = WidgetFunctions  { onCreate  :: forall m. MonadIO m => Widget -> m ()
                                         , onDestroy :: forall m. MonadIO m => Widget -> m ()
                                         , onDraw :: forall m. MonadIO m => Widget -> GuiCanvas m ()
-                                        , onSizeChangedParentNotiy :: forall m. MonadIO m =>
+                                        , onSizeChangedParentNotify :: forall m. MonadIO m =>
                                             Widget -> Widget -> GuiSize -> m ()
                                         , onMarkForRedrawNotiy :: forall m. MonadIO m => Widget -> m ()
                                         , onResizing :: forall m. MonadIO m => Widget -> GuiRect -> m ()
@@ -59,15 +72,19 @@ data WidgetFunctions = WidgetFunctions  { onCreate  :: forall m. MonadIO m => Wi
                                                                              -> SDL.Keycode
                                                                              -> SDL.KeyModifier -- which keys are currently held down.
                                                                              -> m ()
+                                        , onGuiStateChange :: forall m. MonadIO m => Widget -> GuiState -> m ()
+                                        , onNotify :: forall m. MonadIO m => Widget -> GuiNotifyCode -> Maybe Widget -> m ()
                                         }
 
 data SpecStateWidget    = WidgetNoSpecState
                         | WidgetStateMouseCaptured Widget
 
-type GuiSpecStateWidget = SpecStateWidget
-
 type GuiWidgetCollection = V.Vector Widget
 type GuiWindowCollection = Map.Map GuiWindowIx GuiWindow
+
+newtype UserMsgHandler = UserMsgHandler {userMsgHandler :: forall m. MonadIO m => Ptr () -> Ptr () -> m ()}
+
+type GuiPipeCollection = IntMap.IntMap UserMsgHandler
 
 data WidgetStruct = WidgetStruct    { windowOfWidget :: GuiWindow
                                     , parentWidget :: ~Widget
@@ -75,8 +92,7 @@ data WidgetStruct = WidgetStruct    { windowOfWidget :: GuiWindow
                                     , widgetRect :: GuiRect
                                     , widgetCanvasRect :: GuiRect
                                     , widgetMargin :: GuiMargin
-                                    , widgetFlags :: GuiWidgetFlags
-                                    , widgetRedrawFlag :: GuiRedrawFlag
+                                    , widgetFlags :: WidgetFlags
                                     , widgetCursor :: CursorIx
                                     , widgetFns :: WidgetFunctions
                                     }
@@ -86,14 +102,13 @@ data WindowStruct = WindowStruct    { guiOfWindow :: Gui
                                     , winRenderer :: SDL.Renderer
                                     , mainWidget :: ~Widget
                                     , winFlags :: WindowFlags
-                                    , specStateWidget :: GuiSpecStateWidget
+                                    , specStateWidget :: SpecStateWidget
                                     , widgetUnderCursor :: Maybe Widget
                                     , focusedWidget :: Maybe Widget
                                     , curWinCursor :: CursorIx
                                     , winBuffer :: SDL.Texture
                                     , winProxyTexture :: SDL.Texture
-                                    , winRedrawFlag :: GuiRedrawFlag
-                                    , winNext :: Maybe GuiWindow -- menu popup chain
+                                    --, winPrev :: Maybe GuiWindow -- menu popup chain
                                     , winMainMenu :: Maybe Widget
                                     }
 
@@ -101,5 +116,9 @@ data GUIStruct = GUIStruct          { guiWindows :: GuiWindowCollection
                                     , guiSkin :: Skin
                                     , userEventCodeBase :: Word32
                                     , resourceManager :: ResourceManager
+                                    , guiActions :: Actions
+                                    , guiState :: GuiState
+                                    , guiUnique :: Int
+                                    , guiUserMsgHandlers :: GuiPipeCollection
                                     }
 

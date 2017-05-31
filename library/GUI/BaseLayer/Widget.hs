@@ -4,27 +4,28 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TupleSections #-}
 module GUI.BaseLayer.Widget(
-     pattern WidgetNoFlags, pattern WidgetSelectable, pattern WidgetEnable, pattern WidgetVisible
-    ,pattern WidgetFocusable,pattern WidgetTabbed, pattern WidgetMouseWheelControl,pattern WidgetFocused
+     pattern WidgetNoFlags, pattern WidgetRedrawFlag, pattern WidgetSelectable, pattern WidgetEnable
+     ,pattern WidgetVisible ,pattern WidgetFocusable,pattern WidgetTabbed, pattern WidgetMouseWheelControl
+     ,pattern WidgetFocused
     --,WidgetInit(..)
     ,GuiWidget(..),defWidgFns,getWidget,getWidgetData,getWidgetParent
     ,setWidgetParent,getWidgetRect,setWidgetRect,getWidgetCanvasRect,setWidgetCanvasRect,getWidgetVisibleRect
     ,getVisibleRect
     ,getWidgetMargin,setWidgetMargin,setWidgetMargin'
     ,getWidgetMarginSize,setWidgetRectWithMarginShrink,setWidgetRectWithMarginShrinkMoveOnly,
-    getWidgetRectWithMargin,calcWidgetSizeWithMargin,notifyParentSizeWithMargin
-    ,widgetCoordsToStr,simpleOnResizing,simpleOnResizingMoveOnly,showWidgets,showWidgetsFromMain
+    getWidgetRectWithMargin,calcWidgetSizeWithMargin
+    ,widgetCoordsToStr,showWidgets,showWidgetsFromMain
     --,toWidgetCanvasCoord,toCanvasCoord,getWidgetFsAndCoord
     ,getWidgetFlags,setWidgetFlags,widgetFlagsAddRemove
     ,widgetFlagsAdd,removeWidgetFlags,widgetFlagsRemove,allWidgetFlags',allWidgetFlags,anyWidgetFlags
     ,setWidgetFns,getWidgetFns,getWidgetParentFns,widgetResizingIfChanged
     ,getWidgetCursorIx,setWidgetCursorIx,getWidgetWindow
-    ,isWidgetMarkedForRedrawing',isWidgetMarkedForRedrawing,clearWidgetRedrawFlag',clearWidgetRedrawFlag
-    ,markWidgetForRedraw,setWidgetFlag,enableWidget,visibleWidget,getWidgetChildrenCount,getWidgetChild
+    ,isWidgetMarkedForRedrawing',isWidgetMarkedForRedrawing,clearWidgetRedrawFlag
+    ,getWidgetChildrenCount,getWidgetChild
     ,foldByWidgetChildren,foldByWidgetChildren',ifoldByWidgetChildren,ifoldByWidgetChildren'
     ,foldByWidgetChildren_,foldByWidgetChildren'_,ifoldByWidgetChildren_,ifoldByWidgetChildren'_
-    ,mapByWidgetChildren,imapByWidgetChildren,mapByWidgetChildren_,imapByWidgetChildren_
-    ,getChildWidgetIx,getWidgetParentIx,getPrevWidget,isMainWidget,getWinMainWidget
+    ,mapByWidgetChildren,imapByWidgetChildren,mapByWidgetChildren_,imapByWidgetChildren_,forEachWidgets
+    ,getChildWidgetIx,getWidgetParentIx,getPrevNextWidgets,isMainWidget,getWinMainWidget
     ,findWidgetInTreeForward,findWidgetInTreeBackward,findNextTabbedWidget,findPrevTabbedWidget,mkWidget'
                  ) where
 
@@ -35,7 +36,7 @@ import Data.Bits
 import qualified Data.Vector as V
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO)
-import Control.Concurrent.STM
+--import Control.Concurrent.STM
 --import Control.Arrow
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Ref
@@ -46,6 +47,7 @@ import GUI.BaseLayer.Geometry
 -- import GUI.BaseLayer.Primitives
 
 pattern WidgetNoFlags :: WidgetFlags
+pattern WidgetRedrawFlag :: WidgetFlags
 pattern WidgetSelectable :: WidgetFlags
 pattern WidgetEnable :: WidgetFlags
 pattern WidgetVisible :: WidgetFlags
@@ -56,21 +58,20 @@ pattern WidgetFocused :: WidgetFlags
 -- pattern WidgetMarkForPaint :: WidgetFlags
                                     --  5432109876543210
 pattern WidgetNoFlags        = (Flags 0x0000000000000000) :: WidgetFlags
-pattern WidgetVisible        = (Flags 0x0000000000000001) :: WidgetFlags
-pattern WidgetEnable         = (Flags 0x0000000000000002) :: WidgetFlags
-pattern WidgetFocusable      = (Flags 0x0000000000000004) :: WidgetFlags
-pattern WidgetMouseWheelControl      = (Flags 0x0000000000000008) :: WidgetFlags
-pattern WidgetFocused          = (Flags 0x0000000000000010) :: WidgetFlags
+pattern WidgetRedrawFlag     = (Flags 0x0000000000000001) :: WidgetFlags
+pattern WidgetVisible        = (Flags 0x0000000000000002) :: WidgetFlags
+pattern WidgetEnable         = (Flags 0x0000000000000004) :: WidgetFlags
+pattern WidgetFocusable      = (Flags 0x0000000000000008) :: WidgetFlags
+pattern WidgetMouseWheelControl      = (Flags 0x0000000000000010) :: WidgetFlags
+pattern WidgetFocused          = (Flags 0x0000000000000020) :: WidgetFlags
+pattern WidgetSelectable     = (Flags 0x0000000000000040) :: WidgetFlags
+pattern WidgetTabbed         = (Flags 0x0000000000000080) :: WidgetFlags
+
 {-
 pattern WidgetResizableX     = (Flags 0x0000000000000004) :: WidgetFlags
 pattern WidgetResizableY     = (Flags 0x0000000000000008) :: WidgetFlags
 pattern WidgetMoveableX      = (Flags 0x0000000000000010) :: WidgetFlags
 pattern WidgetMoveableY      = (Flags 0x0000000000000020) :: WidgetFlags
--}
-pattern WidgetSelectable     = (Flags 0x0000000000000040) :: WidgetFlags
-
-pattern WidgetTabbed         = (Flags 0x0000000000000100) :: WidgetFlags
-{-
 pattern WidgetClickable      = (Flags 0x0000000000000200) :: WidgetFlags
 pattern WidgetDblClickable   = (Flags 0x0000000000000400) :: WidgetFlags
 pattern WidgetCursorCaptured = (Flags 0x0000000000000800) :: WidgetFlags
@@ -81,14 +82,13 @@ pattern WidgetBordered       = (Flags 0x0000000000001000) :: WidgetFlags
 pattern Widget = (Flags 0x0000000000000000) :: WidgetFlags
 -}
 
--- data WidgetInit a = WidgetInit WidgetFlags WidgetMargin a WidgetFunctions
 data GuiWidget a = GuiWidget Widget a
 
 defWidgFns :: WidgetFunctions
-defWidgFns = WidgetFunctions    { onCreate = (`notifyParentOnSizeChangedAndMarkForRedraw` zero)
+defWidgFns = WidgetFunctions    { onCreate = \_ -> return ()
                                 , onDestroy = \_ -> return ()
                                 , onDraw = \_ -> return ()
-                                , onSizeChangedParentNotiy = \_ _ _ -> return ()
+                                , onSizeChangedParentNotify = \_ _ _ -> return ()
                                 , onMarkForRedrawNotiy = \_ -> return ()
                                 , onResizing = \_ _ -> return ()
                                 , onGainedMouseFocus = \_ _ -> return ()
@@ -100,6 +100,8 @@ defWidgFns = WidgetFunctions    { onCreate = (`notifyParentOnSizeChangedAndMarkF
                                 , onLostKeyboardFocus = \_ -> return ()
                                 , onTextInput = \_ _ -> return ()
                                 , onKeyboard = \_ _ _ _ _ -> return ()
+                                , onGuiStateChange = \_ _ -> return ()
+                                , onNotify = \_ _ _ -> return ()
                                 }
 
 getWidget :: GuiWidget a -> Widget
@@ -184,35 +186,9 @@ getWidgetRectWithMargin widget = do
 calcWidgetSizeWithMargin :: MonadIO m => Widget -> GuiSize -> m GuiSize
 calcWidgetSizeWithMargin widget initSz = do
     mSz <- getWidgetMarginSize widget
-    return $ (\i m -> if i<=0 then i else i+m) <$> initSz <*> mSz
+--  return $ (\i m -> if i<=0 then i else i+m) <$> initSz <*> mSz
+    return $ (\i m -> if i<0 then i else i+m) <$> initSz <*> mSz
 {-# INLINE calcWidgetSizeWithMargin #-}
-
--- no exported
-notifyParentOnSizeChangedAndMarkForRedraw :: MonadIO m => Widget -> GuiSize -> m ()
-notifyParentOnSizeChangedAndMarkForRedraw widget sz = do (parent,fs) <- getWidgetParentFns widget
-                                                         markWidgetForRedraw parent
-                                                         onSizeChangedParentNotiy fs parent widget sz
-
-notifyParentSizeWithMargin :: MonadIO m => Widget -> GuiSize -> m ()
-notifyParentSizeWithMargin widget initSz = calcWidgetSizeWithMargin widget initSz >>=
-            notifyParentOnSizeChangedAndMarkForRedraw widget
-{-# INLINE notifyParentSizeWithMargin #-}
-
-simpleOnResizing' :: MonadIO m => (Widget -> GuiRect -> m GuiRect)
-                                    -> Widget -> GuiRect -> m GuiRect
-simpleOnResizing' recalcWithMargin widget newRect = do
-    r@(SDL.Rectangle _ sz) <- recalcWithMargin widget newRect
-    getWidgetParent widget >>=  markWidgetForRedraw
-    setWidgetCanvasRect widget $ SDL.Rectangle zero sz
-    return r
-
-simpleOnResizing :: MonadIO m => Widget -> GuiRect -> m GuiRect
-simpleOnResizing = simpleOnResizing' setWidgetRectWithMarginShrink
-{-# INLINE simpleOnResizing #-}
-
-simpleOnResizingMoveOnly :: MonadIO m => Widget -> GuiRect -> m GuiRect
-simpleOnResizingMoveOnly = simpleOnResizing' setWidgetRectWithMarginShrinkMoveOnly
-{-# INLINE simpleOnResizingMoveOnly #-}
 
 widgetCoordsToStr:: MonadIO m => Widget -> m String
 widgetCoordsToStr widget = do
@@ -222,6 +198,12 @@ widgetCoordsToStr widget = do
     return $ concat ["rect=", rectToBriefStr rect, "  canv=", rectToBriefStr canv,
      "  marg=", marginToBriefStr marg ]
 
+widgetResizingIfChanged :: MonadIO m => Widget -> GuiRect -> m ()
+widgetResizingIfChanged widget newRect = do
+    oldRect <- getWidgetRectWithMargin widget
+    when (newRect /= oldRect) $ do
+        fs <- getWidgetFns widget
+        onResizing fs widget newRect
 
 showWidgets :: MonadIO m => Widget -> Maybe Widget -> m String
 showWidgets widget markedWidget = do
@@ -235,23 +217,6 @@ showWidgetsFromMain widget = do
     mainWidg <- getWinMainWidget widget
     showWidgets mainWidg $ Just widget
 
-{-
-toCanvasCoord :: GuiPoint -> GuiPoint {- -> GuiMargin -} -> GuiPoint -> GuiPoint
-toCanvasCoord  rectP canvP {- marg -} srcP = srcP ^-^ rectP ^+^ canvP -- .-^ (marginToLT marg)
-{-# INLINE toCanvasCoord #-}
-
-toWidgetCanvasCoord :: MonadIO m => Widget -> GuiPoint -> m GuiPoint
-toWidgetCanvasCoord widget p = do
-    w <- readMonadIORef widget
-    return $ toCanvasCoord (pointOfRect $ widgetRect w) (pointOfRect $ widgetCanvasRect w) {- (widgetMargin w)  -} p
-{-# INLINE toWidgetCanvasCoord #-}
-
-getWidgetFsAndCoord  :: MonadIO m => Widget -> GuiPoint -> m (WidgetFunctions,GuiPoint)
-getWidgetFsAndCoord widget p = do
-    w <- readMonadIORef widget
-    return $ (widgetFns w,toCanvasCoord (pointOfRect $ widgetRect w) (pointOfRect $ widgetCanvasRect w) {- (widgetMargin w) -} p)
-{-# INLINE getWidgetFsAndCoord #-}
--}
 removeWidgetFlags:: WidgetFlags -> WidgetFlags -> WidgetFlags
 removeWidgetFlags fl rmv = fl .&. complement rmv
 {-# INLINE removeWidgetFlags #-}
@@ -305,14 +270,6 @@ getWidgetParentFns:: MonadIO m => Widget -> m (Widget,WidgetFunctions)
 getWidgetParentFns = (=<<) (\p -> (p,) <$> getWidgetFns p) . getWidgetParent
 {-# INLINE getWidgetParentFns #-}
 
-widgetResizingIfChanged :: MonadIO m => Widget -> GuiRect -> m ()
-widgetResizingIfChanged widget newRect = do
-    oldRect <- getWidgetRect widget
-    r <- (`rectShrinkByMargin` newRect) <$> getWidgetMargin widget
-    when (r /= oldRect) $ do
-        fs <- getWidgetFns widget
-        onResizing fs widget newRect
-
 getWidgetCursorIx:: MonadIO m => Widget -> m CursorIx
 getWidgetCursorIx = fmap widgetCursor . readMonadIORef
 {-# INLINE getWidgetCursorIx #-}
@@ -325,50 +282,17 @@ getWidgetWindow:: MonadIO m => Widget -> m GuiWindow
 getWidgetWindow = fmap windowOfWidget . readMonadIORef
 {-# INLINE getWidgetWindow #-}
 
-isWidgetMarkedForRedrawing':: MonadIO m => WidgetStruct -> m Bool
-isWidgetMarkedForRedrawing' = readTVarMonadIO . widgetRedrawFlag
+isWidgetMarkedForRedrawing':: WidgetStruct -> Bool
+isWidgetMarkedForRedrawing' = (WidgetRedrawFlag ==) . (WidgetRedrawFlag .&.) . widgetFlags
 {-# INLINE isWidgetMarkedForRedrawing' #-}
 
 isWidgetMarkedForRedrawing:: MonadIO m => Widget -> m Bool
-isWidgetMarkedForRedrawing = (=<<) isWidgetMarkedForRedrawing' . readMonadIORef
+isWidgetMarkedForRedrawing = fmap isWidgetMarkedForRedrawing' . readMonadIORef
 {-# INLINE isWidgetMarkedForRedrawing #-}
 
-clearWidgetRedrawFlag':: MonadIO m => WidgetStruct -> m ()
-clearWidgetRedrawFlag' w = atomicallyMonadIO $ writeTVar (widgetRedrawFlag w) False
-{-# INLINE clearWidgetRedrawFlag' #-}
-
 clearWidgetRedrawFlag:: MonadIO m => Widget -> m ()
-clearWidgetRedrawFlag widget = readMonadIORef widget >>= clearWidgetRedrawFlag'
+clearWidgetRedrawFlag widget = widgetFlagsRemove widget WidgetRedrawFlag
 {-# INLINE clearWidgetRedrawFlag #-}
-
-markWidgetForRedraw :: MonadIO m => Widget -> m ()
-markWidgetForRedraw widget = do
-    w <- readMonadIORef widget
-    onMarkForRedrawNotiy (widgetFns w) widget
-    win <- readMonadIORef $ windowOfWidget w
-    atomicallyMonadIO (writeTVar (widgetRedrawFlag w) True >> writeTVar (winRedrawFlag win) True)
-{-# INLINE markWidgetForRedraw #-}
-
-setWidgetFlag :: MonadIO m => WidgetFlags -> GuiWidget a -> Bool -> m ()
-setWidgetFlag fl g ena = let widget = getWidget g in do
-    o <- allWidgetFlags widget fl
-    if ena then
-        unless o $ do
-            widgetFlagsAdd widget fl
-            markWidgetForRedraw widget
-    else when o $ do
-            widgetFlagsRemove widget fl
-            markWidgetForRedraw widget
-
-enableWidget :: MonadIO m => GuiWidget a -> Bool -> m ()
-enableWidget = setWidgetFlag WidgetEnable
-{-# INLINE enableWidget #-}
-
-visibleWidget :: MonadIO m => GuiWidget a -> Bool -> m ()
-visibleWidget = setWidgetFlag WidgetEnable
-{-# INLINE visibleWidget #-}
-
-
 
 getWidgetChildrenCount :: MonadIO m => Widget -> m Int
 getWidgetChildrenCount = fmap ( V.length . cildrenWidgets) . readMonadIORef
@@ -426,6 +350,11 @@ imapByWidgetChildren_:: MonadIO m => (Int -> Widget -> m a) -> Widget -> m ()
 imapByWidgetChildren_ f wRef = V.imapM_ f =<< (cildrenWidgets <$> readMonadIORef wRef)
 {-# INLINE imapByWidgetChildren_ #-}
 
+forEachWidgets :: MonadIO m => Widget -> (Widget -> m ()) -> m ()
+forEachWidgets startWidget f = go startWidget
+    where go widget = f widget >> mapByWidgetChildren_ go widget
+{-# INLINE forEachWidgets #-}
+
 getChildWidgetIx' :: WidgetStruct ->  Widget -> Maybe Int
 getChildWidgetIx' w whatFound = V.findIndex (whatFound ==) $ cildrenWidgets w
 {-# INLINE getChildWidgetIx' #-}
@@ -440,13 +369,12 @@ getWidgetParentIx widget = do parent <- getWidgetParent widget
                               return $ V.findIndex (widget ==) v
 {-# INLINE getWidgetParentIx #-}
 
-getPrevWidget :: MonadIO m => Widget -> m (Maybe Widget)
-getPrevWidget widget = do parent <- getWidgetParent widget
-                          v <- cildrenWidgets <$> readMonadIORef parent
-                          return (case V.findIndex (widget ==) v of
-                                    Just i -> v V.!? (i - 1)
-                                    _ -> Nothing)
-{-# INLINE getPrevWidget #-}
+getPrevNextWidgets :: MonadIO m => Widget -> m (Maybe Widget,Maybe Widget)
+getPrevNextWidgets widget = do  v <- (fmap cildrenWidgets . readMonadIORef) =<< getWidgetParent widget
+                                return (case V.findIndex (widget ==) v of
+                                    Just i -> (v V.!? (i - 1),v V.!? (i + 1))
+                                    _ -> (Nothing,Nothing))
+{-# INLINE getPrevNextWidgets #-}
 
 isMainWidget:: MonadIO m =>  Widget -> m Bool
 isMainWidget widget = ((widget==).parentWidget) <$> readMonadIORef widget
@@ -534,16 +462,16 @@ findPrevTabbedWidget = findWidgetInTreeBackward isTabbedInternalPredicate
 {-# INLINE findPrevTabbedWidget #-}
 
 mkWidget':: MonadIO m => GuiWindow -> Widget -> WidgetFlags -> WidgetMargin -> WidgetFunctions -> m Widget
-mkWidget' win parent fl marg fs = do
-        rdrf <- newTVarMonadIO $ (fl .&. WidgetVisible) == WidgetVisible
+mkWidget' win parent fl marg fs =
         newMonadIORef WidgetStruct { windowOfWidget = win
                              , parentWidget = parent
                              , cildrenWidgets = V.empty
                              , widgetRect = SDL.Rectangle zero zero
                              , widgetCanvasRect = SDL.Rectangle zero zero
                              , widgetMargin = marginToLTRB marg
-                             , widgetFlags = fl
-                             , widgetRedrawFlag = rdrf
+                             , widgetFlags = if (fl .&. WidgetVisible)  == WidgetVisible then
+                                                fl .|. WidgetRedrawFlag
+                                             else fl
                              , widgetCursor = DefCursorIx
                              , widgetFns = fs
                              }

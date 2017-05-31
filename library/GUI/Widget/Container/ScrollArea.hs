@@ -249,7 +249,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
                                             }
 
     let scrllArFns = initScrllArFns{
-        onSizeChangedParentNotiy = \widget child _sz -> do
+        onSizeChangedParentNotify = \widget child _sz -> do
             mbI <- getChildWidgetIx widget child
             whenIsJust mbI $ \i' -> do
                 i <- if toEnum i' == TmpScrolled then do

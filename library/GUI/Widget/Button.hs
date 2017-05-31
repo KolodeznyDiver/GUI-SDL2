@@ -108,12 +108,12 @@ getButtonDecoreState (Just WidgetMouseIn) = btnDecoreIn
 getButtonDecoreState (Just WidgetMousePressed) = btnDecorePressed
 getButtonDecoreState _ = btnDecoreDisabled
 
-drawButtonFrame :: MonadIO m => DecoreState -> BorderType -> GuiColor -> GuiRect -> GuiCanvas m ()
+drawButtonFrame :: MonadIO m => DecoreState -> BtnBorderType -> GuiColor -> GuiRect -> GuiCanvas m ()
 drawButtonFrame DecoreState{..} borderType externalColor r = do
     let borderWith = 1
     case borderType of
-        BorderRound brdrClr -> drawRoundFrame externalColor brdrClr decoreBkColor r
-        Border3D{..} -> draw3DFrame border3DLightColor border3DDarkColor decoreBkColor borderWith r
+        BtnBorderRound brdrClr -> drawRoundFrame externalColor brdrClr decoreBkColor r
+        BtnBorder3D{..} -> draw3DFrame btnBrdr3DLightColor btnBrdr3DDarkColor decoreBkColor borderWith r
 
 data ButtonWithTriangleType = ButtonWithTriangleScrollBar
                             | ButtonWithTriangleInForm

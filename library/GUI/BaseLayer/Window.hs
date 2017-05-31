@@ -1,19 +1,21 @@
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+--  {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
 module GUI.BaseLayer.Window(
-     pattern WindowNoFlags,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
+     pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
+    ,pattern WindowPopupFlag
+    ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
     ,getWinId'',getWinId',getWinId,getWinIx',getWinIx
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
     ,getSDLWindow,getWindowRenderer
     ,getWindowByIx,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
     ,getWinCursorIx,setWinCursorIx
-    ,showWinWidgets,newWindow,getGuiFromWindow,getWindowMainWidget,getWindowsMap
+    ,showWinWidgets,getGuiFromWindow,getWindowMainWidget,getWindowsMap
     ,doForWinByIx,allWindowsMap_,redrawWindowByIx,redrawWindow,isSpecStateWidget
     ,resetSpecStateWidget,setSpecStateWidget,setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured
-    ,resetMouseCapturedWidget,setWinMainMenu,getWinMainMenu,setWinNext,getWinNext
+    ,resetMouseCapturedWidget,setWinMainMenu,getWinMainMenu
                  ) where
 
 import qualified SDL
@@ -23,13 +25,9 @@ import SDL.Vect
 import Data.StateVar
 import Data.Bits
 import Control.Monad.IO.Class
-import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.Map.Strict as Map
 import Control.Monad
-import Control.Concurrent.STM
---import Data.Maybe
-import MonadUtils (whenM)
 import Maybes (whenIsJust)
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Ref
@@ -39,19 +37,27 @@ import GUI.BaseLayer.Widget
 import GUI.BaseLayer.Cursor
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.Canvas
-import GUI.BaseLayer.Handlers
 import GUI.BaseLayer.Geometry
 
 pattern WindowNoFlags :: WindowFlags
+pattern WindowRedrawFlag :: WindowFlags
 pattern WindowCloseOnLostFocuse :: WindowFlags
 pattern WindowWaitAlt :: WindowFlags
-                                    --  5432109876543210
-pattern WindowNoFlags        = (Flags 0x0000000000000000) -- :: WindowFlags
-pattern WindowCloseOnLostFocuse = (Flags 0x0000000000000001) :: WindowFlags
-pattern WindowWaitAlt = (Flags 0x0000000000000002) :: WindowFlags
-{-
-pattern Window     = (Flags 0x0000000000000001) :: WindowFlags
--}
+pattern WindowPopupFlag :: WindowFlags
+
+pattern WindowHaveKeyboardFocus :: WindowFlags
+pattern WindowHaveMouseFocus :: WindowFlags
+pattern WindowClickable :: WindowFlags
+                                      --  5432109876543210
+pattern WindowNoFlags        =    Flags 0x0000000000000000
+pattern WindowRedrawFlag =        Flags 0x0000000000000001
+pattern WindowCloseOnLostFocuse = Flags 0x0000000000000002
+pattern WindowWaitAlt =           Flags 0x0000000000000004
+pattern WindowPopupFlag =         Flags 0x0000000000000008
+
+pattern WindowHaveKeyboardFocus = Flags 0x0000000000000010
+pattern WindowHaveMouseFocus =    Flags 0x0000000000000020
+pattern WindowClickable =         Flags 0x0000000000000040
 
 getSDLRawWindow':: SDL.Window -> Raw.Window
 getSDLRawWindow' (SDL.Internal.Types.Window w) = w
@@ -129,38 +135,6 @@ anyWindowFlags win fl = ((WindowNoFlags /=) . (fl .&.) . winFlags) <$> readMonad
 showWinWidgets :: MonadIO m => GuiWindow -> Maybe Widget -> m String
 showWinWidgets rfWin markedWidget = getWindowMainWidget rfWin >>= (`showWidgets` markedWidget)
 
-newWindow:: MonadIO m => Gui -> T.Text -> SDL.WindowConfig -> m GuiWindow
-newWindow rfGui winTitle winCfg = do
-    wSDL  <- SDL.createWindow winTitle winCfg
-    rSDL  <- SDL.createRenderer wSDL (-1) SDL.defaultRenderer
-    sz <- P.fromSDLV2 <$> get (SDL.windowSize wSDL)
-    buf <- P.createTargetTexture rSDL sz
-    proxyTexture <- P.createTargetTexture rSDL $ V2 1 1
-    rdrf <- newTVarMonadIO True
-    rfWin <- newMonadIORef WindowStruct  { guiOfWindow = rfGui
-                                   , winSDL = wSDL
-                                   , winRenderer = rSDL
-                                   , mainWidget = undefined
-                                   , winFlags = WindowNoFlags
-                                   , specStateWidget = WidgetNoSpecState
-                                   , widgetUnderCursor = Nothing
-                                   , focusedWidget = Nothing
-                                   , curWinCursor = DefCursorIx
-                                   , winBuffer = buf
-                                   , winProxyTexture = proxyTexture
-                                   , winRedrawFlag = rdrf
-                                   , winNext = Nothing
-                                   , winMainMenu = Nothing
-                                   }
-    rfW <- mkWidget' rfWin undefined WidgetVisible WidgetMarginNone oneChildFns
-    setWidgetParent rfW rfW
-    let rect = SDL.Rectangle zero sz
-    setWidgetRect rfW rect
-    setWidgetCanvasRect  rfW rect
-    modifyMonadIORef' rfWin (\x -> x{mainWidget=rfW})
-    modifyMonadIORef' rfGui (\x -> x{guiWindows= Map.insert wSDL rfWin $ guiWindows x})
-    return rfWin
-
 getGuiFromWindow :: MonadIO m => GuiWindow -> m Gui
 getGuiFromWindow rfWin = guiOfWindow <$> readMonadIORef rfWin
 {-# INLINE getGuiFromWindow #-}
@@ -201,7 +175,6 @@ setWinCursorIx :: MonadIO m => GuiWindow -> CursorIx -> m ()
 setWinCursorIx rfWin ix = modifyMonadIORef' rfWin (\x -> x{curWinCursor=ix})
 {-# INLINE setWinCursorIx #-}
 
-
 doForWinByIx:: MonadIO m => (GuiWindow -> m ()) -> Gui -> GuiWindowIx -> m ()
 doForWinByIx f gui winIx = (`whenIsJust` f) =<< Map.lookup winIx <$> getWindowsMap gui
 
@@ -220,8 +193,8 @@ redrawWindow rfWin force = do
     tSz <- P.getTextureSize $ winBuffer win
     let szChanged = wSz /= tSz
         force2 = force || szChanged
-    whenM (if force2 then return True else readTVarMonadIO $ winRedrawFlag win) $ do
-        atomicallyMonadIO $ writeTVar (winRedrawFlag win) False
+    when (force2 || allWindowFlags' win WindowRedrawFlag) $ do
+        windowFlagsRemove rfWin WindowRedrawFlag
         gui <- readMonadIORef $ guiOfWindow win
 --        liftIO $ putStrLn $ "redrawWindow : wSz=" ++ show wSz
         let renderer = winRenderer win
@@ -238,11 +211,11 @@ redrawWindow rfWin force = do
                     "  widgetCanvasRect=", show $ widgetCanvasRect w,
                     "  pInWinCoord=", show pInWinCoord, "   rect=", show rect] -}
                 when ((widgetFlags w .&. WidgetVisible) /= WidgetNoFlags && not (isEmptyRect rect)) $ do
-                        markedForRedraw <- isWidgetMarkedForRedrawing' w
-                        let force4 = force3 || markedForRedraw
+                        let markedForRedraw = isWidgetMarkedForRedrawing' w
+                            force4 = force3 || markedForRedraw
                             off = pInWinCoord .-. pointOfRect (widgetCanvasRect w)
                         when force4 $ do
-                            when markedForRedraw $ clearWidgetRedrawFlag' w
+                            when markedForRedraw $ clearWidgetRedrawFlag widget
                             clip $= Just (P.toSDLRect rect)
                             -- liftIO $ putStrLn $ concat ["redrawWindow clip rect=",show (P.toSDLRect rect)]
                             runCanvas renderer rm off $ -- do
@@ -256,7 +229,7 @@ redrawWindow rfWin force = do
         buf <- if szChanged then do
                      SDL.destroyTexture $ winBuffer win
                      newBuf <- P.createTargetTexture renderer wSz
-                     writeMonadIORef rfWin win{winBuffer=newBuf}
+                     modifyMonadIORef' rfWin (\w ->w{winBuffer=newBuf})
                      return newBuf
                else return $ winBuffer win
         target $= Just buf
@@ -314,11 +287,12 @@ setWinMainMenu rfWin menu = modifyMonadIORef' rfWin (\x -> x{winMainMenu=menu})
 getWinMainMenu :: MonadIO m => GuiWindow -> m (Maybe Widget)
 getWinMainMenu = fmap winMainMenu . readMonadIORef
 {-# INLINE getWinMainMenu #-}
+{-
+setWinPrev :: MonadIO m => GuiWindow -> Maybe GuiWindow -> m ()
+setWinPrev rfWin nextWindow = modifyMonadIORef' rfWin (\x -> x{winPrev=nextWindow})
+{-# INLINE setWinPrev #-}
 
-setWinNext :: MonadIO m => GuiWindow -> Maybe GuiWindow -> m ()
-setWinNext rfWin nextWindow = modifyMonadIORef' rfWin (\x -> x{winNext=nextWindow})
-{-# INLINE setWinNext #-}
-
-getWinNext :: MonadIO m => GuiWindow -> m (Maybe GuiWindow)
-getWinNext = fmap winNext . readMonadIORef
-{-# INLINE getWinNext #-}
+getWinPrev :: MonadIO m => GuiWindow -> m (Maybe GuiWindow)
+getWinPrev = fmap winPrev . readMonadIORef
+{-# INLINE getWinPrev #-}
+-}

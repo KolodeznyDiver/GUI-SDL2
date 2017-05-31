@@ -261,15 +261,15 @@ getStrSize :: MonadIO m => TTFFont -> String -> GuiCanvas m (V2 Coord)
 getStrSize fnt = lift . P.strSize fnt
 {-# INLINE getStrSize #-}
 
-renderStr:: MonadIO m => TTFFont -> GuiColor -> String -> GuiCanvas m SDL.Texture
+renderStr:: MonadIO m => TTFFont -> GuiColor -> String -> GuiCanvas m (Maybe SDL.Texture)
 renderStr fnt color str = do { renderer <- asks canvasRenderer; lift $ P.renderStr renderer fnt color str}
 {-# INLINE renderStr #-}
 
-renderStrDraft:: MonadIO m => TTFFont -> GuiColor -> String -> GuiCanvas m SDL.Texture
+renderStrDraft:: MonadIO m => TTFFont -> GuiColor -> String -> GuiCanvas m (Maybe SDL.Texture)
 renderStrDraft fnt color str = do { renderer <- asks canvasRenderer; lift $ P.renderStrDraft renderer fnt color str}
 {-# INLINE renderStrDraft #-}
 
-renderStrOpaque:: MonadIO m => TTFFont -> GuiColor -> GuiColor -> String -> GuiCanvas m SDL.Texture
+renderStrOpaque:: MonadIO m => TTFFont -> GuiColor -> GuiColor -> String -> GuiCanvas m (Maybe SDL.Texture)
 renderStrOpaque fnt color bkColor str = do
     renderer <- asks canvasRenderer
     lift $ P.renderStrOpaque renderer fnt color bkColor str
@@ -291,10 +291,10 @@ drawStrOpaque fnt color bkColor pnt str = do
     lift $ P.drawStrOpaque (canvasRenderer c) fnt color bkColor (toCanvasPoint c pnt) str
 {-# INLINE drawStrOpaque #-}
 
-drawStrAligned :: MonadIO m => TTFFont -> Alignment -> DrawStrMode -> GuiColor -> GuiRect -> String -> GuiCanvas m ()
-drawStrAligned fnt align mode color rect str = do
+drawStrAligned :: MonadIO m => TTFFont -> Alignment -> GuiColor -> DrawStrMode -> GuiRect -> String -> GuiCanvas m ()
+drawStrAligned fnt align color mode rect str = do
     c <- ask
-    lift $  P.drawStrAligned (canvasRenderer c) fnt align mode color (toCanvasRect c rect) str
+    lift $  P.drawStrAligned (canvasRenderer c) fnt align color mode (toCanvasRect c rect) str
 {-# INLINE drawStrAligned #-}
 ------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------
@@ -302,15 +302,15 @@ getTextSize :: MonadIO m => TTFFont -> T.Text -> GuiCanvas m (V2 Coord)
 getTextSize fnt = getStrSize fnt . T.unpack
 {-# INLINE getTextSize #-}
 
-renderText:: MonadIO m => TTFFont -> GuiColor -> T.Text -> GuiCanvas m SDL.Texture
+renderText:: MonadIO m => TTFFont -> GuiColor -> T.Text -> GuiCanvas m (Maybe SDL.Texture)
 renderText fnt color = renderStr fnt color . T.unpack
 {-# INLINE renderText #-}
 
-renderTextDraft:: MonadIO m => TTFFont -> GuiColor -> T.Text -> GuiCanvas m SDL.Texture
+renderTextDraft:: MonadIO m => TTFFont -> GuiColor -> T.Text -> GuiCanvas m (Maybe SDL.Texture)
 renderTextDraft fnt color = renderStrDraft fnt color . T.unpack
 {-# INLINE renderTextDraft #-}
 
-renderTextOpaque:: MonadIO m => TTFFont -> GuiColor -> GuiColor -> T.Text -> GuiCanvas m SDL.Texture
+renderTextOpaque:: MonadIO m => TTFFont -> GuiColor -> GuiColor -> T.Text -> GuiCanvas m (Maybe SDL.Texture)
 renderTextOpaque fnt color bkColor = renderStrOpaque fnt color bkColor . T.unpack
 {-# INLINE renderTextOpaque #-}
 
@@ -326,8 +326,8 @@ drawTextOpaque :: MonadIO m => TTFFont -> GuiColor -> GuiColor -> GuiPoint -> T.
 drawTextOpaque fnt color bkColor pnt = drawStrOpaque fnt color bkColor pnt . T.unpack
 {-# INLINE drawTextOpaque #-}
 
-drawTextAligned :: MonadIO m => TTFFont -> Alignment -> DrawStrMode -> GuiColor -> GuiRect -> T.Text -> GuiCanvas m ()
-drawTextAligned fnt align mode color rect = drawStrAligned fnt align mode color rect . T.unpack
+drawTextAligned :: MonadIO m => TTFFont -> Alignment -> GuiColor -> DrawStrMode -> GuiRect -> T.Text -> GuiCanvas m ()
+drawTextAligned fnt align color mode rect = drawStrAligned fnt align color mode rect . T.unpack
 {-# INLINE drawTextAligned #-}
 ------------------------------------------------------------------------------------------------------
 
