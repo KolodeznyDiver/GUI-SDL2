@@ -19,6 +19,7 @@ import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Text as T
 import qualified Data.Map.Strict as Map
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import Data.Bits
 import System.Exit
@@ -96,7 +97,7 @@ runProxyWinCanvas rfWin f = do
     win <- readMonadIORef rfWin
     rm  <- guiGetResourceManager $ guiOfWindow win
     P.withRendererTarget (winRenderer win) (winProxyTexture win) $
-        runCanvas (winRenderer win) rm zero f
+        runCanvas (winRenderer win) rm (winTextureCache win) zero f
 
 runProxyCanvas :: MonadIO m => Widget -> GuiCanvas m a -> m a
 runProxyCanvas widget f = getWidgetWindow widget >>= (`runProxyWinCanvas` f)
@@ -275,7 +276,7 @@ setWinMainWidget rfWin initF = do
 -}
 delWindowByIx:: MonadIO m => Gui -> GuiWindowIx -> m ()
 delWindowByIx gui winIx = do
-    cWins' <- getWindowsCount gui
+--    cWins' <- getWindowsCount gui
     m <- getWindowsMap gui
     whenIsJust (Map.lookup winIx m) $ \ rfWin -> do
             delWidget =<< getWindowMainWidget rfWin
@@ -284,11 +285,12 @@ delWindowByIx gui winIx = do
             SDL.destroyTexture $ winBuffer win
             SDL.destroyRenderer $ winRenderer win
             SDL.destroyWindow $ winSDL win
+            mapM_ SDL.destroyTexture =<< readMonadIORef (winTextureCache win)
             modifyMonadIORef' gui (\x -> x{guiWindows= Map.delete winIx $ guiWindows x})
-            cWins <- getWindowsCount gui
+{-            cWins <- getWindowsCount gui
             sDbg <- showWindowsAsStr gui
             liftIO $ putStrLn $ concat ["delWindowByIx cWins before = ",show cWins',
-                 "   cWins after = ", show cWins, "   deleted = ",show $ winSDL win, "      ",sDbg]
+                 "   cWins after = ", show cWins, "   deleted = ",show $ winSDL win, "      ",sDbg] -}
 
 delWindow:: MonadIO m => GuiWindow -> m ()
 delWindow rfWin = do
@@ -394,6 +396,7 @@ newWindow' rfGui winTitle winFl winCfg = do
     sz <- P.fromSDLV2 <$> get (SDL.windowSize wSDL)
     buf <- P.createTargetTexture rSDL sz
     proxyTexture <- P.createTargetTexture rSDL $ V2 1 1
+    textureCache <- newMonadIORef HM.empty
     rfWin <- newMonadIORef WindowStruct  { guiOfWindow = rfGui
                                    , winSDL = wSDL
                                    , winRenderer = rSDL
@@ -407,6 +410,7 @@ newWindow' rfGui winTitle winFl winCfg = do
                                    , winProxyTexture = proxyTexture
                                    --, winPrev = Nothing
                                    , winMainMenu = Nothing
+                                   , winTextureCache = textureCache
                                    }
     rfW <- mkWidget' rfWin undefined WidgetVisible WidgetMarginNone (overlapsChildrenFns zero)
     setWidgetParent rfW rfW
@@ -415,8 +419,8 @@ newWindow' rfGui winTitle winFl winCfg = do
     setWidgetCanvasRect  rfW rect
     modifyMonadIORef' rfWin (\x -> x{mainWidget=rfW})
     modifyMonadIORef' rfGui (\x -> x{guiWindows= Map.insert wSDL rfWin $ guiWindows x})
-    sDbg <- showWindowsAsStr rfGui
-    liftIO $ putStrLn $ concat ["newWindow' new = ",show wSDL, "   ",sDbg]
+{-    sDbg <- showWindowsAsStr rfGui
+    liftIO $ putStrLn $ concat ["newWindow' new = ",show wSDL, "   ",sDbg] -}
     return rfWin
 
 newWindow:: MonadIO m => Gui -> T.Text -> SDL.WindowConfig -> m GuiWindow

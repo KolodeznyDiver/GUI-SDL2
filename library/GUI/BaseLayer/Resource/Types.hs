@@ -1,5 +1,6 @@
+{-# LANGUAGE StrictData #-}
 module GUI.BaseLayer.Resource.Types(
-    CachedItem,CacheCollection,TextureCollection,GuiFontDef(..),FontCollectionItem(..),FontCollection
+    CachedItem,CacheCollection,GuiFontDef(..),FontCollectionItem(..),FontCollection
     ,CursorCollection,ResourceManager(..)
                         ) where
 import qualified SDL
@@ -12,7 +13,7 @@ import GUI.BaseLayer.Cursor
 type CachedItem a = a
 
 type CacheCollection a = HM.HashMap T.Text (CachedItem a)
-type TextureCollection = CacheCollection SDL.Texture
+type SurfaceCollection = CacheCollection SDL.Surface
 data GuiFontDef = GuiFontDef { fontAbbrev    :: T.Text
                              , fontPath      :: String
                              , fontPtSz      :: Int
@@ -29,7 +30,7 @@ data ResourceManager = ResourceManager
         , skinPath  :: FilePath
         , systemCursorSet :: CursorSet
         , userCursors :: IORef CursorCollection
-        , textures  :: IORef TextureCollection
+        , surfaces  :: IORef SurfaceCollection
         , fonts     :: IORef FontCollection
         }
 

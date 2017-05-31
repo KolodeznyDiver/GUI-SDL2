@@ -8,7 +8,7 @@ module GUI.BaseLayer.Resource(
     -- GUI.BaseLayer.Resource.Types
     GuiFontDef(..),ResourceManager
     -- GUI.BaseLayer.Resource
-    ,initResourceManager,destroyResourceManager,rmGetTextureFromCache,rmGetTexture,rmAddTexture
+    ,initResourceManager,destroyResourceManager,rmGetSurfaceFromCache,rmGetSurface,rmAddSurface
     ,rmGetFont,rmLoadFont,rmGetCursor,rmSetCursor,rmAddCursor
     ) where
 
@@ -50,11 +50,12 @@ pattern SkinDirectorySuffix :: String
 pattern SkinDirectorySuffix             = ".skin"
 pattern EnvResourceDirectoryPathSuffix :: String
 pattern EnvResourceDirectoryPathSuffix  = "_GUIRESOURCES"
-pattern ErrTextureDimension :: Coord
-pattern ErrTextureDimension             = 5
+pattern ErrSurfaceDimension :: Coord
+pattern ErrSurfaceDimension             = 5
 
 initResourceManager :: MonadIO m => String -> [GuiFontDef] -> m ResourceManager
 initResourceManager skinName fntLst = do
+--  liftIO (putStr "Displays : " >> SDL.getDisplays >>= print)
     appName <- takeBaseName <$> liftIO getProgName
     -- for ex. set GUIDEMO_GUIRESOURCES=c:\...\GUI.Resources
     let envParamName = map toUpper appName ++ EnvResourceDirectoryPathSuffix
@@ -87,7 +88,7 @@ initResourceManager skinName fntLst = do
 
 --    liftIO $ putStrLn $ "p=" ++ p
     let resP = addTrailingPathSeparator p
-    tx <- newMonadIORef HM.empty
+    sf <- newMonadIORef HM.empty
     fnts <- newMonadIORef HM.empty
     sysCursors <- mkSystemCursorSet
     userCursorsHM <- newMonadIORef HM.empty
@@ -95,7 +96,7 @@ initResourceManager skinName fntLst = do
                             , skinPath = addTrailingPathSeparator $ resP </> (skinName ++ SkinDirectorySuffix)
                             , systemCursorSet = sysCursors
                             , userCursors = userCursorsHM
-                            , textures = tx
+                            , surfaces = sf
                             , fonts = fnts
                             }
     mapM_ (rmLoadFont rm) fntLst
@@ -103,7 +104,8 @@ initResourceManager skinName fntLst = do
 
 destroyResourceManager:: MonadIO m => ResourceManager -> m ()
 destroyResourceManager r = do
-    mapM_ SDL.destroyTexture =<< readMonadIORef (textures r)
+--    mapM_ SDL.destroySurface =<< readMonadIORef (surfaces r)
+    mapM_ SDL.freeSurface =<< readMonadIORef (surfaces r)
     mapM_ freeCursor =<< readMonadIORef (userCursors r)
     mapM_ (TTF.closeFont . fnt) =<< readMonadIORef (fonts r)
     freeCursorSet (systemCursorSet r)
@@ -131,8 +133,8 @@ fromCache :: (MonadIO m, ResourceManagerCacheable a) => ResourceManager -> T.Tex
 --fromCache r k = (HM.lookup k <$> readMonadIORef (getResourceManagerCollectionField r)) >>= fmapMaybeM readMonadIORef
 fromCache r k = HM.lookup k <$> readMonadIORef (getResourceManagerCollectionField r)
 
-instance ResourceManagerCacheable SDL.Texture where
-    getResourceManagerCollectionField  = textures
+instance ResourceManagerCacheable SDL.Surface where
+    getResourceManagerCollectionField  = surfaces
 
 instance ResourceManagerCacheable FontCollectionItem where
     getResourceManagerCollectionField  = fonts
@@ -165,48 +167,38 @@ rmGetValue r f k def = do
             _ -> return ()
           return m1 -}
 
-rmGetTextureFromCache:: MonadIO m => ResourceManager -> T.Text -> m (Maybe SDL.Texture)
-rmGetTextureFromCache = fromCache
-{-# INLINE rmGetTextureFromCache #-}
+rmGetSurfaceFromCache:: MonadIO m => ResourceManager -> T.Text -> m (Maybe SDL.Surface)
+rmGetSurfaceFromCache = fromCache
+{-# INLINE rmGetSurfaceFromCache #-}
 
-rmGetTexture:: MonadIO m => ResourceManager -> SDL.Renderer -> T.Text -> m SDL.Texture
-rmGetTexture r renderer k = rmGetValue r load k def
-    where load :: FilePath -> IO SDL.Texture
-          load path = let ext = map toUpper $ takeExtension (T.unpack k) in
-                      if | ext == ".BMP" -> do
+rmGetSurface:: MonadIO m => ResourceManager -> T.Text -> m SDL.Surface
+rmGetSurface r k = rmGetValue r load k def
+    where load :: FilePath -> IO SDL.Surface
+          load path =      let ext = map toUpper $ takeExtension (T.unpack k) in do
+                      liftIO $ putStrLn $ concat ["rmGetSurface.load path = ",path]
+                      if | ext == ".BMP" ->
 --                            liftIO $ putStrLn "Before SDL.loadBMP"
-                            bmp <- SDL.loadBMP path
---                            throwIfNoSurface bmp
-                            SDL.createTextureFromSurface renderer bmp <* SDL.freeSurface bmp
+                            SDL.loadBMP path
 -- from https://www.stackage.org/haddock/lts-8.13/sdl2-image-2.0.0/SDL-Image.html
 -- PNG, JPG, TIF, GIF, WEBP, CUR, ICO, BMP, PNM, XPM, XCF, PCX and XV formatted data
-                         | ext `elem` [".PNG",".JPG",".JPEG",".GIF",".ICO",".CUR"] -> IMAGE.loadTexture renderer path
+                         | ext `elem` [".PNG",".JPG",".JPEG",".GIF",".ICO",".CUR"] -> IMAGE.load path
                          | otherwise -> def
-{-          throwIfNoSurface (SDL.Surface ptr mb) = liftIO $ putStrLn $ "Surface=" ++ show (ptrToIntPtr ptr) ++ "   " ++
-                                                    (maybe "Nothing" (show . VM.length) mb) -}
-          def :: MonadIO m => m SDL.Texture
+          def :: MonadIO m => m SDL.Surface
           def = do -- liftIO $ putStrLn "def"
-                    let sz = V2 ErrTextureDimension ErrTextureDimension
-                    t  <- createTargetTexture renderer sz
-                    withRendererTarget renderer t $ withRendererColor renderer (V4 255 0 0 0) $
-                        SDL.fillRect renderer $ Just $ toSDLRect $ SDL.Rectangle zero sz
-{- не отображается
-                    surf <- getPixelFormat renderer >>= SDL.createRGBSurface (V2 ErrTextureDimension ErrTextureDimension)
+                    let sz = V2 ErrSurfaceDimension ErrSurfaceDimension
+                    surf <- ((SDL.displayModeFormat . head . SDL.displayModes . head) <$> SDL.getDisplays)
+                        >>= SDL.createRGBSurface (fmap fromIntegral sz)
                     SDL.surfaceFillRect surf Nothing (V4 255 0 0 0)
-                    t <- SDL.createTextureFromSurface renderer surf <* SDL.freeSurface surf  -}
+--                    liftIO $ putStrLn $ "def, SurfaceInfo =" ++ show ti
+                    return surf
 
---                    ti <- SDL.queryTexture t
---                    liftIO $ putStrLn $ "def, TextureInfo =" ++ show ti
-                    return t
-
-rmAddTexture:: MonadIO m => ResourceManager -> T.Text -> SDL.Texture -> m ()
-rmAddTexture r abbr texture = do
-    tc <- readMonadIORef $ textures r
-    (case HM.lookup abbr tc of
-            Just t -> SDL.destroyTexture t >> return (HM.adjust (const texture) abbr tc)
-            _ -> return $ HM.insert abbr texture tc)
-        >>= writeMonadIORef (textures r)
-
+rmAddSurface:: MonadIO m => ResourceManager -> T.Text -> SDL.Surface -> m ()
+rmAddSurface r abbr surface = do
+    sfc <- readMonadIORef $ surfaces r
+    (case HM.lookup abbr sfc of
+            Just osf -> SDL.freeSurface osf >> return (HM.adjust (const surface) abbr sfc)
+            _ -> return $ HM.insert abbr surface sfc)
+        >>= writeMonadIORef (surfaces r)
 
 rmGetFont:: MonadIO m => ResourceManager -> T.Text -> m TTFFont
 rmGetFont r abbr = do

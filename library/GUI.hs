@@ -10,7 +10,7 @@ module GUI(
     ,Coord,SDLCoord,ColorComponent,GuiTransparency,GuiColor,MousePoint,GuiSize,GuiCoordOffset,GuiPoint,GuiRect
     ,GuiWindowId,GuiWindowIx,GuiCurDrawColor,MarginLTRB(..),GuiMargin,WidgetMargin(..)
     -- GUI.BaseLayer.Window
-    ,pattern WindowNoFlags,pattern WindowCloseOnLostFocuse,pattern WindowPopupFlag
+    ,pattern WindowNoFlags,pattern WindowCloseOnLostFocuse,pattern WindowPopupFlag,pattern WindowClickable
     ,getWinId'',getWinId',getWinId,getWinIx',getWinIx
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
@@ -74,7 +74,7 @@ module GUI(
     -- GUI.BaseLayer.Resource.Types
     ,GuiFontDef(..),ResourceManager
     -- GUI.BaseLayer.Resource
-    ,initResourceManager,destroyResourceManager,rmGetTexture,rmAddTexture
+    ,initResourceManager,destroyResourceManager,rmGetSurfaceFromCache,rmGetSurface,rmAddSurface
     ,rmGetFont,rmLoadFont,rmGetCursor,rmSetCursor,rmAddCursor
     -- GUI.BaseLayer.Primitives
     ,DrawStrMode(..)

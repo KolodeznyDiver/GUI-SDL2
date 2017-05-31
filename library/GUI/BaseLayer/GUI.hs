@@ -6,6 +6,7 @@ module GUI.BaseLayer.GUI(
 
 import Control.Monad.IO.Class -- (MonadIO)
 import Data.Int
+import Data.Word
 --import Data.Char
 import Data.Bits
 --import Numeric
@@ -120,16 +121,17 @@ onEvent gui evpl = case evpl of
     SDL.WindowGainedKeyboardFocusEvent (SDL.WindowGainedKeyboardFocusEventData win) ->
         withWindow win $ \rfWin -> do
             windowFlagsAdd rfWin WindowHaveKeyboardFocus
-            isPopup <- allWindowFlags rfWin WindowPopupFlag
-            unless isPopup $ delAllPopupWindows gui
-            haveMouseFocus <- allWindowFlags rfWin WindowHaveMouseFocus
+            fl <- getWindowFlags rfWin
+            when ((fl .&. WindowPopupFlag) == WindowNoFlags ) $ delAllPopupWindows gui
 {-            (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
             putStrLn $ concat ["WindowGainedKeyboardFocusEvent  btns=", show btns, "   ", show mouseP
                 ,"   haveMouseFocus = ", show haveMouseFocus] -}
-            if haveMouseFocus then do -- inacive MouseButton message click fix.
+--            if (fl .&. WindowClickable) == WindowNoFlags then do -- inacive MouseButton message click fix.
+            if (fl .&. (WindowHaveMouseFocus .|. WindowClickable)) == WindowHaveMouseFocus then do -- inacive MouseButton message click fix.
                 (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
                 putStrLn $ concat ["WindowGainedKeyboardFocusEvent  btns=", show btns, "   ", show mouseP]
-                when (btns ==0) $
+                when (btns ==0) $ do
+                    windowFlagsAdd rfWin WindowClickable
                     onMouseButton' win SDL.Pressed SDL.ButtonLeft 1 $ fmap fromIntegral mouseP
             else putStrLn "WindowGainedKeyboardFocusEvent"
     --
@@ -140,7 +142,7 @@ onEvent gui evpl = case evpl of
             if closeOnLost then
 --                putStrLn "WindowLostKeyboardFocusEvent delWindow"
                  delWindow rfWin
-            else windowFlagsRemove rfWin $ WindowHaveKeyboardFocus .|. WindowClickable
+            else windowFlagsRemove rfWin $ WindowHaveKeyboardFocus -- .|. WindowClickable
             putStrLn "WindowLostKeyboardFocusEvent"
     --
     SDL.WindowClosedEvent (SDL.WindowClosedEventData win) -> do
@@ -364,7 +366,8 @@ onEvent gui evpl = case evpl of
                                 guiSetCursor gui nc
                                 setWinCursorIx rfWin nc
                             redrawAll gui
-
+        onMouseButton'  :: forall m. MonadIO m => SDL.Window -> SDL.InputMotion -> SDL.MouseButton ->
+                                Word8 -> Point V2 Int32 -> m ()
         onMouseButton' win motion mouseButton clicks posPointer =
             let mouseButtonHandler _win fs widget =
                     onMouseButton fs widget motion mouseButton (fromIntegral clicks) in

@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StrictData #-} -- BangPatterns Strict
 module GUI.BaseLayer.Internal.Types(
-    WidgetOpts,WindowOpts,WidgetFlags,WindowFlags,Widget,GuiWindow,Gui,Canvas(..),GuiCanvas
+    WidgetOpts,WindowOpts,WidgetFlags,WindowFlags,Widget,GuiWindow,Gui,WinTextureCache,Canvas(..),GuiCanvas
     ,UniqueCode(..),GuiNotifyCode(..),GuiPipeId(..),WidgetFunctions(..),SpecStateWidget(..)
     ,GuiWidgetCollection,GuiWindowCollection,UserMsgHandler(..),GuiPipeCollection
     ,WidgetStruct(..),WindowStruct(..),GUIStruct(..)
@@ -18,6 +18,7 @@ import GUI.BaseLayer.Skin
 import GUI.BaseLayer.Cursor (CursorIx)
 import qualified Data.Vector as V
 import qualified Data.Map.Strict as Map
+import qualified Data.HashMap.Strict as HM
 import Data.IORef
 import qualified Data.IntMap.Strict as IntMap
 import Control.Monad.IO.Class (MonadIO)
@@ -32,10 +33,12 @@ type WindowFlags = Flags WindowOpts
 type Widget     = IORef WidgetStruct
 type GuiWindow  = IORef WindowStruct
 type Gui        = IORef GUIStruct
+type WinTextureCache = IORef (HM.HashMap T.Text SDL.Texture)
 
-data Canvas     = Canvas    { canvasRenderer    :: SDL.Renderer
-                            , canvasRM          :: ResourceManager
-                            , canvasOffset      :: GuiCoordOffset
+data Canvas     = Canvas    { canvasRenderer        :: SDL.Renderer
+                            , canvasRM              :: ResourceManager
+                            , canvasTextureCache    :: WinTextureCache
+                            , canvasOffset          :: GuiCoordOffset
                             }
 
 type GuiCanvas m a = ReaderT Canvas m a
@@ -110,6 +113,7 @@ data WindowStruct = WindowStruct    { guiOfWindow :: Gui
                                     , winProxyTexture :: SDL.Texture
                                     --, winPrev :: Maybe GuiWindow -- menu popup chain
                                     , winMainMenu :: Maybe Widget
+                                    , winTextureCache :: WinTextureCache
                                     }
 
 data GUIStruct = GUIStruct          { guiWindows :: GuiWindowCollection

@@ -5,6 +5,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE StrictData #-}
 module GUI.Window.PopupMenu(
     MenuItem(..), MenuItems, DynMenuItem(..)
     ,mkMenu,mItem,mItemSub,popupMenu
@@ -56,8 +58,9 @@ popupMenu parent rect vm = do
         windowFlagsRemove parentWin WindowCloseOnLostFocuse
     void $ win $+ popupMenuWidget PopupMenuWidgetDef{
          popupMenuWidgetItems=vm
-        ,popupMenuHMenu = if isParentHMenu then Just parent else Nothing
-        ,popupPrevWin = if isParentPopup  then Just parentWin else Nothing
+        ,popupPrev = if | isParentPopup -> PrevPopup parentWin
+                        | isParentHMenu -> PrevHMenu parent
+                        | otherwise -> PrevNothing
                                                     }
 
 ------------------------- Widget for Popup menu window -------------------------------
@@ -112,9 +115,12 @@ data ItemType = ActionItem { itemHkTxt :: T.Text
 -- no exported.
 data ItemCoord = ItemCoord { itemY :: Coord, itemH :: Coord}
 
+data PopupMenuWidgetPrev    = PrevHMenu Widget
+                            | PrevPopup GuiWindow
+                            | PrevNothing
+
 data PopupMenuWidgetDef = PopupMenuWidgetDef { popupMenuWidgetItems :: MenuItems
-                                             , popupMenuHMenu :: Maybe Widget
-                                             , popupPrevWin :: Maybe GuiWindow
+                                             , popupPrev :: PopupMenuWidgetPrev
                                              }
 
 popupMenuWidget :: MonadIO m => PopupMenuWidgetDef -> Widget -> Skin -> m (GuiWidget SimpleWidget)
@@ -196,9 +202,11 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
         returnToPrevPopup :: MonadIO m => m ()
         returnToPrevPopup = do
             close
-            whenIsJust popupPrevWin $ \ prevWin -> do
+            case popupPrev of
+             PrevPopup prevWin -> do
                 SDL.raiseWindow =<< getSDLWindow prevWin
                 windowFlagsAdd prevWin WindowCloseOnLostFocuse
+             _ -> return ()
         close :: MonadIO m => m ()
         close =
             delWindow win
@@ -218,9 +226,14 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
     mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFocusable) WidgetMarginNone
             SimpleWidget parent fns{
         onCreate = \widget -> onCreate fns widget >> setWidgetFocus widget
-        ,onDestroy = \ _widget -> whenIsJust popupPrevWin $ \ prevWin -> do
-            winSDL <- getSDLWindow prevWin
-            SDL.showWindow winSDL >> SDL.raiseWindow winSDL >> windowFlagsAdd prevWin WindowCloseOnLostFocuse
+        ,onDestroy = \ _widget ->
+            case popupPrev of
+                PrevHMenu hmWidget -> getWidgetWindow hmWidget >>= (`windowFlagsRemove` WindowClickable)
+                PrevPopup prevWin -> do
+                    winSDL <- getSDLWindow prevWin
+                    SDL.showWindow winSDL >> SDL.raiseWindow winSDL
+                    windowFlagsAdd prevWin WindowCloseOnLostFocuse
+                _ -> return ()
         ,onLostMouseFocus = \widget -> setSelected widget (-1)
 --        ,onLostKeyboardFocus = \widget -> setActive widget (-1)
         ,onMouseMotion = \widget _btnsLst (P (V2 _ y)) _relMv -> do
@@ -250,7 +263,6 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                 r@(SDL.Rectangle _ (V2 fullW _)) <- getVisibleRect widget
                 draw3DFrame (popupMnu3DLightColor skin) (popupMnu3DDarkColor skin)
                             (popupMnuBkColor skin) BorderThickness r
-
                 (`V.imapM_` items) $ \ i t -> do
                     let ItemCoord{..}= itemsCoord V.! i
                         bkClr = (if i==nSel then popupMnuInColor else popupMnuBkColor) skin
@@ -274,10 +286,10 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                                 _ -> setColor hkColor >> drawArrow OrientationRight
                                         (P (V2 (fullW - (ArrowW `div` 2) - BorderThickness - RightPadding) yCenter))
                                         (ArrowW `div` 2)
+
                         _ -> setColor (popupMnuSeparatorColor skin) >>
                                 drawLine (P (V2 (BorderThickness+LeftPadding) yCenter))
                                          (P (V2 (fullW - BorderThickness - RightPadding) yCenter))
-
             }
 
 getMenuPictWithDirectory :: T.Text -> T.Text

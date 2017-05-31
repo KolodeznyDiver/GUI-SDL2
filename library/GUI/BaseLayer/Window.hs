@@ -218,7 +218,7 @@ redrawWindow rfWin force = do
                             when markedForRedraw $ clearWidgetRedrawFlag widget
                             clip $= Just (P.toSDLRect rect)
                             -- liftIO $ putStrLn $ concat ["redrawWindow clip rect=",show (P.toSDLRect rect)]
-                            runCanvas renderer rm off $ -- do
+                            runCanvas renderer rm (winTextureCache win) off $ -- do
                                 (onDraw $ widgetFns w) widget
 --                                visibleRect <- getVisibleRect widget
 --                                setColor $ V4 255 0 0 0

@@ -30,6 +30,7 @@ import SDL.TTF.FFI (TTFFont)
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Vector.Storable as V
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import GUI.BaseLayer.Types
 import qualified GUI.BaseLayer.Primitives as P
@@ -37,6 +38,7 @@ import GUI.BaseLayer.Primitives (DrawStrMode(..))
 import GUI.BaseLayer.Internal.Types
 import GUI.BaseLayer.Resource
 import GUI.BaseLayer.Geometry
+import GUI.BaseLayer.Ref
 
 data Orientation = OrientationLeft | OrientationUp | OrientationRight | OrientationDown
                  deriving (Eq, Show)
@@ -57,8 +59,9 @@ toSDLRect :: Canvas -> GuiRect -> SDL.Rectangle SDLCoord
 toSDLRect c = fmap fromIntegral . toCanvasRect c
 {-# INLINE toSDLRect #-}
 
-runCanvas :: MonadIO m => SDL.Renderer -> ResourceManager -> GuiCoordOffset -> GuiCanvas m a -> m a
-runCanvas renderer rm off f = runReaderT f $ Canvas renderer rm off
+runCanvas :: MonadIO m => SDL.Renderer -> ResourceManager -> WinTextureCache -> GuiCoordOffset ->
+                                    GuiCanvas m a -> m a
+runCanvas renderer rm cache off f = runReaderT f $ Canvas renderer rm cache off
 {-# INLINE runCanvas #-}
 
 drawStretchedTexture  :: MonadIO m => SDL.Texture -> Maybe GuiRect -> GuiRect -> GuiCanvas m ()
@@ -124,12 +127,19 @@ fillRects v = do{ c <- ask; lift $ SDL.fillRects (canvasRenderer c) $ V.map (toS
 {-# INLINE fillRects #-}
 
 getTextureFromCache :: MonadIO m => T.Text -> GuiCanvas m (Maybe SDL.Texture)
-getTextureFromCache k = do{ rm <- asks canvasRM; lift $ rmGetTextureFromCache rm k}
+getTextureFromCache k = (fmap (HM.lookup k) . readMonadIORef) =<< asks canvasTextureCache
 {-# INLINE getTextureFromCache #-}
 
 getTexture :: MonadIO m => T.Text -> GuiCanvas m SDL.Texture
-getTexture k = do{ c <- ask; lift $ rmGetTexture (canvasRM c) (canvasRenderer c) k}
-{-# INLINE getTexture #-}
+getTexture k = do
+    c <- ask
+    cache <- readMonadIORef $ canvasTextureCache c
+    case HM.lookup k cache of
+        Just t -> return t
+        _ -> do
+            t <- lift (rmGetSurface (canvasRM c) k >>= SDL.createTextureFromSurface (canvasRenderer c))
+            writeMonadIORef (canvasTextureCache c) $ HM.insert k t cache
+            return t
 
 drawStretchedTextureR  :: MonadIO m => T.Text -> Maybe GuiRect -> GuiRect -> GuiCanvas m ()
 drawStretchedTextureR k src dst = do { t <- getTexture k; drawStretchedTexture t src dst}
