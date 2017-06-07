@@ -10,6 +10,7 @@ import Data.Word
 --import Data.Char
 import Data.Bits
 --import Numeric
+import qualified Data.Vector.Unboxed as VU
 import qualified Data.Map.Strict as Map (empty)
 import qualified Data.IntMap.Strict as IntMap (empty)
 import Control.Exception
@@ -57,6 +58,7 @@ runGUI skin fntLst initFn = do
                                               , guiState = GuiState 0
                                               , guiUnique = 0
                                               , guiUserMsgHandlers = IntMap.empty
+                                              , guiUserMsgRemovedIds = VU.empty
                                               }
             let freeFinally = delAllWindows gui >> putStrLn "freeFinally"
             (`finally` freeFinally) $ do
@@ -146,10 +148,10 @@ onEvent gui evpl = case evpl of
             putStrLn "WindowLostKeyboardFocusEvent"
     --
     SDL.WindowClosedEvent (SDL.WindowClosedEventData win) -> do
-        cWins' <- getWindowsCount gui
+--        cWins' <- getWindowsCount gui
         delWindowByIx gui win
-        cWins <- getWindowsCount gui
-        putStrLn $ concat ["WindowClosedEvent cWins before = ", show cWins', "   cWins after = ", show cWins]
+--        cWins <- getWindowsCount gui
+--        putStrLn $ concat ["WindowClosedEvent cWins before = ", show cWins', "   cWins after = ", show cWins]
 {-        when (cWins>0) $ do
             popupOnly <- windowsFold gui (\b rfWin -> (b &&) <$> allWindowFlags rfWin WindowPopupFlag) True
             when popupOnly $ guiApplicationExitSuccess gui -}
@@ -224,9 +226,14 @@ onEvent gui evpl = case evpl of
         return $ const () (win)
 -}
     --
-    SDL.TextInputEvent (SDL.TextInputEventData win text) -> do
-        putStrLn $ concat ["TextInputEvent text=",T.unpack text]
-        return $ const () (win)
+    SDL.TextInputEvent (SDL.TextInputEventData win text) ->
+        withWindow win $ \rfWin -> do
+--            putStrLn ("TextInputEvent text=" ++ T.unpack text)
+            mbf <- getFocusedWidget rfWin
+            whenIsJust mbf $ \widget -> do
+                fs <- getWidgetFns widget
+                onTextInput fs widget text
+
     -- A mouse or pointer device was moved.
     SDL.MouseMotionEvent (SDL.MouseMotionEventData
                 win _
@@ -252,9 +259,9 @@ onEvent gui evpl = case evpl of
                 mouseButton -- MouseButton = ButtonLeft | ButtonMiddle | ButtonRight | ButtonX1 | ButtonX2 | ButtonExtra Int
                 clicks -- The amount of clicks. 1 for a single-click, 2 for a double-click, etc.
                 posPointer -- (Point V2 Int32)
-                         ) -> do
-        (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
-        putStrLn $ concat ["MouseButtonEvent  btns=", show btns, "   ", show mouseP]
+                         ) -> -- do
+--        (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
+--        putStrLn $ concat ["MouseButtonEvent  btns=", show btns, "   ", show mouseP]
 --        when (motion==SDL.Pressed) $ do
 --            putStrLn "MouseButtonEvent Pressed"
 {-            putStrLn $ concat [ "MouseButtonEvent  motion=",show motion

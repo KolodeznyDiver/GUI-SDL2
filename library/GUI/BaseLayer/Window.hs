@@ -12,7 +12,7 @@ module GUI.BaseLayer.Window(
     ,getSDLWindow,getWindowRenderer
     ,getWindowByIx,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
     ,getWinCursorIx,setWinCursorIx
-    ,showWinWidgets,getGuiFromWindow,getWindowMainWidget,getWindowsMap
+    ,showWinWidgets,getGuiFromWindow,getWindowMainWidget,getWindowForegroundWidget,getWindowsMap
     ,doForWinByIx,allWindowsMap_,redrawWindowByIx,redrawWindow,isSpecStateWidget
     ,resetSpecStateWidget,setSpecStateWidget,setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured
     ,resetMouseCapturedWidget,setWinMainMenu,getWinMainMenu
@@ -143,6 +143,10 @@ getWindowMainWidget :: MonadIO m => GuiWindow -> m Widget
 getWindowMainWidget rfWin = mainWidget <$> readMonadIORef rfWin
 {-# INLINE getWindowMainWidget #-}
 
+getWindowForegroundWidget :: MonadIO m => GuiWindow -> m Widget
+getWindowForegroundWidget rfWin = winFgWidget <$> readMonadIORef rfWin
+{-# INLINE getWindowForegroundWidget #-}
+
 getWindowsMap :: MonadIO m => Gui -> m GuiWindowCollection
 getWindowsMap gui = guiWindows <$> readMonadIORef gui
 {-# INLINE getWindowsMap #-}
@@ -226,19 +230,34 @@ redrawWindow rfWin force = do
 
                         V.mapM_  (go off rect force4) (cildrenWidgets w)
 --                liftIO $ putStrLn $ concat ["redrawWindow.go END "]
-        buf <- if szChanged then do
-                     SDL.destroyTexture $ winBuffer win
-                     newBuf <- P.createTargetTexture renderer wSz
-                     modifyMonadIORef' rfWin (\w ->w{winBuffer=newBuf})
-                     return newBuf
-               else return $ winBuffer win
-        target $= Just buf
-        let winRect = SDL.Rectangle zero wSz
-        go zero winRect force2 (mainWidget win)
+        let do' bufSzChanged oBuf newSz force' widget' off fieldModifyFun = do
+                buf <-  if bufSzChanged then do
+                            SDL.destroyTexture oBuf
+                            newBuf <- P.createTargetTexture renderer newSz
+                            modifyMonadIORef' rfWin (fieldModifyFun newBuf)
+                            return newBuf
+                        else return oBuf
+                target $= Just buf
+                go off (SDL.Rectangle zero newSz) force' widget'
+                return buf
+        mbFgChildren <- getWidgetChild (winFgWidget win) 0
+        mbFg <- case mbFgChildren of
+                    Just fgChildren -> do
+                        rect@(SDL.Rectangle (P off) sz) <- getWidgetRect fgChildren
+                        oSz <- P.getTextureSize $ winFgBuffer win
+                        let fgForce = sz /= oSz
+                        buf <- do' fgForce (winFgBuffer win) sz (force || fgForce) fgChildren
+                                    (fmap negate off) $ \buf w -> w{winFgBuffer=buf}
+                        return $ Just (buf,rect)
+                    _ -> return Nothing
+        buf <- do' szChanged (winBuffer win) wSz force2 (mainWidget win) zero
+                        $ \buf w -> w{winBuffer=buf}
         clip   $= Nothing
         target $= Nothing
         SDL.clear renderer
         SDL.copy renderer buf Nothing  Nothing -- $ Just $ winRect
+        whenIsJust mbFg $ \ (buf',rect) ->
+            SDL.copy renderer buf' Nothing $ Just (fmap fromIntegral rect)
         SDL.present renderer
 
 isSpecStateWidget:: MonadIO m => GuiWindow -> Widget -> m Bool
@@ -287,12 +306,3 @@ setWinMainMenu rfWin menu = modifyMonadIORef' rfWin (\x -> x{winMainMenu=menu})
 getWinMainMenu :: MonadIO m => GuiWindow -> m (Maybe Widget)
 getWinMainMenu = fmap winMainMenu . readMonadIORef
 {-# INLINE getWinMainMenu #-}
-{-
-setWinPrev :: MonadIO m => GuiWindow -> Maybe GuiWindow -> m ()
-setWinPrev rfWin nextWindow = modifyMonadIORef' rfWin (\x -> x{winPrev=nextWindow})
-{-# INLINE setWinPrev #-}
-
-getWinPrev :: MonadIO m => GuiWindow -> m (Maybe GuiWindow)
-getWinPrev = fmap winPrev . readMonadIORef
-{-# INLINE getWinPrev #-}
--}

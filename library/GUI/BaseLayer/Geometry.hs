@@ -208,7 +208,7 @@ mkDotLineVector step p0 p1 =
         cnt = case (\v -> truncate $ abs $ fromIntegral v / stepF) <$> sz of
                 V2 0 cntY -> cntY
                 V2 cntX 0 -> cntX
-                V2 cntX cntY -> min cntX cntY
+                V2 cntX cntY -> max 1 (min cntX cntY)
     in V.create $ do
             v <- VM.new cnt
             let go i p | i == cnt = return v
@@ -217,7 +217,7 @@ mkDotLineVector step p0 p1 =
 
 mkDotRectVector :: Coord -> SDL.Rectangle Coord -> V.Vector GuiPoint
 mkDotRectVector step (SDL.Rectangle p0 (V2 w h)) =
-    let cornSpan = 3
+    let cornSpan = 0
         spanX = V2 cornSpan 0
         spanY = V2 0 cornSpan
         p = SDL.Rectangle p0 (V2 (w-1) (h-1))

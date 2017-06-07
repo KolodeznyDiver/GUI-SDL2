@@ -1,6 +1,5 @@
 module GUI.BaseLayer.Skin where
 
---import qualified Data.Text as T
 import GUI.BaseLayer.Types
 
 data BtnBorderType = BtnBorderRound GuiColor
@@ -25,20 +24,15 @@ data ButtonDecore = ButtonDecore    { btnDecoreOut :: DecoreState
 
 
 data Skin = Skin { skinName :: String
---                 , mainBkColor :: GuiColor
                  , windowBkColor :: GuiColor
                  , bkColor :: GuiColor
                  , borderColor :: GuiColor
                  , widgetBorderColor :: GuiColor
                  , foregroundColor :: GuiColor
+                 , selectedDecore :: DecoreState
                  , brdr3DLightColor :: GuiColor
                  , brdr3DDarkColor :: GuiColor
---                 , formItemsColor :: GuiColor
---                 , formItemsBkColor :: GuiColor
                  , formItemsMargin  :: WidgetMargin
---                 , labelsFontKey :: T.Text
---                 , buttonsFontKey :: T.Text
---                 , editFontKey :: T.Text
                  , formTextLineSpacing :: Double
                  , formItemsButtons :: ButtonDecore
                  , buttonsSpacing :: Coord

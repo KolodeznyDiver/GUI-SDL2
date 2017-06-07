@@ -2,11 +2,14 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GUI.BaseLayer.Resource(
+    -- GUI.BaseLayer.Raw.TTF
+    GuiFontStyle(..)
     -- GUI.BaseLayer.Resource.Types
-    GuiFontDef(..),ResourceManager
+    ,GuiFontOptions(..),GuiFontDef(..),ResourceManager
     -- GUI.BaseLayer.Resource
     ,initResourceManager,destroyResourceManager,rmGetSurfaceFromCache,rmGetSurface,rmAddSurface
     ,rmGetFont,rmLoadFont,rmGetCursor,rmSetCursor,rmAddCursor
@@ -25,14 +28,14 @@ import System.Environment
 import System.Exit (exitFailure)
 import MonadUtils (unlessM) -- (fmapMaybeM)
 import Data.Char
---import Maybes (whenIsJust)
+import Maybes (whenIsJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 -- import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 --import Data.StateVar
 import Data.IORef
--- import Control.Monad
+import Control.Monad
 import Control.Exception
 import GUI.BaseLayer.Types
 -- import GUI.BaseLayer.Internal.Types
@@ -41,6 +44,7 @@ import GUI.BaseLayer.Ref
 import GUI.BaseLayer.Cursor
 --import GUI.BaseLayer.Geometry
 import GUI.BaseLayer.Primitives
+import GUI.BaseLayer.Raw.TTF (GuiFontStyle(..),setFontStyleIfNeed)
 --import Foreign -- debug
 --import qualified Data.Vector.Storable.Mutable as VM
 
@@ -174,10 +178,9 @@ rmGetSurfaceFromCache = fromCache
 rmGetSurface:: MonadIO m => ResourceManager -> T.Text -> m SDL.Surface
 rmGetSurface r k = rmGetValue r load k def
     where load :: FilePath -> IO SDL.Surface
-          load path =      let ext = map toUpper $ takeExtension (T.unpack k) in do
-                      liftIO $ putStrLn $ concat ["rmGetSurface.load path = ",path]
+          load path = let ext = map toUpper $ takeExtension (T.unpack k) in
+--                      liftIO $ putStrLn $ concat ["rmGetSurface.load path = ",path]
                       if | ext == ".BMP" ->
---                            liftIO $ putStrLn "Before SDL.loadBMP"
                             SDL.loadBMP path
 -- from https://www.stackage.org/haddock/lts-8.13/sdl2-image-2.0.0/SDL-Image.html
 -- PNG, JPG, TIF, GIF, WEBP, CUR, ICO, BMP, PNM, XPM, XCF, PCX and XV formatted data
@@ -189,7 +192,6 @@ rmGetSurface r k = rmGetValue r load k def
                     surf <- ((SDL.displayModeFormat . head . SDL.displayModes . head) <$> SDL.getDisplays)
                         >>= SDL.createRGBSurface (fmap fromIntegral sz)
                     SDL.surfaceFillRect surf Nothing (V4 255 0 0 0)
---                    liftIO $ putStrLn $ "def, SurfaceInfo =" ++ show ti
                     return surf
 
 rmAddSurface:: MonadIO m => ResourceManager -> T.Text -> SDL.Surface -> m ()
@@ -211,7 +213,7 @@ rmGetFont r abbr = do
             _ -> return $ fnt $ fc HM.! head (HM.keys fc)
 
 rmLoadFont:: MonadIO m => ResourceManager -> GuiFontDef -> m TTFFont
-rmLoadFont r (GuiFontDef abbr pth fntSz) = do
+rmLoadFont r (GuiFontDef abbr pth fntSz opts) = do
     fc <- readMonadIORef $ fonts r
     e  <- case HM.lookup abbr fc of
                 Just oldFnt | fntPath oldFnt == pth && fntPtSz oldFnt == fntSz -> return $ Left (fnt oldFnt)
@@ -222,6 +224,7 @@ rmLoadFont r (GuiFontDef abbr pth fntSz) = do
         Right fc2 -> do
             fci <- rmLoadValue r load pth
                      $ error $ concat ["Can\'t load font ",pth,",  Point size = ",show fntSz]
+            fontTuning (fnt fci) opts
             writeMonadIORef (fonts r) $ HM.insert abbr fci fc2
             return $ fnt fci
  where load path = do
@@ -249,3 +252,12 @@ rmAddCursor r abbr cursor = do
             _ -> return $ HM.insert abbr cursor uc)
         >>= writeMonadIORef (userCursors r)
 
+fontTuning :: MonadIO m => TTFFont -> GuiFontOptions -> m ()
+fontTuning fnt GuiFontOptions{..} = do
+    whenIsJust fontKerning $ \ kerning -> do
+        old <- TTF.fontKerningEnabled fnt
+        when (old /= kerning) $ TTF.setFontKerning fnt kerning
+    whenIsJust fontHinting $ \ hinting -> do
+        old <- TTF.getFontHinting fnt
+        when (old /= hinting) $ TTF.setFontHinting fnt hinting
+    whenIsJust fontStyle $ \ style -> setFontStyleIfNeed fnt style

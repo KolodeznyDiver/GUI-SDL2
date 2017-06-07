@@ -4,7 +4,8 @@
 {-# LANGUAGE PatternSynonyms #-}
 module GUI.Widget.Types(
     pattern MinInsideSpaceX, pattern MinInsideSpaceY, pattern KbdClickSpecPoint
-    ,WidgetMouseState(..),FormItemWidgetDef(..),NoArgAction(..),OneArgAction(..),Clickable(..),Changeable(..)
+    ,WidgetMouseState(..),FormItemWidgetDef(..),NoArgAction(..),OneArgAction(..),OneArgPredicate(..)
+    ,Clickable(..),Changeable(..)
     ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),RowNumProperty(..)
     ,MouseStateProperty(..)
                         ) where
@@ -42,6 +43,8 @@ instance Default FormItemWidgetDef where
 newtype NoArgAction = NoArgAction {noArgAction :: forall m. MonadIO m => m ()}
 
 newtype OneArgAction a = OneArgAction {oneArgAction :: forall m. MonadIO m => a -> m ()}
+
+newtype OneArgPredicate a = OneArgPredicate {oneArgPredicate :: forall m. MonadIO m => a -> m Bool}
 
 class Clickable a where
     onClick :: forall m. MonadIO m => a -> (forall n. MonadIO n => n ()) -> m ()

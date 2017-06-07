@@ -9,22 +9,23 @@ module GUI.BaseLayer.Internal.Types(
     ) where
 
 import Control.Monad.Trans.Reader
-import qualified SDL
 import Data.Word
+import Data.IORef
+import Foreign.Ptr
+import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
+import qualified Data.Map.Strict as Map
+import qualified Data.HashMap.Strict as HM
+import qualified Data.IntMap.Strict as IntMap
+import Control.Monad.IO.Class (MonadIO)
+import qualified Data.Text as T
+import qualified SDL
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.BitFlags
 import GUI.BaseLayer.Resource.Types (ResourceManager(..))
 import GUI.BaseLayer.Skin
 import GUI.BaseLayer.Cursor (CursorIx)
-import qualified Data.Vector as V
-import qualified Data.Map.Strict as Map
-import qualified Data.HashMap.Strict as HM
-import Data.IORef
-import qualified Data.IntMap.Strict as IntMap
-import Control.Monad.IO.Class (MonadIO)
-import qualified Data.Text as T
 import GUI.BaseLayer.Internal.Action
-import Foreign.Ptr
 
 data WidgetOpts
 data WindowOpts
@@ -114,6 +115,8 @@ data WindowStruct = WindowStruct    { guiOfWindow :: Gui
                                     --, winPrev :: Maybe GuiWindow -- menu popup chain
                                     , winMainMenu :: Maybe Widget
                                     , winTextureCache :: WinTextureCache
+                                    , winFgWidget :: ~Widget
+                                    , winFgBuffer :: SDL.Texture
                                     }
 
 data GUIStruct = GUIStruct          { guiWindows :: GuiWindowCollection
@@ -124,5 +127,6 @@ data GUIStruct = GUIStruct          { guiWindows :: GuiWindowCollection
                                     , guiState :: GuiState
                                     , guiUnique :: Int
                                     , guiUserMsgHandlers :: GuiPipeCollection
+                                    , guiUserMsgRemovedIds :: VU.Vector Int
                                     }
 

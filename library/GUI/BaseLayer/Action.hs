@@ -95,12 +95,11 @@ setActionEnable :: MonadIO m => Gui -> T.Text -> T.Text -> Bool -> m ()
 setActionEnable gui groupName idName b =
     modifyMonadIORef' gui (\a -> a{guiActions=actionSetEnable (guiActions a) groupName idName b})
 
-setAction :: MonadIO m => Gui -> T.Text -> T.Text -> (forall m. MonadIO m => m ()) -> m ()
+setAction :: MonadIO m => Gui -> T.Text -> T.Text -> (forall n. MonadIO n => n ()) -> m ()
 setAction gui groupName idName f =
     modifyMonadIORef' gui (\a -> a{guiActions=actionSetOnAction (guiActions a) groupName idName f})
 {-# INLINE setAction #-}
 
--- actionGetVisibles :: GuiState -> Actions -> T.Text -> V.Vector Action
 getVisibleActions :: MonadIO m => Gui -> T.Text -> m (V.Vector (T.Text,Action))
 getVisibleActions gui groupName = do
     GUIStruct{..} <- readMonadIORef gui

@@ -18,6 +18,8 @@ import System.Exit
 import GHC.Conc
 import qualified SDL
 import SDL.Vect
+--import qualified SDL.TTF as TTF
+import SDL.TTF.Types
 import GUI
 import GUI.Skin.DefaultSkin
 import GUI.Widget.Handlers
@@ -29,16 +31,22 @@ import GUI.Widget.Container.ScrollArea
 import GUI.Widget.Splitter
 import GUI.Widget.Menu.Horizontal
 import GUI.Widget.Container.Border
---import GUI.BaseLayer.PopupWindow
+import GUI.Widget.TextEdit
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением ("кожей", скином) по умолчанию
 
-        -- Таблица предзагруженных шрифтов : ключ, имя файла, размер шрифта
-        [GuiFontDef ""          "PTM55F.ttf" 14
-        ,GuiFontDef "label"     "PTN57F.ttf" 15
-        ,GuiFontDef "small"     "PTN57F.ttf" 13
-        ,GuiFontDef "menu"      "PTN57F.ttf" 14]
+        -- Таблица предзагруженных шрифтов : ключ, имя файла, размер шрифта, опции
+        [GuiFontDef ""          "PTM55F.ttf" 14 def
+        ,GuiFontDef "label"     "PTN57F.ttf" 15 def
+        ,GuiFontDef "edit"      "PTM55F.ttf" 14 def{ fontHinting = Just TTFHNone
+                                                   , fontKerning = Just KerningOff }
+        ,GuiFontDef "small"     "PTN57F.ttf" 13 def
+        ,GuiFontDef "menu"      "PTN57F.ttf" 14 def
+        ,GuiFontDef "hello world"     "PTN57F.ttf" 15 def{fontStyle = Just def  { fontBold = True
+                                                                                , fontItalic = True
+                                                                                , fontUnderline = True}}
+        ]
 
         $ \gui -> do
     putStr "SDL version " >> SDL.version >>= print
@@ -46,7 +54,9 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
                                                         --, SDL.windowResizable = True
                                                         }
 #if EXAMPLE_NUM == 0
-    void $ win $+ label def{labelAlignment=AlignCenter, labelText="Привет, мир!"}
+    void $ win $+ label def { labelFormItemDef = FormItemWidgetDef $ Just WidgetMarginNone
+                            , labelAlignment=AlignCenter, labelFontKey = "hello world"
+                            , labelText="Привет, мир!"}
 #elif EXAMPLE_NUM == 1
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
     lb0 <- vL $+ label def{labelSize=V2 150 20, labelAlignment=AlignCenter,
@@ -161,7 +171,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
     void $ vL $+ label def{labelSize=V2 450 20, labelAlignment=AlignCenter,
                               labelText="Пример создания виджета отслеживающего мышь"}
-    void $ vL $+ mouseChkWidget
+    void $ vL $+ mouseChkWidget $ WidgetMarginXY 20 10
 #elif EXAMPLE_NUM == 6
     lb <- win $+ label def{labelAlignment=AlignCenter
                            , labelFormItemDef= FormItemWidgetDef $ Just WidgetMarginNone
@@ -242,15 +252,69 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     btn0 <- hL0 $+ button def{btnSize = V2 200 35, btnText = "Восстановить текст"}
     onClick btn0 $ do
         setText lb txtHotKeyPrompt
-{-        let widget = getWidget btn0
-        sz <- sizeOfRect <$> getWidgetRect widget
-        void $ mkPopupWindow widget $ SDL.Rectangle (P sz) (V2 200 400) -}
+        
     addActions gui "Hotkeys" [
          ("hk0",def{actionHotKey= hkAlt SDL.KeycodeF2, actionValue=def{onAction= setText lb "Alt-F2"}})
         ,("hk1",def{actionHotKey= hkCtrl SDL.KeycodeD, actionValue=def{onAction= setText lb "Ctrl-D"}})
         ]
 
+    -- Пример задания/замены действия для Action после его создания.
     setAction gui "File" "Save" $ setText lb "Нажат пункт меню File/Save"
+#elif EXAMPLE_NUM == 8
+    vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
+    hL0 <- vL $+ hLayout def
+    void $ hL0 $+ border def {borderSize = V2 150 100, borderType = BorderRound Nothing
+                             , borderThickness = 20, borderCaption = "border 1"
+                             --, borderBkgrnd = BorderBkColor $ rgb 0 255 255
+                             }
+    void $ hL0 $+ border def {borderSize = V2 150 100, borderType = BorderDot 4
+                             , borderThickness = 20, borderCaptionAlignment = HCenter
+                             , borderCaption = "border 2"}
+    void $ vL $+ border def  {borderSize = V2 (-1) 20, borderType = BorderLine
+                             , borderCaption = "border 3"}
+    hL1 <- vL $+ hLayout def
+    brd4 <- hL1 $+ border def {borderSize = V2 150 100, borderType = Border3D Nothing Nothing
+                              , borderThickness = 20, borderCaption = "border 4"}
+    brd4 $+ exampleTextGrid
+
+    void $ hL1 $+ border def {borderSize = V2 150 100, borderType = BorderMono
+                             , borderFgColor = Just (rgb 255 0 255), borderCaption = "border 5"
+                             , borderBkgrnd = BorderBkColor $ rgb 0 255 0}
+
+    fgBorder <- newForeground win (P (V2 130 90)) $
+                 border def {  borderType = BorderRect
+                             , borderThickness = 1, borderSizeByChild = True
+                             , borderBkgrnd = BorderBkColor $ rgb 255 255 200
+                             }
+    void $ fgBorder $+ label def{labelAlignment=AlignCenter, labelBkColor = Just (rgb 255 255 200)
+                             , labelSize = V2 50 25, labelWrapMode = TextNoWrap 300
+--                           , labelFormItemDef= FormItemWidgetDef $ Just WidgetMarginNone
+                           , labelText= "Пример плавающего виджета"}
+
+#elif EXAMPLE_NUM == 9
+    win $+ mouseChkWidget WidgetMarginNone
+    fgBorder <- newForeground win (P (V2 130 90)) $
+                 border def {  borderType = BorderRect
+                             , borderThickness = 1, borderSizeByChild = True
+                             , borderBkgrnd = BorderBkColor $ rgb 255 255 200
+                             }
+    btn0 <- fgBorder $+ button def{btnSize = V2 200 35, btnText = "Плавающая кнопка"}
+    onClick btn0 $
+        SDL.showSimpleMessageBox Nothing SDL.Information "GUI Demo" "Плавающая кнопка была нажата"
+#elif EXAMPLE_NUM == 10
+    vL <- win $+ vLayout def -- {layoutAlignment = AlignCenterTop}
+    hL0 <- vL $+ hLayout def
+    lb <- hL0 $+ label def{labelSize=V2 150 20, labelText="Поле редактирования :"}
+    ed <- hL0 $+ textEdit def{textEditText="qwerty01234567890"}
+    onChanged ed $ \ t ->
+        setText lb t
+    onTextEditAtEnd ed $ \ t ->
+        setText lb "Enter or lost focuse"
+    btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
+    onClick btn $
+        allWidgetFlags (getWidget ed) WidgetEnable >>= enableWidget ed . not
+
+    setWidgetFocus $ getWidget ed
 #else
     #error EXAMPLE_NUM is out of range
 #endif
@@ -262,7 +326,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
 -- http://www.paratype.ru/public/
 
 
-#if EXAMPLE_NUM == 3
+#if (EXAMPLE_NUM == 3) || (EXAMPLE_NUM == 8)
 exampleTextGrid :: MonadIO m => Widget -> Skin -> m (GuiWidget SimpleWidget)
 exampleTextGrid parent _ = mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFocusable)
                                 WidgetMarginNone SimpleWidget
@@ -297,11 +361,11 @@ colorWidget :: MonadIO m => GuiColor -> Widget -> Skin -> m (GuiWidget SimpleWid
 colorWidget color parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent $ colorRectFns (V2 60 30) color
 #endif
 
-#if EXAMPLE_NUM == 5
-mouseChkWidget :: MonadIO m => Widget -> Skin -> m (GuiWidget SimpleWidget)
-mouseChkWidget parent _ = do
+#if (EXAMPLE_NUM == 5) || (EXAMPLE_NUM == 9)
+mouseChkWidget :: MonadIO m => WidgetMargin -> Widget -> Skin -> m (GuiWidget SimpleWidget)
+mouseChkWidget margin parent _ = do
     rfState <- newMonadIORef Nothing
-    mkWidget (WidgetVisible .|. WidgetEnable) (WidgetMarginXY 20 10) SimpleWidget parent
+    mkWidget (WidgetVisible .|. WidgetEnable) margin SimpleWidget parent
                 (noChildrenFns $ V2 (-1) (-1)){
         onGainedMouseFocus = \widget p -> writeMonadIORef rfState (Just p) >> markWidgetForRedraw widget
         ,onMouseMotion = \widget _btnsLst p _relMv -> writeMonadIORef rfState (Just p) >> markWidgetForRedraw widget

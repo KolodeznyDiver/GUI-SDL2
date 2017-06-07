@@ -12,7 +12,6 @@ import Data.Bits
 import Data.IORef
 import Data.Default
 import GUI
-import GUI.Widget.Handlers
 
 type LinearTrackValueType = Int
 
@@ -47,13 +46,14 @@ instance Default LinearTrackBarDef where
 data LinearTrackBarStruct = LinearTrackBarStruct    { lnrTrBrMin :: LinearTrackValueType
                                                     , lnrTrBrMax :: LinearTrackValueType
                                                     , lnrTrBrVal :: LinearTrackValueType
-                                                    , lnrTrBrOnChanged :: OneArgAction LinearTrackValueType
+                                                    , lnrTrBrOnChanged :: forall m. MonadIO m =>
+                                                        LinearTrackValueType -> m ()
                                                     }
 
 newtype LinearTrackBarData = LinearTrackBarData { getLnrTrBr :: IORef LinearTrackBarStruct }
 
 instance Changeable (GuiWidget LinearTrackBarData) LinearTrackValueType where
-    onChanged w a = modifyMonadIORef' (getLnrTrBr $ getWidgetData w) (\d -> d{lnrTrBrOnChanged=OneArgAction a})
+    onChanged w a = modifyMonadIORef' (getLnrTrBr $ getWidgetData w) (\d -> d{lnrTrBrOnChanged= a})
 
 instance MinMaxValueProperty (GuiWidget LinearTrackBarData) LinearTrackValueType where
     setMinValue w v =  do
@@ -76,5 +76,5 @@ instance ValueProperty (GuiWidget LinearTrackBarData) LinearTrackValueType where
         when ( newV/= lnrTrBrVal) $ do
             writeMonadIORef (getLnrTrBr $ getWidgetData w) a{lnrTrBrVal= newV}
             markWidgetForRedraw (getWidget w)
-            oneArgAction lnrTrBrOnChanged newV
+            lnrTrBrOnChanged newV
     getValue = fmap lnrTrBrVal . readMonadIORef . getLnrTrBr . getWidgetData

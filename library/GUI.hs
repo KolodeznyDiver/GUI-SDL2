@@ -17,7 +17,7 @@ module GUI(
     ,getSDLWindow,getWindowRenderer
     ,getWindowByIx,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
     ,getWinCursorIx
-    ,showWinWidgets,getGuiFromWindow,getWindowMainWidget,getWindowsMap
+    ,showWinWidgets,getGuiFromWindow,getWindowMainWidget,getWindowForegroundWidget,getWindowsMap
     ,doForWinByIx,allWindowsMap_,redrawWindowByIx,redrawWindow,isSpecStateWidget
     ,resetSpecStateWidget,setSpecStateWidget,setMouseCapturedWidget,getMouseCapturedWidget
     ,resetMouseCaptured,resetMouseCapturedWidget,setWinMainMenu,getWinMainMenu
@@ -34,16 +34,18 @@ module GUI(
     ,widgetCoordsToStr,showWidgets,showWidgetsFromMain
     --,toWidgetCanvasCoord,toCanvasCoord,getWidgetFsAndCoord
     ,getWidgetFlags,setWidgetFlags,widgetFlagsAddRemove
-    ,widgetFlagsAdd,widgetFlagsRemove,allWidgetFlags,anyWidgetFlags
+    ,widgetFlagsAdd,widgetFlagsRemove,allWidgetFlags',allWidgetFlags,anyWidgetFlags
     ,setWidgetFns,getWidgetFns,getWidgetParentFns,widgetResizingIfChanged
     ,setWidgetCursorIx,getWidgetCursorIx,getWidgetWindow
     ,getWidgetChildrenCount,getWidgetChild
     ,foldByWidgetChildren,foldByWidgetChildren',ifoldByWidgetChildren,ifoldByWidgetChildren'
     ,foldByWidgetChildren_,foldByWidgetChildren'_,ifoldByWidgetChildren_,ifoldByWidgetChildren'_
     ,mapByWidgetChildren,imapByWidgetChildren,mapByWidgetChildren_,imapByWidgetChildren_,forEachWidgets
-    ,getChildWidgetIx,getWidgetParentIx,getPrevNextWidgets,isMainWidget,getWinMainWidget,mkWidget'
+    ,getChildWidgetIx,getWidgetParentIx,getPrevNextWidgets,isMainWidget,getWinMainWidget
+    ,findWidgetInTreeForward,findWidgetInTreeBackward,findNextTabbedWidget,findPrevTabbedWidget,mkWidget'
     -- GUI.Utils
-    ,WidgetComposer(..),mulDiv,getWidgetCoordOffset,coordToWidget,mouseToWidget
+    ,WidgetComposer(..),newForeground,moveWidget,resizeWidget,resizeWidgetWithCanvas
+    ,mulDiv,getWidgetCoordOffset,coordToWidget,mouseToWidget
     ,runProxyWinCanvas,runProxyCanvas,guiGetSkin,getSkinFromWin,getSkinFromWidget,guiGetResourceManager
     ,guiSetCursor,setGuiState,getGuiState,getUniqueCode,notifyEachWidgetsInAllWin
     ,clearFocusInWindow,clearWidgetFocus,setWidgetFocus
@@ -54,7 +56,7 @@ module GUI(
     ,extendableOnResizing,enableWidget,visibleWidget,newWindow',newWindow,overlapsChildrenFns,setWinCursorIx,setWinSize
     ,guiApplicationExitSuccess,guiApplicationExitFailure,guiApplicationExitWithCode
     -- GUI.BaseLayer.Event
-    ,GuiPipeProducer,GuiPipe(newGuiPipe,sendToGuiPipe),getPipeIdFromProducer
+    ,GuiPipeProducer,GuiPipe(newGuiPipe,sendToGuiPipe,replaceGuiPipeHandler),getPipeIdFromProducer,delGuiPipe
     -- GUI.BaseLayer.Cursor
     ,GuiCursor(..),CursorIx(..),pattern DefCursorIx,getCursor,setCursor
     ,activeCursor,freeCursor,createSystemCursor,CursorSet(..),freeCursorSet,mkSystemCursorSet,cursorFromSystemIx
@@ -71,8 +73,10 @@ module GUI(
     ,mkDotRectVector
     -- GUI.BaseLayer.Color
     ,rgb,grayColor
+    -- GUI.BaseLayer.Raw.TTF
+    ,GuiFontStyle(..)
     -- GUI.BaseLayer.Resource.Types
-    ,GuiFontDef(..),ResourceManager
+    ,GuiFontOptions(..),GuiFontDef(..),ResourceManager
     -- GUI.BaseLayer.Resource
     ,initResourceManager,destroyResourceManager,rmGetSurfaceFromCache,rmGetSurface,rmAddSurface
     ,rmGetFont,rmLoadFont,rmGetCursor,rmSetCursor,rmAddCursor
@@ -94,7 +98,8 @@ module GUI(
     ,noChildrenFns,noChildrenMoveOnlyFns
     -- GUI.Widget.Types
     ,pattern MinInsideSpaceX, pattern MinInsideSpaceY, pattern KbdClickSpecPoint
-    ,WidgetMouseState(..),FormItemWidgetDef(..),NoArgAction(..),OneArgAction(..),Clickable(..),Changeable(..)
+    ,WidgetMouseState(..),FormItemWidgetDef(..),NoArgAction(..),OneArgAction(..),OneArgPredicate(..)
+    ,Clickable(..),Changeable(..)
     ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),RowNumProperty(..)
     ,MouseStateProperty(..)
     -- GUI.BaseLayer.Action

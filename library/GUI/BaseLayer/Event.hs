@@ -5,7 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 module GUI.BaseLayer.Event(
-    GuiPipeProducer,GuiPipe(..),userEventHandler,getPipeIdFromProducer
+    GuiPipeProducer,GuiPipe(..),userEventHandler,getPipeIdFromProducer,delGuiPipe
     ) where
 
 import Foreign
@@ -13,6 +13,7 @@ import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 --import qualified Data.Vector.Storable as V
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
 import qualified Data.IntMap.Strict as IntMap
 import Maybes (whenIsJust)
 import qualified SDL
@@ -31,11 +32,20 @@ class GuiPipe a b | a -> b where
                     m (GuiPipeProducer b)
     newGuiPipe gui f = do
         GUIStruct{..} <- readMonadIORef gui
-        pipeId <- unUniqueCode <$> getUniqueCode gui
+        pipeId <- getNewGuiPipeId gui
         let fn p0 p1 = f (GuiPipeId pipeId) =<< liftIO (guiPipeDecoder p0 p1)
             n = IntMap.insert pipeId (UserMsgHandler fn) guiUserMsgHandlers
         modifyMonadIORef' gui (\x -> x{guiUserMsgHandlers=n})
         return $ GuiPipeProducer userEventCodeBase (fromIntegral pipeId)
+
+    replaceGuiPipeHandler :: forall m. MonadIO m => Gui -> GuiPipeProducer b ->
+                    (forall n. MonadIO n => GuiPipeId -> a -> n ()) -> m ()
+    replaceGuiPipeHandler gui prod f = do
+        GUIStruct{..} <- readMonadIORef gui
+        let pipeId = fromIntegral $ guiPipeId prod
+            fn p0 p1 = f (GuiPipeId pipeId) =<< liftIO (guiPipeDecoder p0 p1)
+            n = IntMap.adjust (const (UserMsgHandler fn)) pipeId guiUserMsgHandlers
+        modifyMonadIORef' gui (\x -> x{guiUserMsgHandlers=n})
 
     sendToGuiPipe :: forall m. MonadIO m => GuiPipeProducer b -> a -> m Bool
     sendToGuiPipe GuiPipeProducer{..} a = do
@@ -78,3 +88,22 @@ userEventHandler gui code p0 p1 = do
 getPipeIdFromProducer :: GuiPipeProducer a -> GuiPipeId
 getPipeIdFromProducer = GuiPipeId . fromIntegral . guiPipeId
 {-# INLINE getPipeIdFromProducer #-}
+
+delGuiPipe :: MonadIO m => Gui -> GuiPipeProducer a -> m ()
+delGuiPipe gui prod = do
+    GUIStruct{..} <- readMonadIORef gui
+    let pipeId = fromIntegral $ guiPipeId prod
+    when (IntMap.member pipeId guiUserMsgHandlers) $
+        modifyMonadIORef' gui (\x -> x{guiUserMsgHandlers=IntMap.delete pipeId guiUserMsgHandlers,
+                                        guiUserMsgRemovedIds= VU.snoc guiUserMsgRemovedIds pipeId})
+
+-- no export
+getNewGuiPipeId :: MonadIO m => Gui -> m Int
+getNewGuiPipeId gui = do
+    GUIStruct{..} <- readMonadIORef gui
+    if VU.null guiUserMsgRemovedIds then
+        if IntMap.null guiUserMsgHandlers then return 0
+        else return $ succ $ fst $ IntMap.findMax guiUserMsgHandlers
+    else let (vHead,vTail) = VU.splitAt 1 guiUserMsgRemovedIds in
+         modifyMonadIORef' gui (\x -> x{guiUserMsgRemovedIds=vTail}) >> return (VU.head vHead)
+{-# INLINE getNewGuiPipeId #-}

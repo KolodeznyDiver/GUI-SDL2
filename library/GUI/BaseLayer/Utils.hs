@@ -2,7 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 module GUI.BaseLayer.Utils(
-    WidgetComposer(..),mulDiv,getWidgetCoordOffset,coordToWidget,mouseToWidget
+    WidgetComposer(..),newForeground,moveWidget,resizeWidget,resizeWidgetWithCanvas
+    ,mulDiv,getWidgetCoordOffset,coordToWidget,mouseToWidget
     ,runProxyWinCanvas,runProxyCanvas,guiGetSkin,getSkinFromWin,getSkinFromWidget,guiGetResourceManager
     ,guiSetCursor,setGuiState,getGuiState,getUniqueCode,notifyEachWidgetsInAllWin
     ,clearFocusInWindow,clearWidgetFocus,setWidgetFocus
@@ -52,6 +53,42 @@ instance WidgetComposer GuiWindow where
              delAllChildWidgets mainW
              createWidget mainW initF
 
+newForeground :: MonadIO m => GuiWindow -> GuiPoint ->
+                    (Widget -> Skin -> m (GuiWidget b)) -> m (GuiWidget b)
+newForeground rfWin p initF = do
+    fgWidget <- getWindowForegroundWidget rfWin
+    delAllChildWidgets fgWidget
+    gw <- createWidget fgWidget initF
+    let widget = getWidget gw
+    modifyMonadIORef' widget $ \ w ->
+        w{widgetRect=SDL.Rectangle p $ sizeOfRect $ widgetRect w, widgetMargin = MarginLTRB 0 0 0 0}
+    return gw
+
+moveWidget :: MonadIO m => Widget -> GuiPoint -> m ()
+moveWidget widget p = do
+    w <- readMonadIORef widget
+    let (SDL.Rectangle pO sz) = widgetRect w
+    when (pO /= p) $ do
+        writeMonadIORef widget w{widgetRect=SDL.Rectangle p sz}
+        markWidgetForRedraw widget
+
+resizeWidget :: MonadIO m => Widget -> GuiSize -> m ()
+resizeWidget widget sz = do
+    w <- readMonadIORef widget
+    let (SDL.Rectangle p szO) = widgetRect w
+    when (szO /= sz) $ do
+        writeMonadIORef widget w{widgetRect=SDL.Rectangle p sz}
+        markWidgetForRedraw widget
+
+resizeWidgetWithCanvas :: MonadIO m => Widget -> GuiSize -> m ()
+resizeWidgetWithCanvas widget sz = do
+    w <- readMonadIORef widget
+    let (SDL.Rectangle p szO) = widgetRect w
+    when (szO /= sz) $ do
+        writeMonadIORef widget w{widgetRect=SDL.Rectangle p sz
+                                ,widgetCanvasRect=SDL.Rectangle (pointOfRect $ widgetCanvasRect w) sz}
+        markWidgetForRedraw widget
+
 mulDiv :: Integral a => a -> a -> a -> a
 mulDiv a b c = fromInteger $ toInteger a * toInteger b `div` toInteger c
 {-# INLINE mulDiv #-}
@@ -89,7 +126,14 @@ coordToWidget widget' pnt = do
                 return Nothing
 
 mouseToWidget:: MonadIO m => GuiWindow -> GuiPoint -> m (Maybe (Widget,GuiCoordOffset))
-mouseToWidget rfWin pnt = (mainWidget <$> readMonadIORef rfWin) >>= (`coordToWidget` pnt)
+mouseToWidget rfWin pnt = do
+    fgWidget <- getWindowForegroundWidget rfWin
+    mbFg <- coordToWidget fgWidget pnt
+    let forMain = getWindowMainWidget rfWin >>= (`coordToWidget` pnt)
+    case mbFg of
+        Just (w,_) | w == fgWidget -> forMain
+                   | otherwise -> return mbFg
+        _ -> forMain
 {-# INLINE mouseToWidget #-}
 
 runProxyWinCanvas :: MonadIO m => GuiWindow -> GuiCanvas m a -> m a
@@ -279,10 +323,12 @@ delWindowByIx gui winIx = do
 --    cWins' <- getWindowsCount gui
     m <- getWindowsMap gui
     whenIsJust (Map.lookup winIx m) $ \ rfWin -> do
+            delWidget =<< getWindowForegroundWidget rfWin
             delWidget =<< getWindowMainWidget rfWin
             win <- readMonadIORef rfWin
             SDL.destroyTexture $ winProxyTexture win
             SDL.destroyTexture $ winBuffer win
+            SDL.destroyTexture $ winFgBuffer win
             SDL.destroyRenderer $ winRenderer win
             SDL.destroyWindow $ winSDL win
             mapM_ SDL.destroyTexture =<< readMonadIORef (winTextureCache win)
@@ -396,6 +442,7 @@ newWindow' rfGui winTitle winFl winCfg = do
     sz <- P.fromSDLV2 <$> get (SDL.windowSize wSDL)
     buf <- P.createTargetTexture rSDL sz
     proxyTexture <- P.createTargetTexture rSDL $ V2 1 1
+    fgTexture <- P.createTargetTexture rSDL $ V2 1 1
     textureCache <- newMonadIORef HM.empty
     rfWin <- newMonadIORef WindowStruct  { guiOfWindow = rfGui
                                    , winSDL = wSDL
@@ -411,13 +458,30 @@ newWindow' rfGui winTitle winFl winCfg = do
                                    --, winPrev = Nothing
                                    , winMainMenu = Nothing
                                    , winTextureCache = textureCache
+                                   , winFgWidget = undefined
+                                   , winFgBuffer = fgTexture
                                    }
-    rfW <- mkWidget' rfWin undefined WidgetVisible WidgetMarginNone (overlapsChildrenFns zero)
-    setWidgetParent rfW rfW
     let rect = SDL.Rectangle zero sz
-    setWidgetRect rfW rect
-    setWidgetCanvasRect  rfW rect
-    modifyMonadIORef' rfWin (\x -> x{mainWidget=rfW})
+        foregroundFns = defWidgFns{
+            onSizeChangedParentNotify= \_widget child size -> do
+                p <- pointOfRect <$> getWidgetRect child
+                widgetResizingIfChanged child (SDL.Rectangle p size)
+{-                nSz@(V2 w h) <- sizeOfRect <$> getWidgetRect child
+                when (w>0 && h >0 ) $ do
+                    win <- readMonadIORef rfWin
+                    oSz <- P.getTextureSize $ winFgBuffer win
+                    when (nSz /= oSz) $ do
+-}
+                                   }
+        mkRoot fns = do
+            rfW <- mkWidget' rfWin undefined WidgetVisible WidgetMarginNone fns
+            setWidgetParent rfW rfW
+            setWidgetRect rfW rect
+            setWidgetCanvasRect  rfW rect
+            return rfW
+    mainWdgt <- mkRoot $ overlapsChildrenFns zero
+    fgWdgt <- mkRoot foregroundFns
+    modifyMonadIORef' rfWin (\x -> x{mainWidget=mainWdgt, winFgWidget=fgWdgt})
     modifyMonadIORef' rfGui (\x -> x{guiWindows= Map.insert wSDL rfWin $ guiWindows x})
 {-    sDbg <- showWindowsAsStr rfGui
     liftIO $ putStrLn $ concat ["newWindow' new = ",show wSDL, "   ",sDbg] -}
@@ -442,7 +506,10 @@ setWinSize' rfWin newSz = do
     oldSz <- sizeOfRect <$> getWidgetRect widget
     when (newSz /= oldSz) $ do
         fs <- getWidgetFns widget
-        onResizing fs widget $ SDL.Rectangle zero newSz
+        let r = SDL.Rectangle zero newSz
+        fgWidget <- getWindowForegroundWidget rfWin
+        modifyMonadIORef' fgWidget $ \x -> x{widgetRect=r,widgetCanvasRect=r}
+        onResizing fs widget r
         markWidgetForRedraw widget
 
 setWinSize :: MonadIO m => GuiWindow -> GuiSize -> m ()

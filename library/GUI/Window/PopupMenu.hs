@@ -23,7 +23,6 @@ import System.FilePath
 import Maybes (whenIsJust)
 import qualified SDL
 import SDL.Vect
-import Data.StateVar
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.PopupWindow

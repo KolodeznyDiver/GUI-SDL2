@@ -41,7 +41,7 @@ mkLinearTrackBarQ direction = do
                 dataRf <- newMonadIORef LinearTrackBarStruct  { lnrTrBrMin = linearTrackMinValue
                                                               , lnrTrBrMax = linearTrackMaxValue
                                                               , lnrTrBrVal = linearTrackBarPos
-                                                              , lnrTrBrOnChanged =  OneArgAction (\_ -> return ())
+                                                              , lnrTrBrOnChanged = \_ -> return ()
                                                               }
                 let getSlideLn LinearTrackBarStruct{..} trackLn = toBound SliderMinLn trackLn (
                         if (linearTrackBarSliderLn > 0) || (lnrTrBrMin >= lnrTrBrMax)
@@ -85,7 +85,8 @@ mkLinearTrackBarQ direction = do
                             when (newV /= lnrTrBrVal) $ do
                                 writeMonadIORef dataRf l{lnrTrBrVal=newV}
                                 markWidgetForRedraw widget
-                                oneArgAction lnrTrBrOnChanged newV
+                                --oneArgAction
+                                lnrTrBrOnChanged newV
 
                     setValByMouse widget (P p) = do
                         (oldC,oldV) <- readMonadIORef rfSliderTraceState
