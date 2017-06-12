@@ -4,14 +4,12 @@
 {-# LANGUAGE PatternSynonyms #-}
 module GUI.BaseLayer.Internal.Action(
     pattern AllInvisibleActionMask,pattern AllDisableActionMask,pattern AllEnableActionMask
-    ,HotKeyModifier(..),HotKey(..),ActionMask(..),GuiState(..),ActionValue(..)
+    ,ActionMask(..),GuiState(..),ActionValue(..)
     ,ActionState(ActionInvisible,ActionDisable,ActionEnable),ActionId(..),Action(..)
-    ,ActionCollection,HotKeyCollection,Actions(..)
-    ,ActionFn(..)
+    ,ActionCollection,HotKeyCollection,Actions(..),ActionFn(..)
     ,isVisibleActionState,fromActionMask,getActionValueState
     ,mkActionMask,mkEmptyActions,actionAdd,actionFindByHotKey,actionGetByGroupAndId,actionDelByGroupAndId
     ,actionSetEnable,actionSetOnAction,actionGetVisibles
-
     ) where
 
 import Data.Maybe
@@ -24,8 +22,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import           Data.ByteString.Char8   (ByteString)
 import Data.Default
-import qualified SDL
 import GUI.BaseLayer.Keyboard
 
 pattern AllInvisibleActionMask :: ActionMask
@@ -34,31 +32,6 @@ pattern AllEnableActionMask :: ActionMask
 pattern AllInvisibleActionMask = ActionMask 0x0000000000000000
 pattern AllDisableActionMask   = ActionMask 0xAAAAAAAAAAAAAAAA
 pattern AllEnableActionMask    = ActionMask 0xFFFFFFFFFFFFFFFF
-
-data HotKeyModifier = HotKeyNoModifier
-                    | HotKeyCtrl
-                    | HotKeyShift
-                    | HotKeyAlt
-                    | HotKeyCtrlShift
-                    | HotKeyCtrlAlt
-                    | HotKeyShiftAlt
-                    deriving (Eq, Ord)
-
-instance Show HotKeyModifier where
-    show HotKeyNoModifier = ""
-    show HotKeyCtrl = "Ctrl-"
-    show HotKeyShift = "Shift-"
-    show HotKeyAlt = "Alt-"
-    show HotKeyCtrlShift = "Ctrl-Shift-"
-    show HotKeyCtrlAlt = "Ctrl-Alt-"
-    show HotKeyShiftAlt = "Shift-Alt-"
-
-
-data HotKey = HotKey HotKeyModifier SDL.Keycode
-                    deriving (Eq, Ord)
-
-instance Show HotKey where
-    show (HotKey km k) = show km ++ showKeycode k
 
 newtype ActionMask = ActionMask { unActionMask :: Word64}
 
@@ -78,16 +51,16 @@ instance Default ActionValue where
 
 data ActionState = ActionInvisible | ActionReserved | ActionDisable | ActionEnable
                     deriving (Eq, Enum)
-{--}
-data ActionId = ActionId    { actGroup :: T.Text
-                            , actKey :: T.Text
+
+data ActionId = ActionId    { actGroup :: ByteString
+                            , actKey :: ByteString
                             }
                             deriving (Eq)
 
 data Action = Action    { actionText :: T.Text
                         , actionHint  :: T.Text
                         , actionPicture  :: T.Text
-                        , actionHotKey :: Maybe HotKey
+                        , actionHotKey :: Maybe KeyWithModifiers
                         , actionValue :: ActionValue
                         }
 
@@ -99,8 +72,8 @@ instance Default Action where
                  , actionValue = def
                  }
 
-type ActionCollection = HM.HashMap T.Text (HM.HashMap T.Text Action)
-type HotKeyCollection = Map.Map HotKey ActionValue
+type ActionCollection = HM.HashMap ByteString (HM.HashMap ByteString Action)
+type HotKeyCollection = Map.Map KeyWithModifiers ActionValue
 
 data Actions = Actions  { actions :: ActionCollection
                         , actsHotKeys :: HotKeyCollection
@@ -144,13 +117,13 @@ mkEmptyActions = Actions HM.empty Map.empty
 {-# INLINE mkEmptyActions #-}
 
 -- remove onlu from actions, not from actsHotKeys
-removeHotkeysFromActions :: Actions -> V.Vector HotKey -> ActionCollection
+removeHotkeysFromActions :: Actions -> V.Vector KeyWithModifiers -> ActionCollection
 removeHotkeysFromActions Actions{..} v =
     let setHK = V.foldr (\k s -> if Map.member k actsHotKeys then Set.insert k s else s) Set.empty v in
     HM.map (HM.map (\a -> maybe a
             (\k -> if Set.member k setHK then a{actionHotKey=Nothing} else a) $ actionHotKey a)) actions
 
-actionAdd :: T.Text -> [(T.Text,Action)] -> Actions -> Actions
+actionAdd :: ByteString -> [(ByteString,Action)] -> Actions -> Actions
 actionAdd groupName lst acts@Actions{..} =
     let aWithHK = filter (\(_,Action{..}) -> isJust actionHotKey) lst
         a = removeHotkeysFromActions acts $ V.map (\(_,Action{..}) -> fromJust actionHotKey) $
@@ -160,23 +133,23 @@ actionAdd groupName lst acts@Actions{..} =
         (HM.insert groupName (maybe h (HM.union h) $ HM.lookup groupName a) a)
         (Map.union (Map.fromList $ map (\(_,Action{..}) ->(fromJust actionHotKey,actionValue)) aWithHK) actsHotKeys)
 
-actionFindByHotKey :: GuiState -> Actions -> HotKey -> Maybe ActionFn
+actionFindByHotKey :: GuiState -> Actions -> KeyWithModifiers -> Maybe ActionFn
 actionFindByHotKey s a k = case Map.lookup k $ actsHotKeys a of
                                 Just v | ActionEnable == getActionValueState s v ->
                                                 Just $ ActionFn $ onAction v
                                 _ -> Nothing
 {-# INLINE actionFindByHotKey #-}
 
-actionGetByGroupAndId :: GuiState ->  Actions -> T.Text -> T.Text -> Maybe Action
+actionGetByGroupAndId :: GuiState ->  Actions -> ByteString -> ByteString -> Maybe Action
 actionGetByGroupAndId s a g i = HM.lookup g (actions a) >>= HM.lookup i >>= partial (isVisibleAction s)
 {-# INLINE actionGetByGroupAndId #-}
 
-removeHotkeyFromMap :: Maybe HotKey -> HotKeyCollection -> HotKeyCollection
+removeHotkeyFromMap :: Maybe KeyWithModifiers -> HotKeyCollection -> HotKeyCollection
 removeHotkeyFromMap (Just k) c = Map.delete k c
 removeHotkeyFromMap _ c = c
 {-# INLINE removeHotkeyFromMap #-}
 
-actionDelByGroupAndId :: T.Text -> T.Text -> Actions -> Actions
+actionDelByGroupAndId :: ByteString -> ByteString -> Actions -> Actions
 actionDelByGroupAndId groupName idName acts@Actions{..} =
     case HM.lookup groupName actions of
         Just g -> case HM.lookup idName g of
@@ -189,25 +162,25 @@ actionDelByGroupAndId groupName idName acts@Actions{..} =
 {-# INLINE actionDelByGroupAndId #-}
 
 -- no exported fun. Suitable for modifying any fields except actionHotKey
-actionUpdateByGroupAndIdUnsafe :: (Action -> Action) -> Actions -> T.Text -> T.Text -> Actions
+actionUpdateByGroupAndIdUnsafe :: (Action -> Action) -> Actions -> ByteString -> ByteString -> Actions
 actionUpdateByGroupAndIdUnsafe f Actions{..} g i =
     Actions
         (HM.adjust (HM.adjust f i) g actions)
-        actsHotKeys -- no modify even if HotKey was changed
+        actsHotKeys -- no modify even if KeyWithModifiers was changed
 {-# INLINE actionUpdateByGroupAndIdUnsafe #-}
 
 -- example field modification
-actionSetEnable :: Actions -> T.Text -> T.Text -> Bool -> Actions
+actionSetEnable :: Actions -> ByteString -> ByteString -> Bool -> Actions
 actionSetEnable acts g i b =
     actionUpdateByGroupAndIdUnsafe (\a -> a{actionValue=(actionValue a){actionEnable=b}}) acts g i
 {-# INLINE actionSetEnable #-}
 
-actionSetOnAction :: Actions -> T.Text -> T.Text -> (forall m. MonadIO m => m ()) -> Actions
+actionSetOnAction :: Actions -> ByteString -> ByteString -> (forall m. MonadIO m => m ()) -> Actions
 actionSetOnAction acts g i f =
     actionUpdateByGroupAndIdUnsafe (\a -> a{actionValue=(actionValue a){onAction=f}}) acts g i
 {-# INLINE actionSetOnAction #-}
 
-actionGetVisibles :: GuiState -> Actions -> T.Text -> V.Vector (T.Text,Action)
+actionGetVisibles :: GuiState -> Actions -> ByteString -> V.Vector (ByteString,Action)
 actionGetVisibles s Actions{..} groupName =
     maybe V.empty (V.filter (isVisibleAction s . snd) . V.fromList . HM.toList) $ HM.lookup groupName actions
 {-# INLINE actionGetVisibles #-}

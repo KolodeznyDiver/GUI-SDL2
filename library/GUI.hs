@@ -1,5 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
+-- {-# LANGUAGE RankNTypes #-}
 module GUI(
     -- GUI.BaseLayer.Internal.Types
     WidgetOpts,WindowOpts,WidgetFlags,WindowFlags,Widget,GuiWindow,Gui,Canvas(..),GuiCanvas
@@ -14,10 +14,10 @@ module GUI(
     ,getWinId'',getWinId',getWinId,getWinIx',getWinIx
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
-    ,getSDLWindow,getWindowRenderer
+    ,getSDLWindow,getWindowRenderer,getWindowGui
     ,getWindowByIx,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
     ,getWinCursorIx
-    ,showWinWidgets,getGuiFromWindow,getWindowMainWidget,getWindowForegroundWidget,getWindowsMap
+    ,showWinWidgets,getWindowMainWidget,getWindowForegroundWidget,getWindowsMap
     ,doForWinByIx,allWindowsMap_,redrawWindowByIx,redrawWindow,isSpecStateWidget
     ,resetSpecStateWidget,setSpecStateWidget,setMouseCapturedWidget,getMouseCapturedWidget
     ,resetMouseCaptured,resetMouseCapturedWidget,setWinMainMenu,getWinMainMenu
@@ -55,6 +55,7 @@ module GUI(
     ,markWidgetForRedraw,setWidgetFlag,notifyParentAboutSize,simpleOnResizing,simpleOnResizingMoveOnly
     ,extendableOnResizing,enableWidget,visibleWidget,newWindow',newWindow,overlapsChildrenFns,setWinCursorIx,setWinSize
     ,guiApplicationExitSuccess,guiApplicationExitFailure,guiApplicationExitWithCode
+    ,logPutLn,guiOnSomeException,logOnErr
     -- GUI.BaseLayer.Event
     ,GuiPipeProducer,GuiPipe(newGuiPipe,sendToGuiPipe,replaceGuiPipeHandler),getPipeIdFromProducer,delGuiPipe
     -- GUI.BaseLayer.Cursor
@@ -104,16 +105,21 @@ module GUI(
     ,MouseStateProperty(..)
     -- GUI.BaseLayer.Action
     ,pattern AllInvisibleActionMask,pattern AllDisableActionMask,pattern AllEnableActionMask
-    ,HotKeyModifier(..),HotKey(..),ActionMask(..),GuiState(..),ActionValue(..),Action(..),Actions
+    ,ActionMask(..),GuiState(..),ActionValue(..),Action(..),Actions
     ,ActionState(..),ActionId(..),ActionFn
-    ,hkNoModifier,hkCtrl,hkShift,hkAlt,hkCtrlShift,hkCtrlAlt,hkShiftAlt,getActionValueState,isVisibleActionState
+    ,kNoModifier,kCtrl,kShift,kAlt,kCtrlShift,kCtrlAlt,kShiftAlt,getActionValueState,isVisibleActionState
     ,mkActionMask,mkEmptyActions
-    ,scaToHotKeyModifier,addActions,chkHotKey,getActionByGroupAndId,getActionsByGroupAndId,setActionEnable
+    ,addActions,chkHotKey,getActionByGroupAndId,getActionsByGroupAndId,setActionEnable
     ,setAction,getVisibleActions,fromActionMask
     -- GUI.BaseLayer.Keyboard
-    ,ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showKeycode
+    ,ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showKeycode,KeyModifiers(..),KeyWithModifiers(..)
+    ,scaToKeyModifier
+    -- GUI.BaseLayer.Logging
+    ,LogDateTime(..),GUILogDef(..)
+    -- GUI.BaseLayer.Auxiliaries
+    ,getAppName,showErrMsgBoxT,showErrMsgBox
     -- GUI.BaseLayer.GUI
-    ,runGUI
+    ,GUIDef(..),runGUI
   ) where
 
 import GUI.BaseLayer.Types
@@ -133,4 +139,6 @@ import GUI.BaseLayer.Color
 import GUI.BaseLayer.Handlers
 import GUI.BaseLayer.Action
 import GUI.BaseLayer.Keyboard
+import GUI.BaseLayer.Logging (LogDateTime(..),GUILogDef(..))
+import GUI.BaseLayer.Auxiliaries
 import GUI.Widget.Types

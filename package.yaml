@@ -40,6 +40,7 @@ github: KolodeznyDiver/GUI-SDL2
 library:
   exposed-modules:
   - GUI.BaseLayer.Action
+  - GUI.BaseLayer.Auxiliaries
   - GUI.BaseLayer.Internal.Action
   - GUI.BaseLayer.Internal.Types
   - GUI.BaseLayer.Raw.Cursor
@@ -54,6 +55,7 @@ library:
   - GUI.BaseLayer.GUI
   - GUI.BaseLayer.Handlers
   - GUI.BaseLayer.Keyboard
+  - GUI.BaseLayer.Logging
   - GUI.BaseLayer.PopupWindow
   - GUI.BaseLayer.Primitives
   - GUI.BaseLayer.Ref
@@ -86,6 +88,15 @@ library:
   - GUI
   - Data.Vector.Utils
 #  other-modules:
+  - System.Utils
+  when:
+    - condition: os(windows)
+      then:
+        other-modules:
+        - System.Win32.Utils
+      else:
+        other-modules:
+        - System.X11.Utils
   extra-libraries:
   - SDL2
   - SDL2_ttf
@@ -104,13 +115,18 @@ library:
   - containers
   - unordered-containers
   - data-default
-  - sdl2
-  - sdl2-ttf
-  - sdl2-image
-#  - stm
+#  - thyme
+  - time
+#  - time-locale-compat
   - filepath
   - directory
   - monadplus
+  - sdl2
+  - sdl2-ttf
+  - sdl2-image
+  when:
+    - condition: os(windows)
+      dependencies: Win32
   ghc-options:
   - -Wall
   - -Wname-shadowing
@@ -120,4 +136,4 @@ license: BSD3
 maintainer: Kolodezny Diver
 name: GUI-SDL2
 synopsis: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
-version: '0.1.2'
+version: '0.1.3'

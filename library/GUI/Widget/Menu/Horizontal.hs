@@ -78,7 +78,7 @@ data HorizontalMenuData = HorizontalMenuData
 horizontalMenu :: MonadIO m => HorizontalMenuDef -> Widget -> Skin -> m (GuiWidget HorizontalMenuData)
 horizontalMenu HorizontalMenuDef{..} parent skin = do
     win <- getWidgetWindow parent
-    gui <- getGuiFromWindow win
+    gui <- getWindowGui win
     items <- newMonadIORef V.empty
     selectedItNum <- newMonadIORef (-1)
     activeItNum <- newMonadIORef (-1)
@@ -124,7 +124,7 @@ horizontalMenu HorizontalMenuDef{..} parent skin = do
             setActive widget i
             setWidgetFocus widget
             curIt <- (V.! i) <$> readMonadIORef items
-            liftIO $ putStrLn $ concat ["horizontalMenu.doItem "] -- -, V.head p]
+--            liftIO $ putStrLn $ concat ["horizontalMenu.doItem "] -- -, V.head p]
             (SDL.Rectangle _ (V2 _ h)) <- getWidgetRect widget
             popupMenu widget (SDL.Rectangle (P (V2 (itemX curIt) h)) (V2 10 10)) $ itemPopup curIt
 

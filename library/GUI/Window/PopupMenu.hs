@@ -15,6 +15,8 @@ module GUI.Window.PopupMenu(
 import Control.Monad
 import Control.Monad.IO.Class
 import qualified Data.Text as T
+import           Data.ByteString.Char8   (ByteString)
+--import qualified Data.ByteString.Char8   as B
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import Data.Ix
@@ -23,6 +25,7 @@ import System.FilePath
 import Maybes (whenIsJust)
 import qualified SDL
 import SDL.Vect
+import SDL.Internal.Numbered (FromNumber(..))
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.PopupWindow
@@ -39,10 +42,10 @@ instance MenuMaker r => MenuMaker (MenuItem -> r) where
 mkMenu :: MenuMaker r => r
 mkMenu = menuMaker V.empty
 
-mItem :: T.Text -> T.Text -> MenuItem
+mItem :: ByteString -> ByteString -> MenuItem
 mItem g k = MenuItem g k V.empty
 
-mItemSub :: T.Text -> T.Text -> MenuItems -> MenuItem
+mItemSub :: ByteString -> ByteString -> MenuItems -> MenuItem
 mItemSub g k s = MenuItem g k s
 
 popupMenu :: MonadIO m => Widget -> GuiRect -> MenuItems -> m ()
@@ -87,8 +90,8 @@ pattern ArrowW = 8
 pattern BorderThickness :: Coord
 pattern BorderThickness = 1
 
-data MenuItem = MenuItem { menuItemGroup :: T.Text
-                         , menuItemName  :: T.Text
+data MenuItem = MenuItem { menuItemGroup :: ByteString
+                         , menuItemName  :: ByteString
                          , menuItemSubmenu :: V.Vector MenuItem
                          }
               | MenuItemsGenerator (forall m. MonadIO m => m (V.Vector DynMenuItem))
@@ -125,9 +128,10 @@ data PopupMenuWidgetDef = PopupMenuWidgetDef { popupMenuWidgetItems :: MenuItems
 popupMenuWidget :: MonadIO m => PopupMenuWidgetDef -> Widget -> Skin -> m (GuiWidget SimpleWidget)
 popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
     win <- getWidgetWindow parent
-    gui <- getGuiFromWindow win
+    gui <- getWindowGui win
     guiStOnInit <- getGuiState gui
     selectedItNum <- newMonadIORef (-1)
+    needPrevRestore <- newMonadIORef True
     fnt <- runProxyCanvas parent $ getFont "menu"
     let addSeparator = (`V.snoc` SeparatorItem)
         dynItemMaker (w,h,v) DynMenuItem{..} = do
@@ -199,13 +203,13 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                        | otherwise = go $ n-1
               go $ i-1
         returnToPrevPopup :: MonadIO m => m ()
-        returnToPrevPopup = do
+        returnToPrevPopup = -- do
             close
-            case popupPrev of
+{-            case popupPrev of
              PrevPopup prevWin -> do
                 SDL.raiseWindow =<< getSDLWindow prevWin
                 windowFlagsAdd prevWin WindowCloseOnLostFocuse
-             _ -> return ()
+             _ -> return () -}
         close :: MonadIO m => m ()
         close =
             delWindow win
@@ -215,9 +219,21 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
 --                , T.unpack $ menuItemName $ V.head subMenu]
             popupMenu widget (SDL.Rectangle (P(V2 winW (itemY $ itemsCoord V.! i))) (V2 10 10)) subMenu
 
+        restoreHMenu hmWidget = do
+            getWidgetWindow hmWidget >>= (`windowFlagsRemove` WindowClickable)
+            hmFns <- getWidgetFns hmWidget
+            -- \widget motion _repeated keycode km
+            logOnErr gui "popupMenuWidget.restoreHMenu.onKeyboard" $
+                onKeyboard hmFns hmWidget SDL.Pressed False SDL.KeycodeEscape $ fromNumber 0
 --        doItem :: MonadIO m => Widget -> Int -> m ()
         doItem widget i = when (i>=0) $ case items V.! i of
-            Item{itemType=ActionItem{actionItem=f}} -> close >> f
+            Item{itemType=ActionItem{actionItem=f},itemText=txt} -> do
+                writeMonadIORef needPrevRestore False
+                case popupPrev of
+                    PrevHMenu hmWidget -> restoreHMenu hmWidget
+                    _ -> return ()
+                delAllPopupWindows gui
+                logOnErr gui (T.concat ["popupMenu item \"",txt,"\""]) f
             Item{itemType=(SubmenuItem subMenu)} -> doSubmenu widget i subMenu
             _ -> return ()
         fns = noChildrenFns winSz
@@ -225,16 +241,16 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
     mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFocusable) WidgetMarginNone
             SimpleWidget parent fns{
         onCreate = \widget -> onCreate fns widget >> setWidgetFocus widget
-        ,onDestroy = \ _widget ->
-            case popupPrev of
-                PrevHMenu hmWidget -> getWidgetWindow hmWidget >>= (`windowFlagsRemove` WindowClickable)
+        ,onDestroy = \ _widget -> do
+            b <- readMonadIORef needPrevRestore
+            when b $ case popupPrev of
+                PrevHMenu hmWidget -> restoreHMenu hmWidget
                 PrevPopup prevWin -> do
                     winSDL <- getSDLWindow prevWin
                     SDL.showWindow winSDL >> SDL.raiseWindow winSDL
                     windowFlagsAdd prevWin WindowCloseOnLostFocuse
                 _ -> return ()
         ,onLostMouseFocus = \widget -> setSelected widget (-1)
---        ,onLostKeyboardFocus = \widget -> setActive widget (-1)
         ,onMouseMotion = \widget _btnsLst (P (V2 _ y)) _relMv -> do
             let n = getItemNumFromY y
             o <- readMonadIORef selectedItNum
@@ -254,9 +270,9 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                                 SDL.KeycodeDown -> setNextItem widget o
                                 SDL.KeycodeRight | Item{itemType=(SubmenuItem subMenu)}
                                                         <- items V.! o -> doSubmenu widget o subMenu
+                                SDL.KeycodeLeft   -> returnToPrevPopup
                                 SDL.KeycodeEscape -> returnToPrevPopup
                                 _ -> return ())
---        ,onNotify = \ _widget _notifyCode _mbSrcWidget -> return ()
         ,onDraw= \widget -> do
                 nSel <- readMonadIORef selectedItNum
                 r@(SDL.Rectangle _ (V2 fullW _)) <- getVisibleRect widget

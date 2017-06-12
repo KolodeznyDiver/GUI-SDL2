@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GUI.BaseLayer.Utils(
     WidgetComposer(..),newForeground,moveWidget,resizeWidget,resizeWidgetWithCanvas
     ,mulDiv,getWidgetCoordOffset,coordToWidget,mouseToWidget
@@ -14,9 +15,11 @@ module GUI.BaseLayer.Utils(
     ,markWidgetForRedraw,setWidgetFlag,notifyParentAboutSize,simpleOnResizing,simpleOnResizingMoveOnly
     ,extendableOnResizing,enableWidget,visibleWidget,newWindow',newWindow,overlapsChildrenFns,setWinSize',setWinSize
     ,guiApplicationExitSuccess,guiApplicationExitFailure,guiApplicationExitWithCode
+    ,logPutLn,guiOnSomeException,logOnErr,logOnErrInWindow,logOnErrInWidget
                  ) where
 
 import Control.Monad
+import Control.Exception
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Text as T
 import qualified Data.Map.Strict as Map
@@ -24,6 +27,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import Data.Bits
 import System.Exit
+--import Data.Maybe
 import Maybes (whenIsJust)
 import Data.StateVar
 import qualified SDL
@@ -41,6 +45,8 @@ import GUI.BaseLayer.Cursor
 import Data.Vector.Utils
 import GUI.BaseLayer.Canvas
 import GUI.BaseLayer.Action
+import qualified GUI.BaseLayer.Logging as L (logPutLn,logOnSomeException)
+import GUI.BaseLayer.Auxiliaries
 
 infixr 0 $+
 
@@ -134,7 +140,7 @@ mouseToWidget rfWin pnt = do
         Just (w,_) | w == fgWidget -> forMain
                    | otherwise -> return mbFg
         _ -> forMain
-{-# INLINE mouseToWidget #-}
+{-# INLINEABLE mouseToWidget #-}
 
 runProxyWinCanvas :: MonadIO m => GuiWindow -> GuiCanvas m a -> m a
 runProxyWinCanvas rfWin f = do
@@ -152,7 +158,7 @@ guiGetSkin gui = guiSkin <$> readMonadIORef gui
 {-# INLINE guiGetSkin #-}
 
 getSkinFromWin:: MonadIO m => GuiWindow -> m Skin
-getSkinFromWin = (=<<) guiGetSkin . getGuiFromWindow
+getSkinFromWin = (=<<) guiGetSkin . getWindowGui
 {-# INLINE getSkinFromWin #-}
 
 getSkinFromWidget:: MonadIO m => Widget -> m Skin
@@ -174,7 +180,7 @@ setGuiState gui n = do
         writeMonadIORef gui g{guiState=n}
         forEachWidgetsInAllWin gui $ \widget -> do
             fns <- getWidgetFns widget
-            onGuiStateChange fns widget n
+            logOnErr gui "setGuiState.onGuiStateChange" $ onGuiStateChange fns widget n
 {-# INLINE setGuiState #-}
 
 getGuiState :: MonadIO m => Gui -> m GuiState
@@ -182,9 +188,10 @@ getGuiState = fmap guiState . readMonadIORef
 {-# INLINE getGuiState #-}
 
 notifyEachWidgetsInAllWin :: MonadIO m => Gui -> GuiNotifyCode -> Maybe Widget -> m ()
-notifyEachWidgetsInAllWin gui nc mbW = forEachWidgetsInAllWin gui $ \widget -> do
-                                            fns <- getWidgetFns widget
-                                            onNotify fns widget nc mbW
+notifyEachWidgetsInAllWin gui nc mbW =
+    forEachWidgetsInAllWin gui $ \widget -> do
+        fns <- getWidgetFns widget
+        logOnErr gui "notifyEachWidgetsInAllWin.onNotify" $ onNotify fns widget nc mbW
 {-# INLINE notifyEachWidgetsInAllWin #-}
 
 getUniqueCode :: MonadIO m => Gui -> m UniqueCode
@@ -194,8 +201,12 @@ getUniqueCode gui = do
 {-# INLINE getUniqueCode #-}
 
 clearWidgetFocusInternal :: MonadIO m => Widget -> m ()
-clearWidgetFocusInternal widget = widgetFlagsRemove widget WidgetFocused >> markWidgetForRedraw widget >>
-    getWidgetFns widget >>= (`onLostKeyboardFocus` widget)
+clearWidgetFocusInternal widget = do
+    widgetFlagsRemove widget WidgetFocused
+    markWidgetForRedraw widget
+    fns <- getWidgetFns widget
+    logOnErrInWidget widget "clearWidgetFocusInternal.onLostKeyboardFocus" $
+        onLostKeyboardFocus fns widget
 {-# INLINE clearWidgetFocusInternal #-}
 
 clearFocusInWindow :: MonadIO m => GuiWindow -> m ()
@@ -249,7 +260,7 @@ redrawAll = allWindowsMap_ (`redrawWindow` False)
 createWidget:: MonadIO m => Widget -> (Widget -> Skin -> m (GuiWidget a)) -> m (GuiWidget a)
 createWidget parent initF = do
         win   <- getWidgetWindow parent
-        gui   <- getGuiFromWindow win
+        gui   <- getWindowGui win
         skin  <- guiGetSkin gui
         initF parent skin
 
@@ -395,9 +406,11 @@ setWidgetFlag fl g ena = let widget = getWidget g in do
 
 -- no exported
 notifyParentOnSizeChangedAndMarkForRedraw :: MonadIO m => Widget -> GuiSize -> m ()
-notifyParentOnSizeChangedAndMarkForRedraw widget sz = do (parent,fs) <- getWidgetParentFns widget
-                                                         markWidgetForRedraw parent
-                                                         onSizeChangedParentNotify fs parent widget sz
+notifyParentOnSizeChangedAndMarkForRedraw widget sz = do
+    (parent,fs) <- getWidgetParentFns widget
+    markWidgetForRedraw parent
+    logOnErrInWidget widget "notifyParentOnSizeChangedAndMarkForRedraw.onSizeChangedParentNotify" $
+        onSizeChangedParentNotify fs parent widget sz
 
 notifyParentAboutSize :: MonadIO m => Widget -> GuiSize -> m ()
 notifyParentAboutSize widget initSz = calcWidgetSizeWithMargin widget initSz >>=
@@ -496,9 +509,12 @@ overlapsChildrenFns initInsideSz = defWidgFns{
     onCreate = \widget -> notifyParentAboutSize widget initInsideSz
     ,onSizeChangedParentNotify= \widget child _ -> getWidgetCanvasRect widget >>= widgetResizingIfChanged child
     ,onResizing= \widget newRect -> do
-                r <- extendableOnResizing initInsideSz widget newRect
-                mapByWidgetChildren_ (\c -> do {fs <- getWidgetFns c; onResizing fs c r}) widget
-                             }
+        r <- extendableOnResizing initInsideSz widget newRect
+        mapByWidgetChildren_ (\c -> do
+                fs <- getWidgetFns c
+                logOnErrInWidget widget "overlapsChildrenFns.onResizing" $ onResizing fs c r
+                             ) widget
+             }
 
 setWinSize' :: MonadIO m => GuiWindow -> GuiSize -> m ()
 setWinSize' rfWin newSz = do
@@ -509,7 +525,7 @@ setWinSize' rfWin newSz = do
         let r = SDL.Rectangle zero newSz
         fgWidget <- getWindowForegroundWidget rfWin
         modifyMonadIORef' fgWidget $ \x -> x{widgetRect=r,widgetCanvasRect=r}
-        onResizing fs widget r
+        logOnErrInWindow rfWin "setWinSize'.onResizing" $ onResizing fs widget r
         markWidgetForRedraw widget
 
 setWinSize :: MonadIO m => GuiWindow -> GuiSize -> m ()
@@ -520,14 +536,56 @@ setWinSize rfWin newSz = do
 {-# INLINE setWinSize #-}
 
 guiApplicationExitSuccess :: MonadIO m => Gui -> m ()
-guiApplicationExitSuccess _gui = liftIO $ exitSuccess
+guiApplicationExitSuccess _gui = liftIO exitSuccess
 {-# INLINE guiApplicationExitSuccess #-}
 
 guiApplicationExitFailure :: MonadIO m => Gui -> m ()
-guiApplicationExitFailure _gui = liftIO $ exitSuccess
+guiApplicationExitFailure _gui = liftIO exitFailure
 {-# INLINE guiApplicationExitFailure #-}
 
 guiApplicationExitWithCode :: MonadIO m => Gui -> Int -> m ()
 guiApplicationExitWithCode gui 0 = guiApplicationExitSuccess gui
 guiApplicationExitWithCode _gui code = liftIO $ exitWith $ ExitFailure code
 {-# INLINE guiApplicationExitWithCode #-}
+
+logPutLn :: MonadIO m => Gui -> T.Text -> m ()
+logPutLn gui msg = (`L.logPutLn` msg) =<< (guiLog <$> readMonadIORef gui)
+
+guiOnSomeException :: Gui -> T.Text -> SomeException -> IO ()
+guiOnSomeException gui t e = do
+    l <- guiLog <$> readMonadIORef gui
+    L.logOnSomeException l t e
+{-# INLINE guiOnSomeException #-}
+
+logOnErr :: MonadIO m => Gui -> T.Text -> IO () -> m ()
+logOnErr gui t f = liftIO $ guiCatch f (\e -> do
+        l <- guiLog <$> readMonadIORef gui
+        L.logOnSomeException l t e)
+{-# INLINEABLE logOnErr #-}
+
+logOnErrInWindow :: MonadIO m => GuiWindow -> T.Text -> IO () -> m ()
+logOnErrInWindow window t f = liftIO $ guiCatch f (\e -> do
+        l <- guiLog <$> (readMonadIORef =<< getWindowGui window)
+        L.logOnSomeException l t e)
+{-# INLINEABLE logOnErrInWindow #-}
+
+
+logOnErrInWidget :: MonadIO m => Widget -> T.Text -> IO () -> m ()
+logOnErrInWidget widget t f = liftIO $ guiCatch f (\e -> do
+        l <- guiLog <$> (readMonadIORef =<< getWindowGui =<< getWidgetWindow widget)
+        L.logOnSomeException l t e)
+{-# INLINEABLE logOnErrInWidget #-}
+
+{-
+hideConsoleAndRedirectToFile :: MonadIO m => Gui -> String -> m ()
+hideConsoleAndRedirectToFile gui fname = do
+    o <- guiConsoleRedirector <$> readMonadIORef gui
+    when (isNothing o) $ do
+        r <- liftIO $ consoleRedirectStart fname
+        modifyMonadIORef' gui $ \x -> x{guiConsoleRedirector=r}
+
+hideConsoleFinalizer :: MonadIO m => Gui -> m ()
+hideConsoleFinalizer gui = do
+    mbR <- guiConsoleRedirector <$> readMonadIORef gui
+    whenIsJust mbR $ \r -> liftIO $ consoleRedirectStop r
+-}

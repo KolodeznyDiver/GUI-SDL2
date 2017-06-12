@@ -4,11 +4,11 @@ module GUI.BaseLayer.Primitives(
     ,getTextureSize,drawTexture,drawTextureAligned,fromRawColor,toRawColor,strSize,getPixelFormat
     ,createTargetTexture,renderStr,renderStrDraft,renderStrOpaque,drawStr,drawStrDraft,drawStrOpaque
     ,withStateVar,withColor,withRendererColor,withRendererTarget,withRendererClipRect,withRendererViewport
-    ,drawStrAligned
+    ,withUTF8,drawStrAligned
                      ) where
 
-import Control.Monad.IO.Class (MonadIO)
-import Control.Monad.Trans.Class
+import Control.Monad.IO.Class (MonadIO,liftIO)
+import GHC.IO.Encoding
 import Data.StateVar
 import Maybes (whenIsJust)
 import qualified SDL
@@ -95,10 +95,18 @@ withRendererViewport :: MonadIO m => SDL.Renderer -> GuiRect -> m a -> m a
 withRendererViewport renderer r = withStateVar (SDL.rendererViewport renderer) $ Just $ toSDLRect r
 {-# INLINE withRendererViewport #-}
 
+withUTF8 ::  MonadIO m => m a -> m a
+withUTF8 f = do
+    save <- liftIO (getForeignEncoding <* setForeignEncoding utf8)
+    r <- f
+    liftIO $ setForeignEncoding save
+    return r
+{-# INLINE withUTF8 #-}
+
 strSize :: MonadIO m => TTFFont -> String -> m (V2 Coord)
 strSize _ [] = return zero
 strSize fnt str = do
-    (w,h) <- TTF.sizeUTF8 fnt str
+    (w,h) <- withUTF8 $ TTF.sizeUTF8 fnt str
     return (V2 (fromIntegral w) (fromIntegral h))
 {-# INLINE strSize #-}
 
@@ -112,19 +120,19 @@ renderInternal renderer sf = do
 renderStr:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> String -> m (Maybe SDL.Texture)
 renderStr _ _ _ [] = return Nothing
 renderStr renderer fnt color str =
-    TTF.renderUTF8Blended fnt str (toRawColor color) >>= renderInternal renderer
+    withUTF8 $ TTF.renderUTF8Blended fnt str (toRawColor color) >>= renderInternal renderer
 {-# INLINE renderStr #-}
 
 renderStrDraft:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> String -> m (Maybe SDL.Texture)
 renderStrDraft _ _ _ [] = return Nothing
 renderStrDraft renderer fnt color str =
-    TTF.renderUTF8Solid fnt str (toRawColor color) >>= renderInternal renderer
+    withUTF8 $ TTF.renderUTF8Solid fnt str (toRawColor color) >>= renderInternal renderer
 {-# INLINE renderStrDraft #-}
 
 renderStrOpaque:: MonadIO m => SDL.Renderer -> TTFFont -> GuiColor -> GuiColor -> String -> m (Maybe SDL.Texture)
 renderStrOpaque _        _   _     _       [] = return Nothing
 renderStrOpaque renderer fnt color bkColor str =
-    TTF.renderUTF8Shaded fnt str (toRawColor color) (toRawColor bkColor) >>= renderInternal renderer
+    withUTF8 $ TTF.renderUTF8Shaded fnt str (toRawColor color) (toRawColor bkColor) >>= renderInternal renderer
 {-# INLINE renderStrOpaque #-}
 
 drawInternal :: MonadIO m => SDL.Renderer -> GuiPoint -> Maybe SDL.Texture -> m ()

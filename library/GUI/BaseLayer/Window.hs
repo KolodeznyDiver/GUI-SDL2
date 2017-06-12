@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
---  {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE LiberalTypeSynonyms #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GUI.BaseLayer.Window(
      pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
     ,pattern WindowPopupFlag
@@ -9,10 +9,10 @@ module GUI.BaseLayer.Window(
     ,getWinId'',getWinId',getWinId,getWinIx',getWinIx
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
-    ,getSDLWindow,getWindowRenderer
+    ,getSDLWindow,getWindowRenderer,getWindowGui
     ,getWindowByIx,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
     ,getWinCursorIx,setWinCursorIx
-    ,showWinWidgets,getGuiFromWindow,getWindowMainWidget,getWindowForegroundWidget,getWindowsMap
+    ,showWinWidgets,getWindowMainWidget,getWindowForegroundWidget,getWindowsMap
     ,doForWinByIx,allWindowsMap_,redrawWindowByIx,redrawWindow,isSpecStateWidget
     ,resetSpecStateWidget,setSpecStateWidget,setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured
     ,resetMouseCapturedWidget,setWinMainMenu,getWinMainMenu
@@ -38,6 +38,7 @@ import GUI.BaseLayer.Cursor
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.Canvas
 import GUI.BaseLayer.Geometry
+import GUI.BaseLayer.Logging
 
 pattern WindowNoFlags :: WindowFlags
 pattern WindowRedrawFlag :: WindowFlags
@@ -74,6 +75,10 @@ getSDLWindow rfWin = winSDL <$> readMonadIORef rfWin
 getWindowRenderer:: MonadIO m => GuiWindow -> m SDL.Renderer
 getWindowRenderer rfWin = winRenderer <$> readMonadIORef rfWin
 {-# INLINE getWindowRenderer #-}
+
+getWindowGui:: MonadIO m => GuiWindow -> m Gui
+getWindowGui rfWin = guiOfWindow <$> readMonadIORef rfWin
+{-# INLINE getWindowGui #-}
 
 getWinId'':: MonadIO m => SDL.Window -> m GuiWindowId
 getWinId'' = Raw.getWindowID . getSDLRawWindow'
@@ -134,10 +139,6 @@ anyWindowFlags win fl = ((WindowNoFlags /=) . (fl .&.) . winFlags) <$> readMonad
 -----------------------------------------------------------------
 showWinWidgets :: MonadIO m => GuiWindow -> Maybe Widget -> m String
 showWinWidgets rfWin markedWidget = getWindowMainWidget rfWin >>= (`showWidgets` markedWidget)
-
-getGuiFromWindow :: MonadIO m => GuiWindow -> m Gui
-getGuiFromWindow rfWin = guiOfWindow <$> readMonadIORef rfWin
-{-# INLINE getGuiFromWindow #-}
 
 getWindowMainWidget :: MonadIO m => GuiWindow -> m Widget
 getWindowMainWidget rfWin = mainWidget <$> readMonadIORef rfWin
@@ -222,8 +223,9 @@ redrawWindow rfWin force = do
                             when markedForRedraw $ clearWidgetRedrawFlag widget
                             clip $= Just (P.toSDLRect rect)
                             -- liftIO $ putStrLn $ concat ["redrawWindow clip rect=",show (P.toSDLRect rect)]
-                            runCanvas renderer rm (winTextureCache win) off $ -- do
-                                (onDraw $ widgetFns w) widget
+                            logOnErr (guiLog gui) "redrawWindow.onDraw" $
+                               runCanvas renderer rm (winTextureCache win) off $ -- do
+                                    (onDraw $ widgetFns w) widget
 --                                visibleRect <- getVisibleRect widget
 --                                setColor $ V4 255 0 0 0
 --                                drawRect $ shrinkRect' 1 visibleRect

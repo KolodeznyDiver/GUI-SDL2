@@ -26,6 +26,7 @@ import GUI.BaseLayer.Resource.Types (ResourceManager(..))
 import GUI.BaseLayer.Skin
 import GUI.BaseLayer.Cursor (CursorIx)
 import GUI.BaseLayer.Internal.Action
+import GUI.BaseLayer.Logging (GUILog)
 
 data WidgetOpts
 data WindowOpts
@@ -128,5 +129,7 @@ data GUIStruct = GUIStruct          { guiWindows :: GuiWindowCollection
                                     , guiUnique :: Int
                                     , guiUserMsgHandlers :: GuiPipeCollection
                                     , guiUserMsgRemovedIds :: VU.Vector Int
+--                                    , guiConsoleRedirector :: Maybe ConsoleRedirector
+                                    , guiLog :: GUILog
                                     }
 

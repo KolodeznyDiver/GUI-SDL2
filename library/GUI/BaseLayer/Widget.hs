@@ -7,7 +7,6 @@ module GUI.BaseLayer.Widget(
      pattern WidgetNoFlags, pattern WidgetRedrawFlag, pattern WidgetSelectable, pattern WidgetEnable
      ,pattern WidgetVisible ,pattern WidgetFocusable,pattern WidgetTabbed, pattern WidgetMouseWheelControl
      ,pattern WidgetFocused
-    --,WidgetInit(..)
     ,GuiWidget(..),defWidgFns,getWidget,getWidgetData,getWidgetParent
     ,setWidgetParent,getWidgetRect,setWidgetRect,getWidgetCanvasRect,setWidgetCanvasRect,getWidgetVisibleRect
     ,getVisibleRect
@@ -15,7 +14,6 @@ module GUI.BaseLayer.Widget(
     ,getWidgetMarginSize,setWidgetRectWithMarginShrink,setWidgetRectWithMarginShrinkMoveOnly,
     getWidgetRectWithMargin,calcWidgetSizeWithMargin
     ,widgetCoordsToStr,showWidgets,showWidgetsFromMain
-    --,toWidgetCanvasCoord,toCanvasCoord,getWidgetFsAndCoord
     ,getWidgetFlags,setWidgetFlags,widgetFlagsAddRemove
     ,widgetFlagsAdd,removeWidgetFlags,widgetFlagsRemove,allWidgetFlags',allWidgetFlags,anyWidgetFlags
     ,setWidgetFns,getWidgetFns,getWidgetParentFns,widgetResizingIfChanged
@@ -36,15 +34,12 @@ import Data.Bits
 import qualified Data.Vector as V
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO)
---import Control.Concurrent.STM
---import Control.Arrow
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Ref
 import GUI.BaseLayer.BitFlags
 import GUI.BaseLayer.Cursor
 import GUI.BaseLayer.Internal.Types
 import GUI.BaseLayer.Geometry
--- import GUI.BaseLayer.Primitives
 
 pattern WidgetNoFlags :: WidgetFlags
 pattern WidgetRedrawFlag :: WidgetFlags

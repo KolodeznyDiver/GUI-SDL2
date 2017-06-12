@@ -1,5 +1,6 @@
 module GUI.BaseLayer.Keyboard(
-    ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showKeycode
+    ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showKeycode,KeyModifiers(..),KeyWithModifiers(..)
+    ,scaToKeyModifier
     ) where
 
 import qualified SDL
@@ -23,7 +24,7 @@ isEnterKey keycode = keycode == SDL.KeycodeReturn || -- keycode == SDL.KeycodeRe
                      keycode == SDL.KeycodeCaret || keycode == SDL.KeycodeKPEnter
 {-# INLINE isEnterKey #-}
 
--- Нужна только для HotKey-ев, по этому, не подходящие для них клавишы закомментированы
+-- Нужна только для KeyWithModifiers-ев, по этому, не подходящие для них клавишы закомментированы
 showKeycode :: SDL.Keycode -> String
 {-
 showKeycode SDL.KeycodeSpace  = "' '"
@@ -49,3 +50,39 @@ showKeycode k
                     key | key<128 -> let c= chr $ fromIntegral key in
                                      if isPrint c then [toUpper c] else showLitChar c ""
                         | otherwise -> showHex key ""
+
+data KeyModifiers = KeyNoModifiers
+                    | KeyCtrl
+                    | KeyShift
+                    | KeyAlt
+                    | KeyCtrlShift
+                    | KeyCtrlAlt
+                    | KeyShiftAlt
+                    deriving (Eq, Ord)
+
+instance Show KeyModifiers where
+    show KeyNoModifiers = ""
+    show KeyCtrl = "Ctrl-"
+    show KeyShift = "Shift-"
+    show KeyAlt = "Alt-"
+    show KeyCtrlShift = "Ctrl-Shift-"
+    show KeyCtrlAlt = "Ctrl-Alt-"
+    show KeyShiftAlt = "Shift-Alt-"
+
+
+data KeyWithModifiers = KeyWithModifiers KeyModifiers SDL.Keycode
+                    deriving (Eq, Ord)
+
+instance Show KeyWithModifiers where
+    show (KeyWithModifiers km k) = show km ++ showKeycode k
+
+scaToKeyModifier :: ShiftCtrlAlt -> KeyModifiers
+scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl= True, isAlt= False  } = KeyCtrl
+scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt= False } = KeyShift
+scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl=  False, isAlt=  True} = KeyAlt
+scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl=  True, isAlt=  False} = KeyCtrlShift
+scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl=  True, isAlt=  True} = KeyCtrlAlt
+scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt=  True} = KeyShiftAlt
+scaToKeyModifier _ = KeyNoModifiers
+{-# INLINE scaToKeyModifier #-}
+

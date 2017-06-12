@@ -24,21 +24,16 @@ import Data.Maybe
 import MonadUtils (whenM)
 import qualified SDL
 import SDL.Vect
-import SDL.TTF.FFI (TTFFont)
 import qualified SDL.TTF as TTF
 import Maybes (whenIsJust)
 import Data.Default
 import GUI
-import GUI.BaseLayer.Geometry
 import qualified GUI.BaseLayer.Primitives as P
-import GUI.Widget.Handlers
 
 pattern PaddingX :: Coord
 pattern PaddingX = 5
 pattern PaddingY :: Coord
 pattern PaddingY = 3
--- pattern DeltaOffset :: Int
--- pattern DeltaOffset = 10
 
 data TextEditDef = TextEditDef  { textEditFormItemDef  :: FormItemWidgetDef
                                 , textEditWidth   :: Coord
@@ -120,7 +115,7 @@ textEdit TextEditDef{..} parent skin = do
 
         calcMinOff :: VU.Vector Coord -> Coord -> Int -> Int
         calcMinOff v = go
-            where go r 0 = 0
+            where go _ 0 = 0
                   go r i = let  i' = i - 1
                                 r' = r - v VU.! i'
                            in if r' <= 0 then i else go r' i'
@@ -268,9 +263,9 @@ textEdit TextEditDef{..} parent skin = do
     blink <- newMonadIORef True
     modifyMonadIORef' d $ \s -> s{txtEdSetText= onSetText}
     win <- getWidgetWindow parent
-    gui <- getGuiFromWindow win
+    gui <- getWindowGui win
     blikPipe <- newGuiPipe gui $ \ _ (_ :: V.Vector Int) -> return ()
-    onSetText textEditText
+    void $ onSetText textEditText
     mkWidget textEditFlags
             (fromMaybe (formItemsMargin skin) $ formItemMargin textEditFormItemDef)
             (TextEditData d) parent fns{
@@ -280,7 +275,7 @@ textEdit TextEditDef{..} parent skin = do
                                                          modifyMonadIORef' blink not
                                                          markWidgetForRedraw widget
         ,onDestroy = \ _widget -> stopThrd >> delGuiPipe gui blikPipe
-        ,onGainedKeyboardFocus = \widget -> do
+        ,onGainedKeyboardFocus = \_widget -> do
             stopThrd
             tId <- liftIO $ forkIO $ forever $ do
                         threadDelay 500000 -- 0.5 s
@@ -304,45 +299,46 @@ textEdit TextEditDef{..} parent skin = do
                     if pos>=0 then (pos,-1) else (txtEdPos,txtEdSel)
         ,onKeyboard = \widget motion _repeated keycode km -> when (motion==SDL.Pressed) $ do
 --            liftIO $ putStrLn $ concat ["textEdit.onKeyboard "]
-            let shiftCtrlAlt@ShiftCtrlAlt{..} = getShftCtrlAlt km
+            let shiftCtrlAlt@ShiftCtrlAlt{isShift=isS,isCtrl=isC,isAlt=isA} = getShftCtrlAlt km
             if isEnterKey keycode && shiftCtrlAlt == ShiftCtrlAlt False False False then do
                 n <- findNextTabbedWidget widget
                 if n /= widget then setWidgetFocus n else atEnd
-            else case (keycode,isShift,isCtrl,isAlt) of
-                    (SDL.KeycodeA,False,True,False) -> doMove widget $ \ TextEditState{..} ->
+            else case keycode of
+                    SDL.KeycodeA | not isS && isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         let ln = VU.length txtEdWidths in
                         if ln>0 then (0,VU.length txtEdWidths) else (0,-1)
-                    (SDL.KeycodeHome,False,False,False) -> doMove widget $ \ TextEditState{..} ->
+
+                    SDL.KeycodeHome | not isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         (0,-1)
-                    (SDL.KeycodeEnd,False,False,False) -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeEnd | not isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         (VU.length txtEdWidths,-1)
-                    (SDL.KeycodeLeft,False,False,False) -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeLeft | not isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         (max 0 $ txtEdPos - 1,-1)
-                    (SDL.KeycodeRight,False,False,False) -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeRight | not isS && not isC && not isA  -> doMove widget $ \ TextEditState{..} ->
                         (min (VU.length txtEdWidths) $ txtEdPos + 1,-1)
 
-                    (SDL.KeycodeHome,True,False,False) -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeHome | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         (0,if txtEdSel<0 then txtEdPos else txtEdSel)
-                    (SDL.KeycodeEnd,True,False,False) -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeEnd | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         (VU.length txtEdWidths,if txtEdSel<0 then txtEdPos else txtEdSel)
-                    (SDL.KeycodeLeft,True,False,False) -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeLeft | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         (max 0 $ txtEdPos - 1,if txtEdSel<0 then txtEdPos else txtEdSel)
-                    (SDL.KeycodeRight,True,False,False) -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeRight | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
                         (min (VU.length txtEdWidths) $ txtEdPos + 1,if txtEdSel<0 then txtEdPos else txtEdSel)
 
-                    (SDL.KeycodeC,False,True,False) -> void copyToClipboard
-                    (SDL.KeycodeInsert,False,True,False) -> void copyToClipboard
-                    (SDL.KeycodeX,False,True,False) -> cutToClipboard widget
-                    (SDL.KeycodeDelete,True,False,False) -> cutToClipboard widget
-                    (SDL.KeycodeV,False,True,False) -> pasteFromClipboard widget
-                    (SDL.KeycodeInsert,True,False,False) -> pasteFromClipboard widget
-                    (SDL.KeycodeDelete,_,_,False) -> do
+                    SDL.KeycodeC | not isS && isC && not isA -> void copyToClipboard
+                    SDL.KeycodeInsert | not isS && isC && not isA -> void copyToClipboard
+                    SDL.KeycodeX | not isS && isC && not isA -> cutToClipboard widget
+                    SDL.KeycodeDelete | not isS && isC && not isA -> cutToClipboard widget
+                    SDL.KeycodeV | not isS && isC && not isA -> pasteFromClipboard widget
+                    SDL.KeycodeInsert | isS && not isC && not isA -> pasteFromClipboard widget
+                    SDL.KeycodeDelete | not isA -> do
 --                        liftIO $ putStrLn "textEdit.KeycodeDelete"
                         s@TextEditState{..} <- readMonadIORef state
                         when (txtEdPos /= VU.length txtEdWidths) $
                             whenM (textUpdate' s T.empty txtEdPos (txtEdPos+1)) $
                                 markWidgetForRedraw widget
-                    (SDL.KeycodeBackspace,_,_,False) -> do
+                    SDL.KeycodeBackspace | not isA -> do
                         s@TextEditState{..} <- readMonadIORef state
                         when (txtEdPos>0) $ whenM (textUpdate' s T.empty (txtEdPos-1) txtEdPos) $
                             markWidgetForRedraw widget

@@ -9,7 +9,6 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Text as T
---import qualified Data.Vector.Storable as V
 import qualified Data.Vector as V
 import Data.Bits
 import Data.Maybe
@@ -18,7 +17,6 @@ import System.Exit
 import GHC.Conc
 import qualified SDL
 import SDL.Vect
---import qualified SDL.TTF as TTF
 import SDL.TTF.Types
 import GUI
 import GUI.Skin.DefaultSkin
@@ -43,19 +41,22 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
                                                    , fontKerning = Just KerningOff }
         ,GuiFontDef "small"     "PTN57F.ttf" 13 def
         ,GuiFontDef "menu"      "PTN57F.ttf" 14 def
-        ,GuiFontDef "hello world"     "PTN57F.ttf" 15 def{fontStyle = Just def  { fontBold = True
+        ,GuiFontDef "hello world"     "PTN57F.ttf" 28 def{fontStyle = Just def  { fontBold = True
                                                                                 , fontItalic = True
                                                                                 , fontUnderline = True}}
         ]
 
-        $ \gui -> do
-    putStr "SDL version " >> SDL.version >>= print
+        def{guiLogDef = def{logFileName = "GUIDemo.log"}}
+         $ \gui -> do
+
+    logPutLn gui . T.append "SDL version " . T.pack . show =<< SDL.version
     win <- newWindow gui "GUI test" $ SDL.defaultWindow { SDL.windowInitialSize = V2 400 400
                                                         --, SDL.windowResizable = True
                                                         }
 #if EXAMPLE_NUM == 0
     void $ win $+ label def { labelFormItemDef = FormItemWidgetDef $ Just WidgetMarginNone
                             , labelAlignment=AlignCenter, labelFontKey = "hello world"
+                            , labelColor = Just $ rgb 0 100 0
                             , labelText="Привет, мир!"}
 #elif EXAMPLE_NUM == 1
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
@@ -190,18 +191,18 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
 
     -- Define actions
     addActions gui "File" [
-         ("New",def{actionText="Новый", actionHotKey=hkCtrl SDL.KeycodeN, actionPicture="new.ico"})
-        ,("Open",def{actionText="Открыть", actionHotKey=hkCtrl SDL.KeycodeO, actionPicture="open.png"})
-        ,("Save",def{actionText="Сохранить", actionHotKey=hkCtrl SDL.KeycodeS, actionPicture="save.png"})
+         ("New",def{actionText="Новый", actionHotKey=kCtrl SDL.KeycodeN, actionPicture="new.ico"})
+        ,("Open",def{actionText="Открыть", actionHotKey=kCtrl SDL.KeycodeO, actionPicture="open.png"})
+        ,("Save",def{actionText="Сохранить", actionHotKey=kCtrl SDL.KeycodeS, actionPicture="save.png"})
         ,("SaveAs",def{actionText="Сохранить как", actionPicture="saveas.png"})]
 
     addActions gui "Edit" [
-         ("Cut",def{actionText="Вырезать", actionHotKey=hkCtrl SDL.KeycodeX, actionPicture="cut.png"})
-        ,("Copy",def{actionText="Копировать", actionHotKey=hkCtrl SDL.KeycodeC, actionPicture="copy.png"})
-        ,("Paste",def{actionText="Вставить", actionHotKey=hkCtrl SDL.KeycodeV, actionPicture="paste.png"})]
+         ("Cut",def{actionText="Вырезать", actionHotKey=kCtrl SDL.KeycodeX, actionPicture="cut.png"})
+        ,("Copy",def{actionText="Копировать", actionHotKey=kCtrl SDL.KeycodeC, actionPicture="copy.png"})
+        ,("Paste",def{actionText="Вставить", actionHotKey=kCtrl SDL.KeycodeV, actionPicture="paste.png"})]
 
     addActions gui "Application" [
-         ("Exit",def{actionText="Выход", actionHotKey=hkAlt SDL.KeycodeF4, actionPicture="exit.png"
+         ("Exit",def{actionText="Выход", actionHotKey=kAlt SDL.KeycodeF4, actionPicture="exit.png"
             , actionValue = def{onAction=guiApplicationExitSuccess gui}})]
 
     addActions gui "Find" [
@@ -254,8 +255,8 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
         setText lb txtHotKeyPrompt
         
     addActions gui "Hotkeys" [
-         ("hk0",def{actionHotKey= hkAlt SDL.KeycodeF2, actionValue=def{onAction= setText lb "Alt-F2"}})
-        ,("hk1",def{actionHotKey= hkCtrl SDL.KeycodeD, actionValue=def{onAction= setText lb "Ctrl-D"}})
+         ("hk0",def{actionHotKey= kAlt SDL.KeycodeF2, actionValue=def{onAction= setText lb "Alt-F2"}})
+        ,("hk1",def{actionHotKey= kCtrl SDL.KeycodeD, actionValue=def{onAction= setText lb "Ctrl-D"}})
         ]
 
     -- Пример задания/замены действия для Action после его создания.
@@ -390,7 +391,7 @@ mouseChkWidget margin parent _ = do
 
 {- Ниже приведены виджеты не включённые в этот набор примеров. Вы можете их подключить или переделать самостоятельно -}
 
--- Цветной хеллоуворд                                                                }
+-- Цветной хеллоуворд
 exampleWidgetHelloWorld :: MonadIO m => Widget -> Skin -> m (GuiWidget SimpleWidget)
 exampleWidgetHelloWorld parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent (noChildrenFns $ V2 0 60){
         onDraw= \ widget -> do

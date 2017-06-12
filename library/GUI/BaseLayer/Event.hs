@@ -4,6 +4,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GUI.BaseLayer.Event(
     GuiPipeProducer,GuiPipe(..),userEventHandler,getPipeIdFromProducer,delGuiPipe
     ) where
@@ -82,7 +83,7 @@ userEventHandler :: MonadIO m => Gui -> Int32 -> Ptr () -> Ptr () -> m ()
 userEventHandler gui code p0 p1 = do
     intMap <- guiUserMsgHandlers <$> readMonadIORef gui
     whenIsJust (IntMap.lookup (fromIntegral code) intMap) $ \h -> do
-        userMsgHandler h p0 p1
+        logOnErr gui "userEventHandler" $ userMsgHandler h p0 p1
         redrawAll gui
 
 getPipeIdFromProducer :: GuiPipeProducer a -> GuiPipeId

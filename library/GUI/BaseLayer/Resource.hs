@@ -30,10 +30,8 @@ import MonadUtils (unlessM) -- (fmapMaybeM)
 import Data.Char
 import Maybes (whenIsJust)
 import Control.Monad.IO.Class (MonadIO, liftIO)
--- import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
---import Data.StateVar
 import Data.IORef
 import Control.Monad
 import Control.Exception
@@ -42,9 +40,8 @@ import GUI.BaseLayer.Types
 import GUI.BaseLayer.Resource.Types
 import GUI.BaseLayer.Ref
 import GUI.BaseLayer.Cursor
---import GUI.BaseLayer.Geometry
-import GUI.BaseLayer.Primitives
 import GUI.BaseLayer.Raw.TTF (GuiFontStyle(..),setFontStyleIfNeed)
+import GUI.BaseLayer.Auxiliaries
 --import Foreign -- debug
 --import qualified Data.Vector.Storable.Mutable as VM
 
@@ -57,17 +54,16 @@ pattern EnvResourceDirectoryPathSuffix  = "_GUIRESOURCES"
 pattern ErrSurfaceDimension :: Coord
 pattern ErrSurfaceDimension             = 5
 
-initResourceManager :: MonadIO m => String -> [GuiFontDef] -> m ResourceManager
-initResourceManager skinName fntLst = do
+initResourceManager :: MonadIO m => String -> [GuiFontDef] -> String -> m ResourceManager
+initResourceManager skinName fntLst dataDirectory = do
 --  liftIO (putStr "Displays : " >> SDL.getDisplays >>= print)
-    appName <- takeBaseName <$> liftIO getProgName
+    appName <- liftIO getAppName
     -- for ex. set GUIDEMO_GUIRESOURCES=c:\...\GUI.Resources
     let envParamName = map toUpper appName ++ EnvResourceDirectoryPathSuffix
         dirMsg dir = T.concat ["Directory ", T.pack dir, " is not found.\n" ]
-        guiTerminated lst = do
-            SDL.showSimpleMessageBox Nothing SDL.Error (T.pack appName) $ T.append
-                (T.concat lst) "\n\nGUI terminated."
-            liftIO exitFailure
+        guiTerminated lst = liftIO $ do
+            showErrMsgBoxT $ T.append (T.concat lst) "\n\nGUI terminated."
+            exitFailure
     mbP <- liftIO $ lookupEnv envParamName
 --    liftIO $ putStrLn $ "mbP=" ++ show mbP
     p <- case mbP of
@@ -78,7 +74,7 @@ initResourceManager skinName fntLst = do
                     " pointed to the resources directory.\n", dirMsg p1]
         _ -> do
             -- for ex. C:\Users\User\AppData\Roaming\GUIDemo\GUI.Resources or ~/.local/share/GUIDemo/GUI.Resources
-            p0 <- (</> DefResourceSubDirectory) <$> liftIO (getXdgDirectory XdgData appName)
+            let p0 = dataDirectory </> DefResourceSubDirectory
 --            liftIO $ putStrLn $ "p0=" ++ p0
             exist0 <- liftIO $ doesDirectoryExist p0
             if exist0 then return p0
