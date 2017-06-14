@@ -1,11 +1,13 @@
 module GUI.BaseLayer.Auxiliaries(
-    getAppName,showErrMsgBoxT,showErrMsgBox,guiCatch
+    getAppName,showErrMsgBoxT,showErrMsgBoxTL,showErrMsgBoxB,showErrMsgBox,guiCatch
     ) where
 
 import System.Environment (getProgName)
 import Control.Exception
 import System.Exit
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import qualified TextShow as TS
 import System.FilePath
 import qualified SDL
 
@@ -18,6 +20,14 @@ showErrMsgBoxT t = do
    appName <- getAppName
    SDL.showSimpleMessageBox Nothing SDL.Error (T.pack appName) t
 {-# INLINE showErrMsgBoxT #-}
+
+showErrMsgBoxTL :: TL.Text -> IO ()
+showErrMsgBoxTL = showErrMsgBoxT . TL.toStrict
+{-# INLINE showErrMsgBoxTL #-}
+
+showErrMsgBoxB :: TS.Builder -> IO ()
+showErrMsgBoxB = showErrMsgBoxT . TS.toText
+{-# INLINE showErrMsgBoxB #-}
 
 showErrMsgBox :: String -> IO ()
 showErrMsgBox = showErrMsgBoxT . T.pack

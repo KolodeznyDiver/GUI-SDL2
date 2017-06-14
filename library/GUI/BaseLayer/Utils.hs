@@ -25,6 +25,7 @@ import qualified Data.Text as T
 import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
+import qualified TextShow as TS
 import Data.Bits
 import System.Exit
 --import Data.Maybe
@@ -548,29 +549,29 @@ guiApplicationExitWithCode gui 0 = guiApplicationExitSuccess gui
 guiApplicationExitWithCode _gui code = liftIO $ exitWith $ ExitFailure code
 {-# INLINE guiApplicationExitWithCode #-}
 
-logPutLn :: MonadIO m => Gui -> T.Text -> m ()
+logPutLn :: MonadIO m => Gui -> TS.Builder -> m ()
 logPutLn gui msg = (`L.logPutLn` msg) =<< (guiLog <$> readMonadIORef gui)
 
-guiOnSomeException :: Gui -> T.Text -> SomeException -> IO ()
+guiOnSomeException :: Gui -> TS.Builder -> SomeException -> IO ()
 guiOnSomeException gui t e = do
     l <- guiLog <$> readMonadIORef gui
     L.logOnSomeException l t e
 {-# INLINE guiOnSomeException #-}
 
-logOnErr :: MonadIO m => Gui -> T.Text -> IO () -> m ()
+logOnErr :: MonadIO m => Gui -> TS.Builder -> IO () -> m ()
 logOnErr gui t f = liftIO $ guiCatch f (\e -> do
         l <- guiLog <$> readMonadIORef gui
         L.logOnSomeException l t e)
 {-# INLINEABLE logOnErr #-}
 
-logOnErrInWindow :: MonadIO m => GuiWindow -> T.Text -> IO () -> m ()
+logOnErrInWindow :: MonadIO m => GuiWindow -> TS.Builder -> IO () -> m ()
 logOnErrInWindow window t f = liftIO $ guiCatch f (\e -> do
         l <- guiLog <$> (readMonadIORef =<< getWindowGui window)
         L.logOnSomeException l t e)
 {-# INLINEABLE logOnErrInWindow #-}
 
 
-logOnErrInWidget :: MonadIO m => Widget -> T.Text -> IO () -> m ()
+logOnErrInWidget :: MonadIO m => Widget -> TS.Builder -> IO () -> m ()
 logOnErrInWidget widget t f = liftIO $ guiCatch f (\e -> do
         l <- guiLog <$> (readMonadIORef =<< getWindowGui =<< getWidgetWindow widget)
         L.logOnSomeException l t e)

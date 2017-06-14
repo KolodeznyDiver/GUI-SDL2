@@ -5,10 +5,13 @@
 {-# LANGUAGE RecordWildCards #-}
 module Main where
 
+import Data.Monoid
 import Control.Monad
+import Control.Exception
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Text as T
+import           TextShow (showb,showt)
 import qualified Data.Vector as V
 import Data.Bits
 import Data.Maybe
@@ -46,10 +49,14 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
                                                                                 , fontUnderline = True}}
         ]
 
+                    -- Windows : C:\Users\User\AppData\Roaming\GUIDemo\GUIDemo.log
+                    -- *nix    : ~/.local/share/GUIDemo/GUIDemo.log
         def{guiLogDef = def{logFileName = "GUIDemo.log"}}
          $ \gui -> do
 
-    logPutLn gui . T.append "SDL version " . T.pack . show =<< SDL.version
+    (v0,v1,v2) <- SDL.version
+    logPutLn gui $ "SDL version " <> showb v0 <> "," <> showb v1 <> "," <> showb (v2 :: Int)
+
     win <- newWindow gui "GUI test" $ SDL.defaultWindow { SDL.windowInitialSize = V2 400 400
                                                         --, SDL.windowResizable = True
                                                         }
@@ -257,6 +264,9 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     addActions gui "Hotkeys" [
          ("hk0",def{actionHotKey= kAlt SDL.KeycodeF2, actionValue=def{onAction= setText lb "Alt-F2"}})
         ,("hk1",def{actionHotKey= kCtrl SDL.KeycodeD, actionValue=def{onAction= setText lb "Ctrl-D"}})
+        ,("hkExceptionCatchTest",def{actionHotKey= kShift SDL.KeycodeF1, actionValue=def{onAction=
+            setText lb $ showt $ 1 `div` (0 :: Int)
+            }})
         ]
 
     -- Пример задания/замены действия для Action после его создания.

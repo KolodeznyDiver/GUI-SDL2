@@ -1,17 +1,27 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GUI.BaseLayer.Keyboard(
-    ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showKeycode,KeyModifiers(..),KeyWithModifiers(..)
+    ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showbKeycode,KeyModifiers(..),KeyWithModifiers(..)
     ,scaToKeyModifier
     ) where
 
+import Data.Monoid
+import GHC.Generics (Generic)
+import Data.Data (Data)
+import Data.Typeable
+import TextShow
+import TextShow.Data.Char
+import TextShow.Data.Integral
 import qualified SDL
-import Numeric
+--import Numeric
 import Data.Char
 
 data ShiftCtrlAlt = ShiftCtrlAlt { isShift :: Bool
                                  , isCtrl  :: Bool
                                  , isAlt   :: Bool
                                  }
-                                 deriving (Eq,Ord)
+                                 deriving (Eq)
 
 getShftCtrlAlt :: SDL.KeyModifier -> ShiftCtrlAlt
 getShftCtrlAlt km = ShiftCtrlAlt (SDL.keyModifierLeftShift km || SDL.keyModifierRightShift km)
@@ -25,31 +35,32 @@ isEnterKey keycode = keycode == SDL.KeycodeReturn || -- keycode == SDL.KeycodeRe
 {-# INLINE isEnterKey #-}
 
 -- Нужна только для KeyWithModifiers-ев, по этому, не подходящие для них клавишы закомментированы
-showKeycode :: SDL.Keycode -> String
+showbKeycode :: SDL.Keycode -> Builder
 {-
-showKeycode SDL.KeycodeSpace  = "' '"
-showKeycode SDL.KeycodeBackspace  = "Backspace"
-showKeycode SDL.KeycodeTab = "Tab"
-showKeycode SDL.KeycodeInsert = "Ins"
-showKeycode SDL.KeycodeHome = "Home"
-showKeycode SDL.KeycodePageUp  = "PgUp"
-showKeycode SDL.KeycodeDelete  = "Del"
-showKeycode SDL.KeycodeEnd  = "End"
-showKeycode SDL.KeycodePageDown  = "PgDn"
-showKeycode SDL.KeycodeRight  = "Right"
-showKeycode SDL.KeycodeLeft = "Left"
-showKeycode SDL.KeycodeDown = "Down"
-showKeycode SDL.KeycodeUp  = "Up"
-showKeycode SDL. = ""
-showKeycode SDL.KeycodeEscape = "Esc" -}
-showKeycode k
+showbKeycode SDL.KeycodeSpace  = "' '"
+showbKeycode SDL.KeycodeBackspace  = "Backspace"
+showbKeycode SDL.KeycodeTab = "Tab"
+showbKeycode SDL.KeycodeInsert = "Ins"
+showbKeycode SDL.KeycodeHome = "Home"
+showbKeycode SDL.KeycodePageUp  = "PgUp"
+showbKeycode SDL.KeycodeDelete  = "Del"
+showbKeycode SDL.KeycodeEnd  = "End"
+showbKeycode SDL.KeycodePageDown  = "PgDn"
+showbKeycode SDL.KeycodeRight  = "Right"
+showbKeycode SDL.KeycodeLeft = "Left"
+showbKeycode SDL.KeycodeDown = "Down"
+showbKeycode SDL.KeycodeUp  = "Up"
+showbKeycode SDL. = ""
+showbKeycode SDL.KeycodeEscape = "Esc" -}
+showbKeycode k
 --    | isEnterKey k = "Enter"
-    | k>= SDL.KeycodeF1 && k<=SDL.KeycodeF12 = 'F': show
+    | k>= SDL.KeycodeF1 && k<=SDL.KeycodeF12 = singleton 'F' <> showb
         (1 + SDL.unwrapKeycode k - SDL.unwrapKeycode SDL.KeycodeF1)
     | otherwise = case SDL.unwrapKeycode k of
                     key | key<128 -> let c= chr $ fromIntegral key in
-                                     if isPrint c then [toUpper c] else showLitChar c ""
-                        | otherwise -> showHex key ""
+                                     if isPrint c then singleton $ toUpper c
+                                     else showbLitChar c
+                        | otherwise -> showbHex key
 
 data KeyModifiers = KeyNoModifiers
                     | KeyCtrl
@@ -58,7 +69,7 @@ data KeyModifiers = KeyNoModifiers
                     | KeyCtrlShift
                     | KeyCtrlAlt
                     | KeyShiftAlt
-                    deriving (Eq, Ord)
+                    deriving (Bounded, Data, Eq, Ord, Generic, Typeable)
 
 instance Show KeyModifiers where
     show KeyNoModifiers = ""
@@ -69,13 +80,18 @@ instance Show KeyModifiers where
     show KeyCtrlAlt = "Ctrl-Alt-"
     show KeyShiftAlt = "Shift-Alt-"
 
+instance TextShow KeyModifiers where
+    showb = fromString . show
 
 data KeyWithModifiers = KeyWithModifiers KeyModifiers SDL.Keycode
-                    deriving (Eq, Ord)
+                    deriving (Data, Eq, Ord, Generic, Typeable)
 
+instance TextShow KeyWithModifiers where
+    showb (KeyWithModifiers km k) = showb km <> showbKeycode k
+{-
 instance Show KeyWithModifiers where
-    show (KeyWithModifiers km k) = show km ++ showKeycode k
-
+    show = toString . showb
+-}
 scaToKeyModifier :: ShiftCtrlAlt -> KeyModifiers
 scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl= True, isAlt= False  } = KeyCtrl
 scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt= False } = KeyShift

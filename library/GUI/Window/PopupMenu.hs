@@ -12,9 +12,11 @@ module GUI.Window.PopupMenu(
     ,mkMenu,mItem,mItemSub,popupMenu
     ) where
 
+import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class
 import qualified Data.Text as T
+import qualified TextShow as TS
 import           Data.ByteString.Char8   (ByteString)
 --import qualified Data.ByteString.Char8   as B
 import qualified Data.Vector as V
@@ -144,7 +146,7 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                 Just Action{..} -> do
                     let isSubmenu = not $ V.null menuItemSubmenu
                         isPict = not $ T.null actionPicture
-                        hkTxt = maybe T.empty (T.pack . show) actionHotKey
+                        hkTxt = maybe T.empty (TS.toText . TS.showb) actionHotKey
                         v' = if not (V.null v) && curGroup /= Just menuItemGroup then addSeparator v else v
                     mbT <- if isPict then
                                 Just <$> runProxyCanvas parent
@@ -233,7 +235,7 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                     PrevHMenu hmWidget -> restoreHMenu hmWidget
                     _ -> return ()
                 delAllPopupWindows gui
-                logOnErr gui (T.concat ["popupMenu item \"",txt,"\""]) f
+                logOnErr gui ("popupMenu item \"" <> TS.fromText txt <> "\"") f
             Item{itemType=(SubmenuItem subMenu)} -> doSubmenu widget i subMenu
             _ -> return ()
         fns = noChildrenFns winSz

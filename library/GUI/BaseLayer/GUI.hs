@@ -11,10 +11,7 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Data.Map.Strict as Map (empty)
 import qualified Data.IntMap.Strict as IntMap (empty)
 import Control.Exception
-import System.Environment (getProgName)
 import Control.Monad
-import qualified Data.Text as T
-import System.FilePath
 import System.Directory
 import Data.Default
 import Maybes (whenIsJust)
@@ -200,7 +197,7 @@ onEvent gui evpl = case evpl of
                putStrLn $ concat [ -- "KeyboardEvent  motion=",show motion, -- "  repeated=",show repeated,
 --               " keycode=",show key, "  ",
 --               if key<128 then let c= chr $ fromIntegral key in if isPrint c then ['[',c,']'] else ""  else "",
-                             "KeyModifiers = ",show hkMod, "   showKeycode = ", showKeycode keycode,
+                             "KeyModifiers = ",show hkMod, "   showbKeycode = ", showbKeycode keycode,
                              if wasHK then "   KeyWithModifiers" else ""] -}
            if wasHK then do
                 delAllPopupWindows gui

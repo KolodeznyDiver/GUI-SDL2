@@ -112,12 +112,12 @@ module GUI(
     ,addActions,chkHotKey,getActionByGroupAndId,getActionsByGroupAndId,setActionEnable
     ,setAction,getVisibleActions,fromActionMask
     -- GUI.BaseLayer.Keyboard
-    ,ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showKeycode,KeyModifiers(..),KeyWithModifiers(..)
+    ,ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showbKeycode,KeyModifiers(..),KeyWithModifiers(..)
     ,scaToKeyModifier
     -- GUI.BaseLayer.Logging
     ,LogDateTime(..),GUILogDef(..)
     -- GUI.BaseLayer.Auxiliaries
-    ,getAppName,showErrMsgBoxT,showErrMsgBox
+    ,getAppName,showErrMsgBoxT,showErrMsgBoxTL,showErrMsgBoxB,showErrMsgBox
     -- GUI.BaseLayer.GUI
     ,GUIDef(..),runGUI
   ) where

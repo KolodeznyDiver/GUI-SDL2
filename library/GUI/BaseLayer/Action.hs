@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
--- {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GUI.BaseLayer.Action(
     -- GUI.BaseLayer.Action.Internal.Action
     pattern AllInvisibleActionMask,pattern AllDisableActionMask,pattern AllEnableActionMask
@@ -15,11 +15,12 @@ module GUI.BaseLayer.Action(
     ,setAction,getVisibleActions
     ) where
 
+import Data.Monoid
 import Control.Monad.IO.Class -- (MonadIO)
 import Data.Maybe
 import qualified Data.Vector as V
 import           Data.ByteString.Char8   (ByteString)
-import qualified Data.Text as T
+import           TextShow (showb)
 import qualified SDL
 import GUI.BaseLayer.Internal.Action
 import GUI.BaseLayer.Internal.Types
@@ -64,7 +65,7 @@ chkHotKey gui km key = do
     g <- readMonadIORef gui
     let k = KeyWithModifiers km key
     case actionFindByHotKey (guiState g) (guiActions g) k of
-        Just a -> logOnErr (guiLog g) (T.pack $ "HotKey " ++ show k)
+        Just a -> logOnErr (guiLog g) ("HotKey " <> showb k)
                     (actionFn a) >> return True
         _ -> return False
 {-# INLINE chkHotKey #-}

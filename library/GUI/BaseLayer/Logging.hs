@@ -5,6 +5,7 @@ module GUI.BaseLayer.Logging(
     ,logOnSomeException,logOnErr
     ) where
 
+import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Exception
@@ -13,8 +14,10 @@ import Data.Time
 import           System.Directory
 import           System.FilePath
 import           System.IO
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.IO as TIO
+import qualified TextShow as TS
+import           TextShow (showb)
 import Maybes (whenIsJust)
 import MonadUtils (unlessM)
 import Data.Default
@@ -38,7 +41,7 @@ instance Default GUILogDef where
                     }
 
 -- no export
-data GUILog' = GUILog'  { logFName :: String
+data GUILog' = GUILog'  { logFName :: TS.Builder
                         , logDateTime :: LogDateTime
                         , logTZ :: TimeZone
                         , logWriteFail :: IORef Bool
@@ -68,7 +71,7 @@ guiLogStart GUILogDef{..} dataDirectory outToConsole =
               Right h -> do
                 tz <- getCurrentTimeZone -- НЕ вызывать при перенастроенном setForeignEncoding
                 bWriteFail <- newIORef False
-                return $ Just (GUILog (Just (GUILog' path logDateTimeMode tz bWriteFail h))
+                return $ Just (GUILog (Just (GUILog' (TS.fromString path) logDateTimeMode tz bWriteFail h))
                                     outToConsole)
 
 guiLogStop :: GUILog -> IO ()
@@ -78,14 +81,16 @@ guiLogStop GUILog{..} =
         hFlush logHandle
       hClose logHandle
 
-logPutLn :: MonadIO m => GUILog -> T.Text -> m ()
+logPutLn :: MonadIO m => GUILog -> TS.Builder -> m ()
 logPutLn GUILog{..} msg' = do
-    let msg = if T.null msg' || (T.last msg' /= '\n') then msg' else T.tail msg'
+    let msg = let t = TS.toLazyText msg' in
+              TS.fromLazyText (if TL.null t || (TL.last t /= '\n') then t else TL.tail t)
     when logOutToConsole $
-        liftIO $ TIO.putStrLn msg
+        liftIO $ TIO.putStrLn $ TS.toLazyText msg
     whenIsJust logGUILog' $ \GUILog'{..} ->
       unlessM (readMonadIORef logWriteFail) $ do
-        let addT frmt = ((`T.append` msg) . T.pack . formatTime defaultTimeLocale frmt . utcToLocalTime logTZ)
+        let addT frmt = ((<> msg) . TS.fromString .
+                            formatTime defaultTimeLocale frmt . utcToLocalTime logTZ)
                              <$> liftIO getCurrentTime
         t <- case logDateTime of
                 LogNoDateTime  -> return msg
@@ -93,21 +98,20 @@ logPutLn GUILog{..} msg' = do
                 LogDateAndTime -> addT "%x  %X   "
         liftIO $ handle (\e -> do
                             writeIORef logWriteFail True
-                            let errMsg = concat ["Can't write to logfile ", logFName, " : ",
-                                                show (e :: IOException)]
+                            let errMsg = "Can't write to logfile " <> logFName <> " : " <>
+                                                showb (e :: IOException)
                             when logOutToConsole $
-                                putStrLn errMsg
-                            showErrMsgBox errMsg
+                                TIO.putStrLn $ TS.toLazyText errMsg
+                            showErrMsgBoxB errMsg
                         ) $ do
-            TIO.hPutStrLn logHandle t
+            TIO.hPutStrLn logHandle $ TS.toLazyText t
             hFlush logHandle
 
-logOnSomeException :: GUILog -> T.Text -> SomeException -> IO ()
-logOnSomeException gLog t = logPutLn gLog . mkT . show
-    where mkT s = T.concat [t," : ",T.pack s]
+logOnSomeException :: GUILog -> TS.Builder -> SomeException -> IO ()
+logOnSomeException gLog t e = logPutLn gLog $ t <> " : " <> showb e
 {-# INLINE logOnSomeException #-}
 
-logOnErr :: MonadIO m => GUILog -> T.Text -> IO () -> m ()
+logOnErr :: MonadIO m => GUILog -> TS.Builder -> IO () -> m ()
 logOnErr gLog t f = liftIO $ guiCatch f (logOnSomeException gLog t)
 {-# INLINE logOnErr #-}
 

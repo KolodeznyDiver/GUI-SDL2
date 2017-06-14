@@ -11,7 +11,7 @@ executables:
     - bytestring
     - exceptions
     - linear
-    - StateVar
+#    - StateVar
     - text
     - transformers
     - vector
@@ -21,6 +21,7 @@ executables:
     - stm
     - ghc
     - data-default
+    - text-show
     main: Main.hs
     source-dirs: executable
     ghc-options:
@@ -115,9 +116,8 @@ library:
   - containers
   - unordered-containers
   - data-default
-#  - thyme
   - time
-#  - time-locale-compat
+  - text-show
   - filepath
   - directory
   - monadplus
@@ -136,4 +136,4 @@ license: BSD3
 maintainer: Kolodezny Diver
 name: GUI-SDL2
 synopsis: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
-version: '0.1.3'
+version: '0.1.4'
