@@ -88,7 +88,7 @@ border BorderDef{..} parent skin = do
             let bkFill = unless isTransp (setColor bkgrndColor >> fillRect r)
                 r' | isJust mbFnt = let dy = borderThickness `div` 2 in SDL.Rectangle (P (V2 x0 (y0+dy))) (V2 w (h-dy))
                    | otherwise = r
-                lightClr = fromMaybe (brdr3DLightColor skin)
+                lightClr = fromMaybe (brdr3DLightColor $ brdr3DColors skin)
             case borderType of
               BorderMono -> bkFill
               BorderRect -> bkFill >> setColor frgrndColor >> drawRect r'
@@ -96,7 +96,8 @@ border BorderDef{..} parent skin = do
                               | otherwise -> drawRoundFrame (fromMaybe bkgrndColor borderRoundOutsideColor)
                                                  frgrndColor bkgrndColor r'
               Border3D{..} -> bkFill >> draw3DBorder (lightClr border3DLightColor)
-                                         (fromMaybe (brdr3DDarkColor skin) border3DDarkColor) borderThickness r
+                                            (fromMaybe (brdr3DDarkColor $ brdr3DColors skin) border3DDarkColor)
+                                            borderThickness r
               BorderDot{..} -> bkFill >> setColor frgrndColor >> drawDotBorder borderDotStep r'
               BorderLine -> do
                 bkFill

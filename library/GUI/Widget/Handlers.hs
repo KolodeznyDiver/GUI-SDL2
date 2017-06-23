@@ -1,20 +1,25 @@
 {-# LANGUAGE RankNTypes #-}
--- {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
 module GUI.Widget.Handlers(
-    colorRectFns,grayRectFns
+    noChildrenFns,colorRectFns,grayRectFns
     ,MouseAnimatedHndlr(..),MouseAnimatedClickableHndlr(..)
     ,noChildrenClickableHndlr,noChildrenMouseAnimatedHndlr
         ) where
 
-import Control.Monad.IO.Class -- (MonadIO)
+import Control.Monad.IO.Class
 import Control.Monad
 import Data.IORef
+import Data.Default
 import qualified SDL
---import SDL.Vect
 import GUI
---import qualified Data.Vector as V
---import Data.Default
+
+noChildrenFns :: GuiSize -> WidgetFunctions
+noChildrenFns initInsideSz = def{
+    onCreate = \widget -> notifyParentAboutSize widget initInsideSz
+    ,onResizing= \widget -> void . extendableOnResizing initInsideSz widget
+                             }
+{-# INLINEABLE noChildrenFns #-}
+
 
 colorRectFns :: GuiSize -> GuiColor -> WidgetFunctions
 colorRectFns sz color = (noChildrenFns sz){

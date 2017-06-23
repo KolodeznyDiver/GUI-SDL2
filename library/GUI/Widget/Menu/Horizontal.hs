@@ -14,7 +14,6 @@ module GUI.Widget.Menu.Horizontal(
 
 import Control.Monad
 import Control.Monad.IO.Class
---import Control.Monad.Trans.Class
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
@@ -26,6 +25,7 @@ import Data.Default
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Window.PopupMenu
+import GUI.Widget.Handlers
 
 pattern PaddingX :: Coord
 pattern PaddingX = 7

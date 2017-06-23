@@ -1,13 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
--- {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
--- {-# LANGUAGE ScopedTypeVariables #-}
 module GUI.Widget.TH.LinearTrackBar(
-    -- GUI.Widget.Internal.LinearTrackBar
-    LinearTrackValueType,LinearTrackBarDef(..),LinearTrackBarData
-    -- GUI.Widget.TH.LinearTrackBar
-    ,mkLinearTrackBarQ
+    mkLinearTrackBarQ
                                    ) where
 
 import Language.Haskell.TH

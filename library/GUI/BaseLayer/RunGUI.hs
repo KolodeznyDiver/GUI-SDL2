@@ -1,19 +1,29 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GUI.BaseLayer.GUI(
+-- |
+-- Module:      GUI.BaseLayer.RunGUI
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Модуль содержащий основную функцию @runGUI@ с которой начинается выполнения GUI.
+
+module GUI.BaseLayer.RunGUI(
+    -- * Основная функция GUI и её параметры.
     GUIDef(..),runGUI
   ) where
 
 import Foreign
 import Control.Monad.IO.Class -- (MonadIO)
-import qualified Data.Vector.Unboxed as VU
 import qualified Data.Map.Strict as Map (empty)
-import qualified Data.IntMap.Strict as IntMap (empty)
 import Control.Exception
 import Control.Monad
 import System.Directory
 import Data.Default
+import Data.Maybe
 import Maybes (whenIsJust)
 import MonadUtils (whenM)
 import qualified SDL
@@ -22,26 +32,39 @@ import qualified SDL.Internal.Types
 import SDL.Vect
 import qualified SDL.TTF
 import qualified SDL.Image as IMAGE
+import GUI.BaseLayer.Depend0.Types
+import GUI.BaseLayer.Depend0.Auxiliaries
+import GUI.BaseLayer.Depend0.Ref
+import GUI.BaseLayer.Depend0.Cursor
+import GUI.BaseLayer.Depend0.Keyboard
+import GUI.BaseLayer.Depend1.Skin
+import GUI.BaseLayer.Depend1.Logging hiding (logPutLn,logOnErr)
 import GUI.BaseLayer.Types
-import GUI.BaseLayer.Ref
-import GUI.BaseLayer.Internal.Types
 import GUI.BaseLayer.Widget
-import GUI.BaseLayer.Window
-import GUI.BaseLayer.Event
+import GUI.BaseLayer.Pipe
 import GUI.BaseLayer.Resource
 import qualified GUI.BaseLayer.Primitives as P
-import GUI.BaseLayer.Skin
-import GUI.BaseLayer.Cursor
-import GUI.BaseLayer.Utils
-import GUI.BaseLayer.Keyboard
+import GUI.BaseLayer.Core
 import GUI.BaseLayer.Action
-import GUI.BaseLayer.Logging hiding (logPutLn,logOnErr)
-import GUI.BaseLayer.Auxiliaries
 import System.Utils (hideConsole)
+import GUI.BaseLayer.Window
+import GUI.BaseLayer.RedrawWindow
+import GUI.BaseLayer.SpecStateWidget
+import GUI.BaseLayer.GUIRecord
+import GUI.BaseLayer.Focus
 
-data GUIDef = GUIDef { guiLogDef :: GUILogDef
-                     , guiConsoleVisible :: Bool
-                     , guiDataDirectory :: String
+-- | Необязательные параметры инициализации GUI.
+data GUIDef = GUIDef {
+      -- | Параметры журналирования
+      guiLogDef :: GUILogDef
+      -- | Оставлять ли консольное окно видимым (и выводить дублировать ли в него сообщения журанал).
+    , guiConsoleVisible :: Bool
+      -- | Явное указание директории данных для программы.
+      -- В этой директории по умолчанию создаётся журнал.
+      -- Так же, в её подкаталоге храняться ресурсы приложения, см. "GUI.BaseLayer.Resource".
+      -- Если строка пуста, вместо неё используется результат выполнения
+      -- @getXdgDirectory XdgData \"ИмяПриложения\"@ (см. документацию к пакету __directory__).
+    , guiDataDirectory :: String
                      }
 
 instance Default GUIDef where
@@ -50,7 +73,12 @@ instance Default GUIDef where
                  , guiDataDirectory = "" -- set default. Not current dur.
                  }
 
-runGUI:: Skin -> [GuiFontDef] -> GUIDef -> (Gui -> IO ()) -> IO ()
+-- | Функция с которой начинается выполнения GUI.
+runGUI:: Skin -> -- ^ Текущий 'Skin' описывающий оформление интерфейса.
+        [GuiFontDef] -> -- ^ Таблица шрифтов.
+        GUIDef ->  -- ^ Необязательные параметры GUI.
+        (Gui -> IO ()) ->  -- ^ Функция конструирующая (нальную часть) GUI.
+        IO ()
 runGUI skin fntLst GUIDef{..} initFn =
   bracket_ (SDL.initialize [ SDL.InitVideo, SDL.InitEvents {-, SDL.InitTimer -} ]) SDL.quit $ do
     unless guiConsoleVisible
@@ -63,24 +91,23 @@ runGUI skin fntLst GUIDef{..} initFn =
     mbLog <- guiLogStart guiLogDef dataDir guiConsoleVisible
     whenIsJust mbLog $ \gLog -> SDL.TTF.withInit $
         bracket_ (IMAGE.initialize [IMAGE.InitJPG,IMAGE.InitPNG]) IMAGE.quit $
-        bracket (initResourceManager (skinName skin) fntLst dataDir) destroyResourceManager $ \rm -> do
+        bracket (initResourceManager (skinName skin) fntLst dataDir gLog) destroyResourceManager $ \rm -> do
             usrEvCode <- Raw.registerEvents 1
-            gui <- newMonadIORef GUIStruct    { guiWindows = Map.empty
+            gui <- newMonadIORef GUIRecord    { guiWindows = Map.empty
                                               , guiSkin = skin
                                               , userEventCodeBase = usrEvCode
                                               , resourceManager = rm
                                               , guiActions = mkEmptyActions
                                               , guiState = GuiState 0
                                               , guiUnique = 0
-                                              , guiUserMsgHandlers = IntMap.empty
-                                              , guiUserMsgRemovedIds = VU.empty
---                                              , guiConsoleRedirector = Nothing
+                                              , guiPipes = mkGuiPipes
                                               , guiLog = gLog
+                                              , guiModalWins = []
                                               }
             let freeFinally = do
                     delAllWindows gui
 --                    putStrLn "freeFinally"
-                    (guiLog <$> readMonadIORef gui) >>= guiLogStop
+                    guiGetLog gui >>= guiLogStop
                 mainLoop = do
                     (SDL.Event _ evpl) <- SDL.waitEvent
                     unless (evpl == SDL.QuitEvent)
@@ -90,6 +117,7 @@ runGUI skin fntLst GUIDef{..} initFn =
                 redrawAll gui
                 mainLoop
 
+-- | Не экспортируемая функция, вызываемяа только из @runGUI@ для обработки одного SDL сообщения из очереди.
 onEvent:: Gui -> SDL.EventPayload -> IO ()
 onEvent gui evpl = case evpl of
     -- A window has been shown.
@@ -130,32 +158,32 @@ onEvent gui evpl = case evpl of
         return $ const () (win)
     --
     SDL.WindowGainedMouseFocusEvent (SDL.WindowGainedMouseFocusEventData win) ->
-        withWindow win $ \rfWin -> do
+        withWindow win $ \rfWin -> -- do
+            --logPutLn gui "WindowGainedMouseFocusEvent"
             windowFlagsAdd rfWin WindowHaveMouseFocus
-            logPutLn gui "WindowGainedMouseFocusEvent"
     --
     SDL.WindowLostMouseFocusEvent (SDL.WindowLostMouseFocusEventData win) ->
         withWindow win $ \rfWin -> do
-            logPutLn gui "WindowLostMouseFocusEvent"
+--            logPutLn gui "WindowLostMouseFocusEvent"
             windowFlagsRemove rfWin $ WindowHaveMouseFocus .|. WindowClickable
             winMouseLost rfWin
 
     SDL.WindowGainedKeyboardFocusEvent (SDL.WindowGainedKeyboardFocusEventData win) ->
-        withWindow win $ \rfWin -> do
+        withNoLockedWindow win $ \rfWin -> do
             windowFlagsAdd rfWin WindowHaveKeyboardFocus
             fl <- getWindowFlags rfWin
             when ((fl .&. WindowPopupFlag) == WindowNoFlags ) $ delAllPopupWindows gui
 {-            (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
             putStrLn $ concat ["WindowGainedKeyboardFocusEvent  btns=", show btns, "   ", show mouseP
                 ,"   haveMouseFocus = ", show haveMouseFocus] -}
---            if (fl .&. WindowClickable) == WindowNoFlags then do -- inacive MouseButton message click fix.
-            if (fl .&. (WindowHaveMouseFocus .|. WindowClickable)) == WindowHaveMouseFocus then do -- inacive MouseButton message click fix.
+--            if (fl .&. (WindowHaveMouseFocus .|. WindowClickable)) == WindowHaveMouseFocus then do -- inacive MouseButton message click fix.
+            when ((fl .&. (WindowHaveMouseFocus .|. WindowClickable)) == WindowHaveMouseFocus) $ do -- inacive MouseButton message click fix.
                 (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
-                putStrLn $ concat ["WindowGainedKeyboardFocusEvent  btns=", show btns, "   ", show mouseP]
+              --  putStrLn $ concat ["WindowGainedKeyboardFocusEvent  btns=", show btns, "   ", show mouseP]
                 when (btns ==0) $ do
                     windowFlagsAdd rfWin WindowClickable
                     onMouseButton' win SDL.Pressed SDL.ButtonLeft 1 $ fmap fromIntegral mouseP
-            else logPutLn gui "WindowGainedKeyboardFocusEvent"
+            --else logPutLn gui "WindowGainedKeyboardFocusEvent"
     --
     SDL.WindowLostKeyboardFocusEvent (SDL.WindowLostKeyboardFocusEventData win) ->
         withWindow win $ \rfWin -> do
@@ -163,10 +191,11 @@ onEvent gui evpl = case evpl of
             if closeOnLost then
 --                putStrLn "WindowLostKeyboardFocusEvent delWindow"
                  delWindow rfWin
-            else windowFlagsRemove rfWin $ WindowHaveKeyboardFocus -- .|. WindowClickable
-            putStrLn "WindowLostKeyboardFocusEvent"
+            else windowFlagsRemove rfWin WindowHaveKeyboardFocus -- .|. WindowClickable
+--            putStrLn "WindowLostKeyboardFocusEvent"
     --
-    SDL.WindowClosedEvent (SDL.WindowClosedEventData win) -> do
+    SDL.WindowClosedEvent (SDL.WindowClosedEventData win) -> -- do
+      withNoLockedWindow win $ \_rfWin -> do
 --        cWins' <- getWindowsCount gui
         delWindowByIx gui win
 --        cWins <- getWindowsCount gui
@@ -225,8 +254,8 @@ onEvent gui evpl = case evpl of
                     whenIsJust mbf $ \widget -> do
                         let onOrdinalKey = do
                                 fs <- getWidgetFns widget
---      --                                        putStrLn $ concat [ "KeyboardEvent,onOrdinalKey  motion=",
---      --                                            show motion,"  keycode=",show keycode]
+--                                        putStrLn $ concat [ "KeyboardEvent,onOrdinalKey  motion=",
+--                                            show motion,"  keycode=",show keycode]
                                 logOnErr gui
                                     "onEvent.KeyboardEvent.onKeyboard" $
                                     onKeyboard fs widget motion repeated keycode km
@@ -279,7 +308,8 @@ onEvent gui evpl = case evpl of
 {-        let mouseMotionHandler _win fs widget pnt =
                 onMouseMotion fs widget btnsLst pnt (fromIntegral <$> relMv) in
         onMouseAction win posPointer mouseMotionHandler -}
-        onMouseAction win posPointer (mouseMotionHandler' btnsLst (fromIntegral <$> relMv))
+        onMouseAction win posPointer $ \_rfWin fs widget pnt ->
+            onMouseMotion fs widget btnsLst pnt (fromIntegral <$> relMv)
     -- A mouse button was pressed or released.
     SDL.MouseButtonEvent (SDL.MouseButtonEventData
                 win motion _
@@ -295,9 +325,6 @@ onEvent gui evpl = case evpl of
                ,"  mouseButton=",show mouseButton
                ," clicks=",show clicks,"  posPointer=",show posPointer ] -}
         onMouseButton' win motion mouseButton clicks posPointer
-{-        let mouseButtonHandler _win fs widget =
-                onMouseButton fs widget motion mouseButton (fromIntegral clicks)
-        onMouseAction win posPointer mouseButtonHandler -}
     -- Mouse wheel event information.
     SDL.MouseWheelEvent (SDL.MouseWheelEventData win _
                 pos -- (V2 Int32)                  The amount scrolled.
@@ -327,17 +354,11 @@ onEvent gui evpl = case evpl of
     SDL.ClipboardUpdateEvent ->  return () -- no param
     SDL.UserEvent (SDL.UserEventData win code d1 d2) -> do
         let (SDL.Internal.Types.Window w) = win
-        when (w==nullPtr) $ userEventHandler gui code d1 d2
+        when (w==nullPtr) $ userMsgHandler gui code d1 d2
 {-            p1 = ptrToWordPtr d1
             p2 = ptrToWordPtr d2
         putStrLn $ concat ["UserEvent win=", show w, "  code=", show code,
             "   d1=", show $ fromEnum p1, "   d2=", show $ fromEnum p2, " ptr sz= ", show $ finiteBitSize p1 ] -}
-
-    {-
-        case toEnum $ fromIntegral code of
-            RedrawRequestWidget -> redrawWindowByIx gui win False
-            RedrawRequestWindow -> redrawWindowByIx gui win True
-            RedrawRequestAll    -> redrawAll gui -}
     _ ->  return ()
 
   where isAltKey k = SDL.KeycodeLAlt == k ||  SDL.KeycodeRAlt == k -- ||  SDL.KeycodeAltEras == k
@@ -347,8 +368,15 @@ onEvent gui evpl = case evpl of
             fs <- getWidgetFns widget
             logOnErr gui "onEvent.widgetMouseLostNotify.onLostMouseFocus" $
                 onLostMouseFocus fs widget
---        withWindow :: MonadIO m => GuiWindowIx -> (GuiWindow -> m ()) -> m ()
-        withWindow win f = getWindowByIx gui win >>= (`whenIsJust` f) -- (\w -> f w >> redrawAll gui))
+--        withWindow :: MonadIO m => GuiWindowIx -> (Window -> m ()) -> m ()
+        withWindow win f = getWindowByIx gui win >>= (`whenIsJust` f)
+        withNoLockedWindow win f = withWindow win $ \ rfWin -> do
+            isLocked <- allWindowFlags rfWin WindowLocked
+            if isLocked then do
+                g <- readMonadIORef gui
+                whenIsJust (listToMaybe $ guiModalWins g)
+                    (`withWindow` (SDL.raiseWindow <=< getSDLWindow))
+            else f rfWin
         winMouseLost rfWin = do
                                         ow <- getWidgetUnderCursor rfWin
                                         widgetMouseLostNotify ow
@@ -361,7 +389,7 @@ onEvent gui evpl = case evpl of
                                         redrawAll gui
         onMouseAction :: SDL.Window -> Point V2 Int32 ->
                             -- Main event handler
-                        (GuiWindow -> WidgetFunctions -> Widget -> GuiPoint -> IO ()) ->
+                        (Window -> WidgetFunctions -> Widget -> GuiPoint -> IO ()) ->
                             -- Mouse captured handler
 --                            (WidgetFunctions -> Widget -> GuiPoint -> m ()) ->
                             IO ()
@@ -413,36 +441,7 @@ onEvent gui evpl = case evpl of
                     onMouseButton fs widget motion mouseButton (fromIntegral clicks) in
             onMouseAction win posPointer mouseButtonHandler
 
-        mouseMotionHandler' :: [SDL.MouseButton] -> GuiSize ->
-                                GuiWindow -> WidgetFunctions -> Widget -> GuiPoint -> IO ()
-        mouseMotionHandler' btnsLst relMv _win fs widget pnt = do
-            onMouseMotion fs widget btnsLst pnt relMv
---            (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
---            liftIO $ putStrLn $ concat ["@@@@  ", show btns, "   ", show mouseP]
---            liftIO $ putStrLn $ showString "@@@@  " $ showHex btns $
-{-
-            when (btns SDL.ButtonLeft) $ do
-                --  fix неполучения сообщения MouseButtonEvent
-                fl <- getWindowFlags win
-                let isOK = ((fl .&. (WindowHaveMouseFocus .|. WindowHaveKeyboardFocus)) ==
-                                WindowHaveMouseFocus .|. WindowHaveKeyboardFocus) ||
-                           ((fl .&. WindowClickable) == WindowClickable)
-                    btnClk btn = when (btn `elem` btnsLst) $
-                                        onMouseButton fs widget SDL.Pressed btn 1 pnt
-                liftIO $ putStrLn $ concat ["@@@@  "]
-                unless isOK $ do
-                    unless ((fl .&. WindowClickable) == WindowClickable) $
-                        windowFlagsAdd win WindowClickable
-                    btnClk SDL.ButtonLeft
-                    btnClk SDL.ButtonMiddle
-                    btnClk SDL.ButtonRight  -}
-{-
-            let btnClkChk btn winFl =
-                    let btnPressed = btn `elem` btnsLst in
-                    when ( btnPressed /= ((fl .&. winFl)/= WindowNoFlags ) )
-                        if btnPressed then do -}
-
-getMouseState :: MonadIO m => m ({- SDL.MouseButton -> Bool -} Int,GuiPoint)
+getMouseState :: MonadIO m => m (Int,GuiPoint)
 getMouseState = liftIO $
     alloca $ \ pX -> alloca $ \ pY -> do
         btnState <- convert <$> Raw.getMouseState pX pY

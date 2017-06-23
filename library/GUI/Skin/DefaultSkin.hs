@@ -1,4 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
+
+-- |
+-- Module:      GUI.Skin.DefaultSkin
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Skin в составе пакета GUI-SDL2.
+-- Описание полей см. "GUI.BaseLayer.Depend1.Skin".
+
 module GUI.Skin.DefaultSkin(defSkin) where
 
 import SDL.Vect
@@ -11,15 +23,15 @@ defSkin :: Skin
 defSkin = Skin  {
     skinName = "default"
     , windowBkColor = grayColor 255
+    , windowFgColor = grayColor 0
+    , windowDisabledColor = disabledColor
     , bkColor = formBkColor
     , borderColor = grayColor 0
-    , widgetBorderColor = grayColor 0x60
     , foregroundColor = grayColor 0
     , selectedDecore = DecoreState { decoreBkColor = rgb 0 64 255
                                    , decoreFgColor = grayColor 255
                                    }
-    , brdr3DLightColor = grayColor 240
-    , brdr3DDarkColor = grayColor 180
+    , brdr3DColors = Border3DColors (grayColor 240) (grayColor 180)
     , formItemsMargin = WidgetMarginEvenly 5
     , formTextLineSpacing = 0.75
     , formItemsButtons =
@@ -45,8 +57,7 @@ defSkin = Skin  {
                                         }
                      , btnDecoreBorder = BtnBorderRound (grayColor 64)
                      }
-    , buttonsSpacing = 10
-    , disableFgColor = disabledColor
+    , disabledFgColor = disabledColor
     , scrollBarWidth = 15
     , scrollBarColor  = rgb 0 255 255
     , arrowBtns =
@@ -94,7 +105,8 @@ defSkin = Skin  {
                             DecoreState { decoreBkColor = grayColor 255
                                         , decoreFgColor = grayColor 255
                                         }
-                     , btnDecoreBorder = BtnBorder3D (grayColor 250) (grayColor 180)
+                     , btnDecoreBorder =
+                            BtnBorder3D (Border3DColors (grayColor 250) (grayColor 180))
                      }
     , scrollBarArrow =
         ButtonDecore { btnDecoreOut =
@@ -117,7 +129,8 @@ defSkin = Skin  {
                             DecoreState { decoreBkColor = grayColor 240
                                         , decoreFgColor = grayColor 255
                                         }
-                     , btnDecoreBorder = BtnBorder3D (grayColor 255) (grayColor 200)
+                     , btnDecoreBorder =
+                            BtnBorder3D (Border3DColors (grayColor 255) (grayColor 200))
                      }
     , scrollAreaSlidersColor = V4 0 0 0 40
     , scrollAreaArrowsColor = grayColor 0
@@ -129,6 +142,6 @@ defSkin = Skin  {
     , popupMnuFgColor  = rgb 255 255 255
     , popupMnuHotKeyColor  = rgb 0 255 0
     , popupMnuSeparatorColor  = rgb 255 255 0
-    , popupMnu3DLightColor  = rgb 255 255 0
-    , popupMnu3DDarkColor  = rgb 64 0 32
+    , popupMnuDisabledColor = disabledColor
+    , popupMnuBorderColors = Border3DColors (rgb 255 255 0) (rgb 64 0 32)
     }

@@ -3,9 +3,9 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE PatternSynonyms #-}
+-- {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DuplicateRecordFields #-}         --  DisambiguateRecordFields
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GUI.Widget.Container.ScrollArea(
@@ -14,21 +14,15 @@ module GUI.Widget.Container.ScrollArea(
 
 import Control.Monad
 import Control.Monad.IO.Class
---import qualified Data.Vector as V
 import Data.Maybe
 import Data.Bits
---import Data.IORef
+import Data.Default
 import Maybes (whenIsJust)
 import qualified SDL
 import SDL.Vect
 import GUI
---import GUI.BaseLayer.Skin
---import GUI.BaseLayer.Geometry
 import GUI.Widget.Button
---import qualified GUI.BaseLayer.Primitives as P
-import Data.Default
---import GUI.BaseLayer.BitFlags
-
+import GUI.Widget.Handlers
 import GUI.Widget.LinearTrackBar
 
 {-

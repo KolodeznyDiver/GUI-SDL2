@@ -1,6 +1,18 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GUI.BaseLayer.Logging(
+-- |
+-- Module:      GUI.BaseLayer.Depend1.Logging
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Журнал GUI с возможностью вывода сообщений и/или в файл и на консоль (терминал).
+-- Логирование необработанных в пользовательском коде Exception.
+
+module GUI.BaseLayer.Depend1.Logging(
+    -- * Журнал GUI приложения.
     LogDateTime(..),GUILogDef(..),GUILog,guiLogStart,guiLogStop,logPutLn
     ,logOnSomeException,logOnErr
     ) where
@@ -21,18 +33,24 @@ import           TextShow (showb)
 import Maybes (whenIsJust)
 import MonadUtils (unlessM)
 import Data.Default
-import GUI.BaseLayer.Ref
-import GUI.BaseLayer.Auxiliaries
+import GUI.BaseLayer.Depend0.Ref
+import GUI.BaseLayer.Depend0.Auxiliaries
 
-data LogDateTime = LogNoDateTime
-                 | LogTimeOnly
-                 | LogDateAndTime
+-- | Опция вывода даты/времени в файл журнала.
+data LogDateTime = LogNoDateTime -- ^ Ни дата, ни время не выводятся
+                 | LogTimeOnly -- ^ Только время
+                 | LogDateAndTime -- ^ Выводятся дата и время.
                  deriving (Eq)
 
-data GUILogDef = GUILogDef { logFileName :: String
-                           , logDateTimeMode :: LogDateTime
-                           , logFileAppend :: Bool
-                           }
+-- | Параметры логирования. Тип передаётся в качестве аргумента функции @GUI.BaseLayer.RunGUI.runGUI@.
+data GUILogDef = GUILogDef {
+    logFileName :: String -- ^ Файл для вывода журнала.
+                          -- Пустая строка - журнал не выводится в файл.
+                          -- Если задан относительный путь к файлу, то файл создаётся в директории
+                          -- заданной как аргумент функции @guiLogStart@.
+    , logDateTimeMode :: LogDateTime -- ^ Опция вывода даты/времени в файл журнала.
+    , logFileAppend :: Bool -- Если True, файл журнала не очищается при очередном старте приложения.
+    }
 
 instance Default GUILogDef where
     def = GUILogDef { logFileName = ""
@@ -48,11 +66,17 @@ data GUILog' = GUILog'  { logFName :: TS.Builder
                         , logHandle :: Handle
                         }
 
-data GUILog = GUILog { logGUILog' :: Maybe GUILog'
-                     , logOutToConsole :: Bool
+-- | Данные текущего логирования.
+data GUILog = GUILog {
+      logGUILog' :: Maybe GUILog' -- ^ Если файл создан, то параметры вывода.
+    , logOutToConsole :: Bool -- ^ Разрешён ли вывод в консоль (терминал).
                      }
 
-guiLogStart :: GUILogDef -> String -> Bool -> IO (Maybe GUILog)
+-- | Функция должна быть вызвана для начала логирования.
+guiLogStart :: GUILogDef -> -- ^ Параметры логирования.
+               String -> -- ^ Путь к директории журнала если в @logFileName@ указан относительный путь.
+               Bool -> -- ^ Выводить ли сообщения в консоль (терминал).
+               IO (Maybe GUILog)
 guiLogStart GUILogDef{..} dataDirectory outToConsole =
     if null logFileName then return $ Just (GUILog Nothing outToConsole)
     else do
@@ -74,6 +98,7 @@ guiLogStart GUILogDef{..} dataDirectory outToConsole =
                 return $ Just (GUILog (Just (GUILog' (TS.fromString path) logDateTimeMode tz bWriteFail h))
                                     outToConsole)
 
+-- | Функция должна быть вызвана для завершения логирования при завершении приложения.
 guiLogStop :: GUILog -> IO ()
 guiLogStop GUILog{..} =
     whenIsJust logGUILog' $ \GUILog'{..} -> do
@@ -81,7 +106,11 @@ guiLogStop GUILog{..} =
         hFlush logHandle
       hClose logHandle
 
-logPutLn :: MonadIO m => GUILog -> TS.Builder -> m ()
+-- | Вывод сообщения в журнал.
+logPutLn :: MonadIO m =>
+    GUILog -> -- ^ Журнал.
+    TS.Builder -> -- ^ TextShow Билдер из пакета __text-show__.
+    m ()
 logPutLn GUILog{..} msg' = do
     let msg = let t = TS.toLazyText msg' in
               TS.fromLazyText (if TL.null t || (TL.last t /= '\n') then t else TL.tail t)
@@ -107,10 +136,15 @@ logPutLn GUILog{..} msg' = do
             TIO.hPutStrLn logHandle $ TS.toLazyText t
             hFlush logHandle
 
-logOnSomeException :: GUILog -> TS.Builder -> SomeException -> IO ()
+-- | Вывод информации об исключении. Функция должна вызываться из обработчика исключения.
+logOnSomeException :: GUILog -> -- ^ Журнал.
+                      TS.Builder -> -- Строка выводимая перед текстом исключения.
+                      SomeException -> -- Исключение.
+                      IO ()
 logOnSomeException gLog t e = logPutLn gLog $ t <> " : " <> showb e
 {-# INLINE logOnSomeException #-}
 
+-- | Выполнение некоторого действия, и, если, при этом возникнет исключение, вывести его в журнал.
 logOnErr :: MonadIO m => GUILog -> TS.Builder -> IO () -> m ()
 logOnErr gLog t f = liftIO $ guiCatch f (logOnSomeException gLog t)
 {-# INLINE logOnErr #-}

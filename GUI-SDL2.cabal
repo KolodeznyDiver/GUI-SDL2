@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           GUI-SDL2
-version:        0.1.4
+version:        0.1.5
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -59,30 +59,34 @@ library
     build-depends:
         Win32
   exposed-modules:
+      GUI.BaseLayer.Depend0.Auxiliaries
+      GUI.BaseLayer.Depend0.BitFlags
+      GUI.BaseLayer.Depend0.Cursor
+      GUI.BaseLayer.Depend0.Keyboard
+      GUI.BaseLayer.Depend0.Pipe
+      GUI.BaseLayer.Depend0.Ref
+      GUI.BaseLayer.Depend0.TTF
+      GUI.BaseLayer.Depend0.Types
+      GUI.BaseLayer.Depend1.Action
+      GUI.BaseLayer.Depend1.Color
+      GUI.BaseLayer.Depend1.Geometry
+      GUI.BaseLayer.Depend1.Logging
+      GUI.BaseLayer.Depend1.Resource
+      GUI.BaseLayer.Depend1.Skin
       GUI.BaseLayer.Action
-      GUI.BaseLayer.Auxiliaries
-      GUI.BaseLayer.Internal.Action
-      GUI.BaseLayer.Internal.Types
-      GUI.BaseLayer.Raw.Cursor
-      GUI.BaseLayer.Raw.TTF
-      GUI.BaseLayer.Resource.Types
-      GUI.BaseLayer.BitFlags
       GUI.BaseLayer.Canvas
-      GUI.BaseLayer.Color
-      GUI.BaseLayer.Cursor
-      GUI.BaseLayer.Event
-      GUI.BaseLayer.Geometry
-      GUI.BaseLayer.GUI
-      GUI.BaseLayer.Handlers
-      GUI.BaseLayer.Keyboard
-      GUI.BaseLayer.Logging
+      GUI.BaseLayer.Canvas.Types
+      GUI.BaseLayer.Focus
+      GUI.BaseLayer.GUIRecord
+      GUI.BaseLayer.RunGUI
+      GUI.BaseLayer.Pipe
       GUI.BaseLayer.PopupWindow
       GUI.BaseLayer.Primitives
-      GUI.BaseLayer.Ref
       GUI.BaseLayer.Resource
-      GUI.BaseLayer.Skin
       GUI.BaseLayer.Types
-      GUI.BaseLayer.Utils
+      GUI.BaseLayer.RedrawWindow
+      GUI.BaseLayer.UniqueCode
+      GUI.BaseLayer.Core
       GUI.BaseLayer.Widget
       GUI.BaseLayer.Window
       GUI.Skin.DefaultSkin
@@ -109,6 +113,7 @@ library
       Data.Vector.Utils
       System.Utils
   other-modules:
+      GUI.BaseLayer.SpecStateWidget
       System.Win32.Utils
       System.X11.Utils
       Paths_GUI_SDL2

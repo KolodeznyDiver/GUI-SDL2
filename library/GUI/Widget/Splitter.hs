@@ -16,6 +16,7 @@ import Data.Bits
 import qualified SDL
 import SDL.Vect
 import GUI
+import GUI.Widget.Handlers
 
 pattern SplitterWidth :: Coord
 pattern SplitterWidth = 6

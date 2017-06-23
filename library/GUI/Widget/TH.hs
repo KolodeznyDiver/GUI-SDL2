@@ -2,9 +2,9 @@
 module GUI.Widget.TH where
 
 import Language.Haskell.TH
-import GUI.BaseLayer.Geometry
+import GUI.BaseLayer.Depend1.Geometry
 import qualified SDL
---import GUI.BaseLayer.Types
+--import GUI.BaseLayer.Depend0.Types
 import SDL.Vect
 
 data ParallelOrthogonallyExpQFns = ParallelOrthogonallyExpQFns  { parallelMkV2 :: ExpQ

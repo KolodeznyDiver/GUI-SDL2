@@ -64,7 +64,7 @@ getHeightOfPreparedWrapText :: PreparedWrapText -> Coord
 getHeightOfPreparedWrapText (PreparedWrapText _ _ _ h) = h
 {-# INLINE getHeightOfPreparedWrapText #-}
 
-drawSplitPreparedText :: MonadIO m => PreparedWrapText -> TTFFont -> GuiColor -> Maybe GuiColor -> GuiCanvas m ()
+drawSplitPreparedText :: MonadIO m => PreparedWrapText -> TTFFont -> GuiColor -> Maybe GuiColor -> Canvas m ()
 drawSplitPreparedText (PreparedWrapText vT vP _ _) fnt color mbBkColor =
     let f = case mbBkColor of
                 Just bc -> drawTextOpaque fnt color bc
@@ -115,7 +115,7 @@ prepareText widget skin d@DrawTextDef{..} = do
         let h2 = if (prepH > h') && (textAreaMaxHeight > 0) then min prepH textAreaMaxHeight else h'
         return $ PreparedText t d{drawTextRect=SDL.Rectangle p' (V2 w' h2)} fnt
 
-drawPreparedText :: MonadIO m => PreparedText -> GuiColor -> Maybe GuiColor -> GuiCanvas m ()
+drawPreparedText :: MonadIO m => PreparedText -> GuiColor -> Maybe GuiColor -> Canvas m ()
 drawPreparedText PreparedText{..} color mbBkColor =
     withClipRect (drawTextRect preparedTextDef) $ drawSplitPreparedText preparedText preparedTextFont color mbBkColor
 {-# INLINE drawPreparedText #-}

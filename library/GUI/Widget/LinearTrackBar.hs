@@ -4,7 +4,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 module GUI.Widget.LinearTrackBar(
-    -- GUI.Widget.TH.LinearTrackBar
+    -- GUI.Widget.Internal.LinearTrackBar
     LinearTrackValueType,LinearTrackBarDef(..),LinearTrackBarData
     -- GUI.Widget.LinearTrackBar
     ,hLinearTrackBar,vLinearTrackBar,hTrackBar,vTrackBar
@@ -13,6 +13,7 @@ module GUI.Widget.LinearTrackBar(
 import Control.Monad.IO.Class
 import GUI
 import GUI.Widget.TH.LinearTrackBar
+import GUI.Widget.Internal.LinearTrackBar
 import GUI.Widget.Button (getButtonDecoreState,drawButtonFrame)
 
 mkLinearTrackBarQ DirectionH

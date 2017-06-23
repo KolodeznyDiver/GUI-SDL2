@@ -10,7 +10,6 @@ module GUI.Widget.Layout.LinearLayout(
 import GUI
 import GUI.Widget.Layout.Utils
 import GUI.Widget.Layout.TH.LinearLayout
---import GUI.Widget.Handlers
 
 mkLinearLayoutQ DirectionH
 

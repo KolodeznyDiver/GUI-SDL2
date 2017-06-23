@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 -- Для просмотра примеров изменять номер и перекомпилировать
-#define EXAMPLE_NUM 0
+#define EXAMPLE_NUM 7
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Main where
@@ -11,7 +11,8 @@ import Control.Exception
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Text as T
-import           TextShow (showb,showt)
+import qualified TextShow as TS
+import TextShow (showb,showt)
 import qualified Data.Vector as V
 import Data.Bits
 import Data.Maybe
@@ -37,22 +38,22 @@ import GUI.Widget.TextEdit
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением ("кожей", скином) по умолчанию
 
-        -- Таблица предзагруженных шрифтов : ключ, имя файла, размер шрифта, опции
-        [GuiFontDef ""          "PTM55F.ttf" 14 def
-        ,GuiFontDef "label"     "PTN57F.ttf" 15 def
-        ,GuiFontDef "edit"      "PTM55F.ttf" 14 def{ fontHinting = Just TTFHNone
-                                                   , fontKerning = Just KerningOff }
-        ,GuiFontDef "small"     "PTN57F.ttf" 13 def
-        ,GuiFontDef "menu"      "PTN57F.ttf" 14 def
-        ,GuiFontDef "hello world"     "PTN57F.ttf" 28 def{fontStyle = Just def  { fontBold = True
-                                                                                , fontItalic = True
-                                                                                , fontUnderline = True}}
+        -- Список предзагруженных шрифтов : ключ, имя файла, размер шрифта, опции
+        [GuiFontDef ""            "PTM55F.ttf" 14 def -- по молч., если не найден указанный ключ
+        ,GuiFontDef "label"       "PTN57F.ttf" 15 def
+        ,GuiFontDef "edit"        "PTM55F.ttf" 14 def{ fontHinting = Just TTFHNone
+                                                     , fontKerning = Just KerningOff }
+        ,GuiFontDef "small"       "PTN57F.ttf" 13 def
+        ,GuiFontDef "menu"        "PTN57F.ttf" 14 def
+        ,GuiFontDef "hello world" "PTN57F.ttf" 28 def{fontStyle = Just def { fontBold = True
+                                                                           , fontItalic = True
+                                                                           , fontUnderline = True}}
         ]
 
                     -- Windows : C:\Users\User\AppData\Roaming\GUIDemo\GUIDemo.log
                     -- *nix    : ~/.local/share/GUIDemo/GUIDemo.log
         def{guiLogDef = def{logFileName = "GUIDemo.log"}}
-         $ \gui -> do
+        $ \gui -> do
 
     (v0,v1,v2) <- SDL.version
     logPutLn gui $ "SDL version " <> showb v0 <> "," <> showb v1 <> "," <> showb (v2 :: Int)
@@ -61,7 +62,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
                                                         --, SDL.windowResizable = True
                                                         }
 #if EXAMPLE_NUM == 0
-    void $ win $+ label def { labelFormItemDef = FormItemWidgetDef $ Just WidgetMarginNone
+    void $ win $+ label def { labelFormItemDef = def{formItemMargin=Just WidgetMarginNone}
                             , labelAlignment=AlignCenter, labelFontKey = "hello world"
                             , labelColor = Just $ rgb 0 100 0
                             , labelText="Привет, мир!"}
@@ -132,8 +133,8 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     hL2 <- vL $+ hLayout def
 
 
-    let btTriangleDef = ButtonWithTriangleDef   { btTriangleFormItemDef = FormItemWidgetDef $ Just $
-                                                                            WidgetMarginXY 3 0
+    let btTriangleDef = ButtonWithTriangleDef   { btTriangleFormItemDef =
+                                                    def{formItemMargin= Just $ WidgetMarginXY 3 0}
                                                 , btTriangleFlags = WidgetVisible .|. WidgetEnable
                                                 , btTriangleOrientation = OrientationLeft
                                                 , btTriangleSize = V2 14 14
@@ -159,7 +160,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     hL0 <- vL $+ hLayout def
     void $ hL0 $+ label def{labelSize=V2 60 (-1), labelAlignment=AlignLeftCenter
                             , labelWrapMode= TextWrap 0 Nothing
-                            ,labelFormItemDef = FormItemWidgetDef $ Just $ WidgetMarginLTRB 10 0 0 0
+                            ,labelFormItemDef = def{formItemMargin= Just $ WidgetMarginLTRB 10 0 0 0}
                             ,labelText=
        "Кнопка внизу справа получает разное назна- чение в зависи- мости от направле- ния захода в неё мышью"
                            }
@@ -170,7 +171,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
     void $ vL $+ label def{labelSize=V2 300 60, labelAlignment=AlignCenter, labelWrapMode= TextWrap 0 Nothing,
                            labelText=
-        "Между зелёным и жёлтым прямоугольниками есть splitter. Наведите туда мышь и потаксайте лево - вправо"}
+        "Между зелёным и жёлтым прямоугольниками есть splitter. Наведите туда мышь и потаксайте влево - вправо"}
     hL0 <- vL $+ hLayout def{layoutAlignment = AlignLeftCenter}
     void $ hL0 $+ colorWidget (rgb 0 0 255 )
     void $ hL0 $+ splitter
@@ -182,17 +183,16 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
     void $ vL $+ mouseChkWidget $ WidgetMarginXY 20 10
 #elif EXAMPLE_NUM == 6
     lb <- win $+ label def{labelAlignment=AlignCenter
-                           , labelFormItemDef= FormItemWidgetDef $ Just WidgetMarginNone
+                           , labelFormItemDef= def{formItemMargin= Just WidgetMarginNone}
                            , labelText= "Через 2 с здесь будут данные из трэда"}
 
-    pipe <- newGuiPipe gui $ \ _ v -> do
-        let toText ix = T.pack $ show $ v V.! ix
-        setText lb $ T.concat ["Разрешение дисплея ", toText 0,"x",toText 1]
+    pipe <- newGuiPipe gui $ \ _ v ->
+        setText lb $ TS.toText $ "Разрешение дисплея " <> showb (v V.! 0) <> "x" <> showb (v V.! 1)
 
     void $ forkIO $ do
         threadDelay 2000000
         (V2 xRes yRes) <- (SDL.displayBoundsSize . head) <$> SDL.getDisplays
-        void $ sendToGuiPipe pipe $ V.singleton xRes `V.snoc` yRes
+        void $ sendToGuiPipe pipe $ V.fromList [xRes,yRes]
 #elif EXAMPLE_NUM == 7
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
 
@@ -248,7 +248,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
         def{hmenuText = "Поиск", hmenuPopup = popupFind}
                                     }
 
-    void $ vL $+ border def { borderFormItemDef = FormItemWidgetDef $ Just WidgetMarginNone
+    void $ vL $+ border def { borderFormItemDef = def{formItemMargin= Just WidgetMarginNone}
                             , borderSize = V2 (-1) 2, borderType = BorderMono
                             , borderBkgrnd = BorderBkColor $ grayColor 255
                             }
@@ -271,6 +271,8 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
 
     -- Пример задания/замены действия для Action после его создания.
     setAction gui "File" "Save" $ setText lb "Нажат пункт меню File/Save"
+    setAction gui "File" "New" $ void $ newModalWindow gui "Модальное окно"
+        SDL.defaultWindow { SDL.windowInitialSize = V2 300 150}
 #elif EXAMPLE_NUM == 8
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
     hL0 <- vL $+ hLayout def
@@ -299,7 +301,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
                              }
     void $ fgBorder $+ label def{labelAlignment=AlignCenter, labelBkColor = Just (rgb 255 255 200)
                              , labelSize = V2 50 25, labelWrapMode = TextNoWrap 300
---                           , labelFormItemDef= FormItemWidgetDef $ Just WidgetMarginNone
+--                           , labelFormItemDef= def{formItemMargin= $ Just WidgetMarginNone}
                            , labelText= "Пример плавающего виджета"}
 
 #elif EXAMPLE_NUM == 9
@@ -341,7 +343,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
 exampleTextGrid :: MonadIO m => Widget -> Skin -> m (GuiWidget SimpleWidget)
 exampleTextGrid parent _ = mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFocusable)
                                 WidgetMarginNone SimpleWidget
-                                parent defWidgFns{
+                                parent def{
         onCreate = \widget -> setWidgetCanvasRect widget (SDL.Rectangle zero (V2 500 800)) >>
                                  notifyParentAboutSize widget zero
         , onResizing= setWidgetRect

@@ -18,7 +18,6 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import qualified TextShow as TS
 import           Data.ByteString.Char8   (ByteString)
---import qualified Data.ByteString.Char8   as B
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
 import Data.Ix
@@ -31,6 +30,7 @@ import SDL.Internal.Numbered (FromNumber(..))
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.PopupWindow
+import GUI.Widget.Handlers
 
 class MenuMaker r where
     menuMaker :: MenuItems -> r
@@ -56,7 +56,6 @@ popupMenu parent rect vm = do
     isParentPopup <- allWindowFlags parentWin WindowPopupFlag
     mbHMenu <- getWinMainMenu parentWin
     let isParentHMenu = mbHMenu == Just parent
---    void $ mkPopupWindow parent rect
     win <- mkPopupWindow parent rect
     when isParentPopup $
         windowFlagsRemove parentWin WindowCloseOnLostFocuse
@@ -110,7 +109,7 @@ data Item = Item   { itemText :: T.Text
                    , itemEnable :: Bool
                    , itemType :: ItemType
                    }
-           | SeparatorItem
+           | ItemSeparator
 -- no exported.
 data ItemType = ActionItem { itemHkTxt :: T.Text
                            , actionItem :: forall m. MonadIO m => m ()
@@ -120,7 +119,7 @@ data ItemType = ActionItem { itemHkTxt :: T.Text
 data ItemCoord = ItemCoord { itemY :: Coord, itemH :: Coord}
 
 data PopupMenuWidgetPrev    = PrevHMenu Widget
-                            | PrevPopup GuiWindow
+                            | PrevPopup Window
                             | PrevNothing
 
 data PopupMenuWidgetDef = PopupMenuWidgetDef { popupMenuWidgetItems :: MenuItems
@@ -135,7 +134,7 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
     selectedItNum <- newMonadIORef (-1)
     needPrevRestore <- newMonadIORef True
     fnt <- runProxyCanvas parent $ getFont "menu"
-    let addSeparator = (`V.snoc` SeparatorItem)
+    let addSeparator = (`V.snoc` ItemSeparator)
         dynItemMaker (w,h,v) DynMenuItem{..} = do
             (V2 tW tH) <- P.strSize fnt $ T.unpack dynMenuCaption
             return (max w tW, max h tH, v `V.snoc` Item dynMenuCaption Nothing True
@@ -278,7 +277,8 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
         ,onDraw= \widget -> do
                 nSel <- readMonadIORef selectedItNum
                 r@(SDL.Rectangle _ (V2 fullW _)) <- getVisibleRect widget
-                draw3DFrame (popupMnu3DLightColor skin) (popupMnu3DDarkColor skin)
+                draw3DFrame (brdr3DLightColor $ popupMnuBorderColors skin)
+                            (brdr3DDarkColor  $ popupMnuBorderColors skin)
                             (popupMnuBkColor skin) BorderThickness r
                 (`V.imapM_` items) $ \ i t -> do
                     let ItemCoord{..}= itemsCoord V.! i
@@ -290,7 +290,7 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                     case t of
                         Item{..} -> do
                             let (tColor,hkColor) | itemEnable = (popupMnuFgColor skin,popupMnuHotKeyColor skin)
-                                                 | otherwise = (disableFgColor skin,disableFgColor skin)
+                                                 | otherwise = (popupMnuDisabledColor skin,popupMnuDisabledColor skin)
                             whenIsJust itemPicture $ \ texture -> do
                                 let texturePos = P (V2 (BorderThickness + PictPaddingX) (itemY + PictPaddingY))
                                 if itemEnable then drawTexture texture texturePos
@@ -303,7 +303,7 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                                 _ -> setColor hkColor >> drawArrow OrientationRight
                                         (P (V2 (fullW - (ArrowW `div` 2) - BorderThickness - RightPadding) yCenter))
                                         (ArrowW `div` 2)
-
+                        -- ItemSeparator
                         _ -> setColor (popupMnuSeparatorColor skin) >>
                                 drawLine (P (V2 (BorderThickness+LeftPadding) yCenter))
                                          (P (V2 (fullW - BorderThickness - RightPadding) yCenter))

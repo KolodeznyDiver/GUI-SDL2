@@ -16,9 +16,9 @@ import qualified Data.Text as T
 import Data.Default
 --import qualified SDL
 import SDL.Vect
-import GUI.BaseLayer.Types
---import GUI.BaseLayer.Internal.Types
---import GUI.BaseLayer.Ref
+import GUI.BaseLayer.Depend0.Types
+--import GUI.BaseLayer.Types
+--import GUI.BaseLayer.Depend0.Ref
 --import GUI.BaseLayer.Widget
 
 pattern MinInsideSpaceX :: Coord -- Минимальные расстояния между элементами внутри оснвных виджетов

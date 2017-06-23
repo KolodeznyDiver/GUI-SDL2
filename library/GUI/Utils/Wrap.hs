@@ -6,8 +6,8 @@ module GUI.Utils.Wrap(
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector as V
 import SDL.Vect
-import GUI.BaseLayer.Types
-import GUI.BaseLayer.Geometry
+import GUI.BaseLayer.Depend0.Types
+import GUI.BaseLayer.Depend1.Geometry
 
 -- | По переданному выравниванию, ширине области заполнения, межэлементному промежутку и вектору размеров элементов
 -- | возвращает х координаты левых краёв элементов считая от области заполнения и мксимальные высоты элементов

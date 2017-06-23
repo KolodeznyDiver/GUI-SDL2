@@ -8,10 +8,8 @@ module GUI.Widget.Layout.TH.LinearLayout where
 import Language.Haskell.TH
 import Control.Monad
 import Control.Monad.IO.Class
---import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
---import MonadUtils (whenM)
 import Maybes (whenIsJust)
 import Data.Maybe
 import Data.Char
@@ -20,7 +18,6 @@ import SDL.Vect
 import GUI
 import GUI.Widget.TH
 import GUI.Widget.Handlers
---import Data.Vector.Utils
 import GUI.Widget.Layout.Utils
 
 mkLinearLayoutQ :: DirectionVH -> DecsQ

@@ -1,20 +1,43 @@
+-- |
+-- Module:      GUI.BaseLayer.Canvas
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Функции рисования в 'CanvasRecord' и связанные с ним, т.е. используемые в обработчике события
+-- @GUI.BaseLayer.Types.onDraw@ а так же передаваемые фунуциям
+-- @GUI.BaseLayer.Core.runProxyCanvas@,  @GUI.BaseLayer.Core.runProxyWinCanvas@
+-- Большинство функций имеют сигнатуру @MonadIO m => .... -> Canvas m a@,
+-- где 'Canvas' определено в "GUI.BaseLayer.Types" как
+-- @type Canvas m a = ReaderT CanvasRecord m a@ и 'CanvasRecord' - запись, содержащая параметры отрисовки
+-- в данном виджете, включая смещение виджета в клиентской области, ссылки на менеджер ресурсов и пр.
+
 module GUI.BaseLayer.Canvas(
-    -- SDL.Internal.Types
-    GuiCanvas
-    -- GUI.BaseLayer.Primitives
-    ,DrawStrMode(..)
-    -- GUI.BaseLayer.Canvas
-    ,Orientation(..)
-    ,toCanvasPoint,toCanvasRect,toSDLPoint,toSDLRect,runCanvas
-    ,drawStretchedTexture,drawTexturePartial,drawTexture,drawTextureAligned,drawTextureEx
-    ,drawLine,drawLines,drawPoint,drawPoints,drawRect,drawRects,fillRect,fillRects
-    ,getTexture,getTextureFromCache
-    ,drawStretchedTextureR,drawTexturePartialR,drawTextureR,drawTextureAlignedR,drawTextureExR
-    ,createTargetTexture,setBlendMode,setColor,withBlendMode,withColor,withTargetTexture,withClipRect,getFont
-    ,withTransparentTexture,getStrSize,
-    renderStr,renderStrDraft,renderStrOpaque,drawStr,drawStrDraft,drawStrOpaque,drawStrAligned
+    -- * Создание 'Canvas'
+    Canvas,runCanvas
+    -- * Преобразование координат в и из CanvasRecord-контекста.
+    ,toCanvasPoint,toCanvasRect,toSDLPoint,toSDLRect
+    -- * Основные настройки режима рисования
+    ,setColor,withColor,setBlendMode,withBlendMode,withClipRect
+    -- * Рисование графических примитивов.
+    ,drawPoint,drawPoints,drawLine,drawLines,drawRect,drawRects,fillRect,fillRects
+    -- * Текстуры.
+    -- ** Рисование произвольных текстур.
+    ,drawTexture,drawStretchedTexture,drawTexturePartial,drawTextureAligned,drawTextureEx
+    -- ** Текстуры из графических файлов (кешируемые).
+    ,getTexture,drawTextureR,drawStretchedTextureR,drawTexturePartialR,drawTextureAlignedR,drawTextureExR
+    -- ** Прочие функции относящиеся к текстурам.
+    ,createTargetTexture,withTargetTexture,withTransparentTexture
+    -- * Отрисовка текста
+    ,getFont,DrawStrMode(..)
+    -- ** Строки 'T.Text'
     ,getTextSize,renderText,renderTextDraft,renderTextOpaque,drawText,drawTextDraft,drawTextOpaque,drawTextAligned
-    ,drawRoundBorder,drawRoundFrame,draw3DBorder,draw3DFrame,drawDotBorder,drawArrowTriangle,drawArrow
+    -- ** Строки 'String'
+    ,getStrSize,renderStr,renderStrDraft,renderStrOpaque,drawStr,drawStrDraft,drawStrOpaque,drawStrAligned
+    -- * Специализированные функции рисования
+    ,drawRoundBorder,drawRoundFrame,draw3DBorder,draw3DFrame,drawDotBorder,Orientation(..),drawArrowTriangle,drawArrow
                      ) where
 
 import Control.Monad.Trans.Reader
@@ -24,113 +47,202 @@ import qualified SDL.Raw as Raw
 import SDL.Internal.Types
 import SDL.Vect
 import Data.StateVar
--- import qualified SDL.TTF as TTF
 import SDL.TTF.FFI (TTFFont)
---import Maybes
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Vector.Storable as V
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import GUI.BaseLayer.Types
+import GUI.BaseLayer.Depend0.Types
+import GUI.BaseLayer.Depend0.Ref
+import GUI.BaseLayer.Depend1.Geometry
 import qualified GUI.BaseLayer.Primitives as P
-import GUI.BaseLayer.Primitives (DrawStrMode(..))
-import GUI.BaseLayer.Internal.Types
+import           GUI.BaseLayer.Primitives (DrawStrMode(..))
+import GUI.BaseLayer.Canvas.Types
+-- import GUI.BaseLayer.Types
 import GUI.BaseLayer.Resource
-import GUI.BaseLayer.Geometry
-import GUI.BaseLayer.Ref
 
-data Orientation = OrientationLeft | OrientationUp | OrientationRight | OrientationDown
-                 deriving (Eq, Show)
+-- | Создание 'Canvas' и вызова функции выполняющийся в её контексте.
+-- Не использовать вне /GUI.BaseLayer/. Для досупа к функциям данного модуля вне обработчика
+-- @GUI.BaseLayer.Types.onDraw@ используйте
+-- @GUI.BaseLayer.Core.runProxyCanvas@,  @GUI.BaseLayer.Core.runProxyWinCanvas@.
+runCanvas :: MonadIO m => SDL.Renderer -> ResourceManager -> TextureCache -> GuiCoordOffset ->
+                                    Canvas m a -> m a
+runCanvas renderer rm cache off f = runReaderT f $ CanvasRecord renderer rm cache off
+{-# INLINE runCanvas #-}
 
-toCanvasPoint :: Canvas -> GuiPoint -> GuiPoint
+-- | Преобразование координат точки в виджете в координаты канвы (обычно координаты клиентской области окна).
+toCanvasPoint :: CanvasRecord -> GuiPoint -> GuiPoint
 toCanvasPoint c p = p .+^ canvasOffset c
 {-# INLINE toCanvasPoint #-}
 
-toCanvasRect ::  Canvas -> GuiRect -> GuiRect
+-- | Преобразование координат прямоугольника в виджете в координаты канвы (обычно координаты клиентской области окна).
+toCanvasRect ::  CanvasRecord -> GuiRect -> GuiRect
 toCanvasRect c (SDL.Rectangle p sz) = SDL.Rectangle (toCanvasPoint c p) sz
 {-# INLINE toCanvasRect #-}
 
-toSDLPoint :: Canvas -> GuiPoint -> SDL.Point V2 SDLCoord
+-- | Преобразование координат точки в виджете в SDL координаты.
+-- Отлдичается от @toCanvasPoint@ только другим интегральным типом задающим координаты.
+toSDLPoint :: CanvasRecord -> GuiPoint -> SDL.Point V2 SDLCoord
 toSDLPoint c p = fromIntegral <$> toCanvasPoint c p
 {-# INLINE toSDLPoint #-}
 
-toSDLRect :: Canvas -> GuiRect -> SDL.Rectangle SDLCoord
+-- | Преобразование координат прямоугольника в виджете в SDL координаты.
+-- Отлдичается от @toCanvasRect@ только другим интегральным типом задающим координаты.
+toSDLRect :: CanvasRecord -> GuiRect -> SDL.Rectangle SDLCoord
 toSDLRect c = fmap fromIntegral . toCanvasRect c
 {-# INLINE toSDLRect #-}
 
-runCanvas :: MonadIO m => SDL.Renderer -> ResourceManager -> WinTextureCache -> GuiCoordOffset ->
-                                    GuiCanvas m a -> m a
-runCanvas renderer rm cache off f = runReaderT f $ Canvas renderer rm cache off
-{-# INLINE runCanvas #-}
+-- | Установить текущий цвет рисования для графических примитивов (не для функций отрисовки шрифтов).
+setColor  :: MonadIO m => GuiColor -> Canvas m ()
+setColor (V4 r g b a) = do
+    (SDL.Internal.Types.Renderer re) <- asks canvasRenderer
+    void $ lift $ Raw.setRenderDrawColor re r g b a
+{-# INLINE setColor #-}
 
-drawStretchedTexture  :: MonadIO m => SDL.Texture -> Maybe GuiRect -> GuiRect -> GuiCanvas m ()
+-- | Установить текущий цвет рисования для графических примитивов (не для функций отрисовки шрифтов)
+-- Временно, для переданной вторым аргументов функции. После её выполнения цвет восстанавливается.
+withColor :: MonadIO m => GuiColor -> Canvas m a -> Canvas m a
+withColor color a = do { renderer <- asks canvasRenderer; withStateVar (SDL.rendererDrawColor renderer) color a}
+{-# INLINE withColor #-}
+
+-- | Вспомогательная функция сохраняющая значение типа __/a/__ с помощью @StateVar a@,
+-- устанавливающая заданное значение, и, после выполнения переданной ей функции
+-- восстанавливающая сохранённое значение. В "GUI.BaseLayer.Primitives" есть аналогичная функция,
+-- но не предполагающая контекст 'Canvas'.
+withStateVar :: MonadIO m => StateVar a -> a -> Canvas m b -> Canvas m b
+withStateVar sv a b = do {save <- lift $ get sv; lift (sv $= a); r <- b; lift (sv $= save); return r}
+{-# INLINE withStateVar #-}
+
+-- | Установить текущий режим прозрачности для графических примитивов (не для текстур и шрифтов).
+-- Уровень прозрачности определяется четвёртой компонентоы заданного цвета.
+setBlendMode :: MonadIO m => SDL.BlendMode -> Canvas m ()
+setBlendMode m = do { renderer <- asks canvasRenderer; lift (SDL.rendererDrawBlendMode renderer $= m)}
+{-# INLINE setBlendMode #-}
+
+-- | Установить текущий режим прозрачности для графических примитивов (не для текстур и шрифтов).
+-- Уровень прозрачности определяется четвёртой компонентоы заданного цвета.
+-- Режим прозрачности устанавливается временно, пока выполняется функция переданная вторым аргументом.
+withBlendMode :: MonadIO m => SDL.BlendMode -> Canvas m a -> Canvas m a
+withBlendMode m a = do { renderer <- asks canvasRenderer; withStateVar (SDL.rendererDrawBlendMode renderer) m a}
+{-# INLINE withBlendMode #-}
+
+-- | На время выполнения переданной вторым аргументов функции устанавливается указанный
+-- прямоугольник отсечения. Отриосвка за его пределами обрезается.
+-- Прямоугольник отсечения не может быть задан больше чем уже установленный для виджета перед вызовом
+-- @GUI.BaseLayer.Types.onDraw@, иначе он будет обрезан что бы не допустить,
+-- чтобы виджет рисовал не в своей области.
+withClipRect :: MonadIO m => GuiRect -> Canvas m a -> Canvas m a
+withClipRect rect f = do
+    c@CanvasRecord{canvasRenderer=renderer} <- ask
+    let clipRect = SDL.rendererClipRect renderer
+    sv <- lift $ get clipRect
+    let newClipRect = toSDLRect c rect
+        resultClipRect = case sv of
+            Just oldClipRect | isEmptyRect oldClipRect -> newClipRect
+                             | otherwise -> rectIntersection newClipRect oldClipRect
+            _ -> newClipRect
+{-    liftIO $ putStrLn $ concat ["withClipRect sv=",show sv, " newClipRect=", show newClipRect,
+        "  resultClipRect=", show resultClipRect] -}
+    lift $ clipRect $= Just resultClipRect
+    r <- f
+    lift $ clipRect $= sv
+    return r
+
+-- | Нарисовать точку
+drawPoint :: MonadIO m => GuiPoint -> Canvas m ()
+drawPoint p = do{ c <- ask; lift $ SDL.drawPoint (canvasRenderer c) $ toSDLPoint c p}
+{-# INLINE drawPoint #-}
+
+-- | Нарисовать несколько точек.
+drawPoints :: MonadIO m => V.Vector GuiPoint -> Canvas m ()
+drawPoints v = do{ c <- ask; lift $ SDL.drawPoints (canvasRenderer c) $ V.map (toSDLPoint c) v}
+{-# INLINE drawPoints #-}
+
+-- | Нарисовать линию.
+drawLine :: MonadIO m => GuiPoint -> GuiPoint -> Canvas m ()
+drawLine p0 p1 =  do { c <- ask; lift $ SDL.drawLine (canvasRenderer c) (toSDLPoint c p0) (toSDLPoint c p1)}
+{-# INLINE drawLine #-}
+
+-- | Нарисовать ломаную линию (незамкнутую).
+drawLines :: MonadIO m => V.Vector GuiPoint -> Canvas m ()
+drawLines v = do{ c <- ask; lift $ SDL.drawLines (canvasRenderer c) $ V.map (toSDLPoint c) v}
+
+-- | Нарисовать не закрашенный прямоугольник.
+drawRect :: MonadIO m => GuiRect -> Canvas m ()
+drawRect r = do{ c <- ask; lift $ SDL.drawRect (canvasRenderer c) $ Just $ toSDLRect c r}
+{-# INLINE drawRect #-}
+
+-- | Нарисовать несколько не закрашенных прямоугольников.
+drawRects :: MonadIO m => V.Vector GuiRect -> Canvas m ()
+drawRects v = do{ c <- ask; lift $ SDL.drawRects (canvasRenderer c) $ V.map (toSDLRect c) v}
+{-# INLINE drawRects #-}
+
+-- | Нарисовать не закрашенный прямоугольник.
+fillRect :: MonadIO m => GuiRect -> Canvas m ()
+fillRect r = do{ c <- ask; lift $ SDL.fillRect (canvasRenderer c) $ Just $ toSDLRect c r}
+{-# INLINE fillRect #-}
+
+-- | Нарисовать несколько закрашенных прямоугольников.
+fillRects :: MonadIO m => V.Vector GuiRect -> Canvas m ()
+fillRects v = do{ c <- ask; lift $ SDL.fillRects (canvasRenderer c) $ V.map (toSDLRect c) v}
+{-# INLINE fillRects #-}
+
+-- | Нарисовать заданную текстуру в заданной точке (задаётся положение левого верхнего угла текстуры).
+drawTexture :: MonadIO m => SDL.Texture -> GuiPoint -> Canvas m ()
+drawTexture texture pnt =  do{ c <- ask; lift $ P.drawTexture (canvasRenderer c) texture $ toCanvasPoint c pnt}
+{-# INLINE drawTexture #-}
+
+-- | Нарисовать заданную текстуру или часть текстуры в заданном прямоугольнике, возможно с изменением размера.
+drawStretchedTexture  :: MonadIO m => SDL.Texture -> -- ^ Текстура
+                                      Maybe GuiRect -> -- ^ Отрисовываемя часть текстуры в координатах текстуры
+                                                       -- или вся текстура ('Nothing').
+                                      GuiRect -> -- ^ Область отрисовки вкоординатах виджета.
+                                      Canvas m ()
 drawStretchedTexture t src dst = do
     c <- ask
     lift $ SDL.copy (canvasRenderer c) t (fmap P.toSDLRect src) $ Just $ toSDLRect c dst
 {-# INLINE drawStretchedTexture #-}
 
-drawTexturePartial  :: MonadIO m => SDL.Texture -> GuiRect -> GuiPoint -> GuiCanvas m ()
+-- | Нарисовать часть текстуры в заданной точке, без изменения размера.
+drawTexturePartial  :: MonadIO m => SDL.Texture -> -- ^ Текстура
+                                    GuiRect -> -- ^ Отрисовываемя часть текстуры в координатах текстуры.
+                                    GuiPoint -> -- ^ Выходное положение текстуры в координатах виджета.
+                                    Canvas m ()
 drawTexturePartial t src@(SDL.Rectangle _ sz) dst = do
     c <- ask
     lift $ SDL.copy (canvasRenderer c) t (Just $ P.toSDLRect src) $ Just
         $ SDL.Rectangle (toSDLPoint c dst) $ P.toSDLV2 sz
 {-# INLINE drawTexturePartial #-}
 
-drawTexture :: MonadIO m => SDL.Texture -> GuiPoint -> GuiCanvas m ()
-drawTexture texture pnt =  do{ c <- ask; lift $ P.drawTexture (canvasRenderer c) texture $ toCanvasPoint c pnt}
-{-# INLINE drawTexture #-}
-
-drawTextureAligned :: MonadIO m => SDL.Texture -> Alignment -> GuiRect -> GuiCanvas m ()
+-- | Нарисовать заданную текстуру с указанным выравниванием в указанном прямоугольнике
+-- (координаты виджета), без изменения размера. Обычно прямоугольник указывается больше размеров текстуры.
+drawTextureAligned :: MonadIO m => SDL.Texture -> Alignment -> GuiRect -> Canvas m ()
 drawTextureAligned texture align rect =  do
     c <- ask
     lift $ P.drawTextureAligned (canvasRenderer c) texture align $ toCanvasRect c rect
 {-# INLINE drawTextureAligned #-}
 
-drawTextureEx :: MonadIO m => SDL.Texture -> Maybe GuiRect -> GuiRect -> Double -> Maybe GuiPoint
-                    -> Bool -> Bool -> GuiCanvas m ()
+-- | Нарисовать заданную текстуру или часть текстуры в заданном прямоугольнике,
+-- возможно с изменением размера, с возможностью вращения и отражений.
+drawTextureEx :: MonadIO m => SDL.Texture -> -- ^ Текстура
+                              Maybe GuiRect -> -- ^ Отрисовываемя часть текстуры в координатах текстуры
+                                               -- или вся текстура ('Nothing').
+                              GuiRect -> -- ^ Область отрисовки вкоординатах виджета.
+                              Double -> -- ^ угол попорота, в градусах, по часовой, обасти орисовки.
+                              Maybe GuiPoint -> -- ^ точка вращения или центр области отрисовки, если Nothing.
+                              Bool -> -- ^ Отразить по вертикали.
+                              Bool -> -- ^ Отразить по горизонтали.
+                              Canvas m ()
 drawTextureEx texture src dst rotateAngle rotPnt flipV flipH =  do
     c <- ask
     lift $ SDL.copyEx (canvasRenderer c) texture (fmap P.toSDLRect src)
         (Just $ toSDLRect c dst)  (realToFrac rotateAngle) (fmap (toSDLPoint c) rotPnt) $ V2 flipV flipH
 {-# INLINE drawTextureEx #-}
 
-drawLine :: MonadIO m => GuiPoint -> GuiPoint -> GuiCanvas m ()
-drawLine p0 p1 =  do { c <- ask; lift $ SDL.drawLine (canvasRenderer c) (toSDLPoint c p0) (toSDLPoint c p1)}
-{-# INLINE drawLine #-}
-
-drawLines :: MonadIO m => V.Vector GuiPoint -> GuiCanvas m ()
-drawLines v = do{ c <- ask; lift $ SDL.drawLines (canvasRenderer c) $ V.map (toSDLPoint c) v}
-
-drawPoint :: MonadIO m => GuiPoint -> GuiCanvas m ()
-drawPoint p = do{ c <- ask; lift $ SDL.drawPoint (canvasRenderer c) $ toSDLPoint c p}
-{-# INLINE drawPoint #-}
-
-drawPoints :: MonadIO m => V.Vector GuiPoint -> GuiCanvas m ()
-drawPoints v = do{ c <- ask; lift $ SDL.drawPoints (canvasRenderer c) $ V.map (toSDLPoint c) v}
-{-# INLINE drawPoints #-}
-
-drawRect :: MonadIO m => GuiRect -> GuiCanvas m ()
-drawRect r = do{ c <- ask; lift $ SDL.drawRect (canvasRenderer c) $ Just $ toSDLRect c r}
-{-# INLINE drawRect #-}
-
-drawRects :: MonadIO m => V.Vector GuiRect -> GuiCanvas m ()
-drawRects v = do{ c <- ask; lift $ SDL.drawRects (canvasRenderer c) $ V.map (toSDLRect c) v}
-{-# INLINE drawRects #-}
-
-fillRect :: MonadIO m => GuiRect -> GuiCanvas m ()
-fillRect r = do{ c <- ask; lift $ SDL.fillRect (canvasRenderer c) $ Just $ toSDLRect c r}
-{-# INLINE fillRect #-}
-
-fillRects :: MonadIO m => V.Vector GuiRect -> GuiCanvas m ()
-fillRects v = do{ c <- ask; lift $ SDL.fillRects (canvasRenderer c) $ V.map (toSDLRect c) v}
-{-# INLINE fillRects #-}
-
-getTextureFromCache :: MonadIO m => T.Text -> GuiCanvas m (Maybe SDL.Texture)
-getTextureFromCache k = (fmap (HM.lookup k) . readMonadIORef) =<< asks canvasTextureCache
-{-# INLINE getTextureFromCache #-}
-
-getTexture :: MonadIO m => T.Text -> GuiCanvas m SDL.Texture
+-- | Загрузить текстуру из графического файла (см. "GUI.BaseLayer.Resource").
+ -- Текстура остаётся в кеше. Удалять её вызовом @SDL.destroyTexture@ нельзя.
+getTexture :: MonadIO m => T.Text -> Canvas m SDL.Texture
 getTexture k = do
     c <- ask
     cache <- readMonadIORef $ canvasTextureCache c
@@ -141,55 +253,45 @@ getTexture k = do
             writeMonadIORef (canvasTextureCache c) $ HM.insert k t cache
             return t
 
-drawStretchedTextureR  :: MonadIO m => T.Text -> Maybe GuiRect -> GuiRect -> GuiCanvas m ()
-drawStretchedTextureR k src dst = do { t <- getTexture k; drawStretchedTexture t src dst}
-{-# INLINE drawStretchedTextureR #-}
-
-drawTexturePartialR  :: MonadIO m => T.Text -> GuiRect -> GuiPoint -> GuiCanvas m ()
-drawTexturePartialR k src p = do { t <- getTexture k; drawTexturePartial t src p}
-{-# INLINE drawTexturePartialR #-}
-
-drawTextureR :: MonadIO m => T.Text -> GuiPoint -> GuiCanvas m ()
+-- | Как @drawTexture@, но текстура задаётся ключом - именем графического файла.
+drawTextureR :: MonadIO m => T.Text -> GuiPoint -> Canvas m ()
 drawTextureR k p = do { t <- getTexture k; drawTexture t p}
 {-# INLINE drawTextureR #-}
 
-drawTextureAlignedR :: MonadIO m => T.Text -> Alignment -> GuiRect -> GuiCanvas m ()
+-- | Как @drawStretchedTexture@, но текстура задаётся ключом - именем графического файла.
+drawStretchedTextureR  :: MonadIO m => T.Text -> Maybe GuiRect -> GuiRect -> Canvas m ()
+drawStretchedTextureR k src dst = do { t <- getTexture k; drawStretchedTexture t src dst}
+{-# INLINE drawStretchedTextureR #-}
+
+-- | Как @drawTexturePartial@, но текстура задаётся ключом - именем графического файла.
+drawTexturePartialR  :: MonadIO m => T.Text -> GuiRect -> GuiPoint -> Canvas m ()
+drawTexturePartialR k src p = do { t <- getTexture k; drawTexturePartial t src p}
+{-# INLINE drawTexturePartialR #-}
+
+-- | Как @drawTextureAligned@, но текстура задаётся ключом - именем графического файла.
+drawTextureAlignedR :: MonadIO m => T.Text -> Alignment -> GuiRect -> Canvas m ()
 drawTextureAlignedR k align rect = do { t <- getTexture k; drawTextureAligned t align rect}
 {-# INLINE drawTextureAlignedR #-}
 
+-- | Как @drawTextureEx@, но текстура задаётся ключом - именем графического файла.
 drawTextureExR :: MonadIO m => T.Text -> Maybe GuiRect -> GuiRect -> Double -> Maybe GuiPoint
-                    -> Bool -> Bool -> GuiCanvas m ()
+                    -> Bool -> Bool -> Canvas m ()
 drawTextureExR k src dst rotateAngle rotPnt flipV flipH =
     do { t <- getTexture k; drawTextureEx t src dst rotateAngle rotPnt flipV flipH}
 {-# INLINE drawTextureExR #-}
 
-createTargetTexture :: MonadIO m => GuiSize -> GuiCanvas m SDL.Texture
+
+-- | Создаёт текстуру совместимую с окном текущего виджета, заданного размера, которая может
+-- быть буфером для создания изображения для окна виджета.
+createTargetTexture :: MonadIO m => GuiSize -> Canvas m SDL.Texture
 createTargetTexture sz = do { renderer <- asks canvasRenderer; lift $ P.createTargetTexture renderer sz}
 {-# INLINE createTargetTexture #-}
 
-setBlendMode :: MonadIO m => SDL.BlendMode -> GuiCanvas m ()
-setBlendMode m = do { renderer <- asks canvasRenderer; lift (SDL.rendererDrawBlendMode renderer $= m)}
-{-# INLINE setBlendMode #-}
-
-setColor  :: MonadIO m => GuiColor -> GuiCanvas m ()
-setColor (V4 r g b a) = do
-    (SDL.Internal.Types.Renderer re) <- asks canvasRenderer
-    void $ lift $ Raw.setRenderDrawColor re r g b a
-{-# INLINE setColor #-}
-
-withStateVar :: MonadIO m => StateVar a -> a -> GuiCanvas m b -> GuiCanvas m b
-withStateVar sv a b = do {save <- lift $ get sv; lift (sv $= a); r <- b; lift (sv $= save); return r}
-{-# INLINE withStateVar #-}
-
-withBlendMode :: MonadIO m => SDL.BlendMode -> GuiCanvas m a -> GuiCanvas m a
-withBlendMode m a = do { renderer <- asks canvasRenderer; withStateVar (SDL.rendererDrawBlendMode renderer) m a}
-{-# INLINE withBlendMode #-}
-
-withColor :: MonadIO m => GuiColor -> GuiCanvas m a -> GuiCanvas m a
-withColor color a = do { renderer <- asks canvasRenderer; withStateVar (SDL.rendererDrawColor renderer) color a}
-{-# INLINE withColor #-}
-
-withTargetTexture :: MonadIO m => SDL.Texture -> GuiCanvas m a -> GuiCanvas m a
+-- | В функции, переданной вторым аргументом, отрисовка выполняется в указанную текстуру, а не буфер окна.
+-- Часто используется не в обработчиках @GUI.BaseLayer.Types.onDraw@, а в функиях
+-- @GUI.BaseLayer.Core.runProxyCanvas@,  @GUI.BaseLayer.Core.runProxyWinCanvas@ для подготовки текстур
+-- при инициализации виджета и т.п.
+withTargetTexture :: MonadIO m => SDL.Texture -> Canvas m a -> Canvas m a
 withTargetTexture t a = do
     renderer <- asks canvasRenderer
     -- SDL bug: ClipRect=Just (Rectangle (P (V2 0 0)) (V2 0 0)) after set RenderTarget
@@ -230,24 +332,12 @@ withTargetTexture t a = do
                     )
 {-# INLINE withTargetTexture #-}
 
-withClipRect :: MonadIO m => GuiRect -> GuiCanvas m a -> GuiCanvas m a
-withClipRect rect f = do
-    c@Canvas{canvasRenderer=renderer} <- ask
-    let clipRect = SDL.rendererClipRect renderer
-    sv <- lift $ get clipRect
-    let newClipRect = toSDLRect c rect
-        resultClipRect = case sv of
-            Just oldClipRect | isEmptyRect oldClipRect -> newClipRect
-                             | otherwise -> rectIntersection newClipRect oldClipRect
-            _ -> newClipRect
-{-    liftIO $ putStrLn $ concat ["withClipRect sv=",show sv, " newClipRect=", show newClipRect,
-        "  resultClipRect=", show resultClipRect] -}
-    lift $ clipRect $= Just resultClipRect
-    r <- f
-    lift $ clipRect $= sv
-    return r
-
-withTransparentTexture :: MonadIO m => GuiTransparency -> SDL.Texture -> GuiCanvas m a -> GuiCanvas m a
+-- | В функции, переданной третьим аргументом, отрисовка текстуры выполняется с заданной прозрачностью.
+withTransparentTexture :: MonadIO m => GuiTransparency -> -- ^ Прозрачность 0..255.
+                                       SDL.Texture -> -- ^ Текстура.
+                                       Canvas m a -> -- ^ Функция в которой указанная текстура может
+                                                        -- быть прозрачна.
+                                       Canvas m a
 withTransparentTexture transparency texture f = do
     let tam = SDL.textureAlphaMod   texture
         tbm = SDL.textureBlendMode  texture
@@ -263,85 +353,152 @@ withTransparentTexture transparency texture f = do
         tbm $= svBM
     return r
 
-getFont:: MonadIO m => T.Text -> GuiCanvas m TTFFont
+-- | Получить шрифт из кеша по ключу. Исключение если таблица шрифтов пуста.
+-- См. "GUI.BaseLayer.Resource".
+getFont:: MonadIO m => T.Text -> Canvas m TTFFont
 getFont k = do { rm <- asks canvasRM; lift $ rmGetFont rm k}
 {-# INLINE getFont #-}
+
 ------------------------------------------------------------------------------------------------------
-getStrSize :: MonadIO m => TTFFont -> String -> GuiCanvas m (V2 Coord)
+
+-- | Возвращает размер который будет занимать на экране заданная строка выведенная заданным шрифтом.
+getStrSize :: MonadIO m => TTFFont -> String -> Canvas m (V2 Coord)
 getStrSize fnt = lift . P.strSize fnt
 {-# INLINE getStrSize #-}
 
-renderStr:: MonadIO m => TTFFont -> GuiColor -> String -> GuiCanvas m (Maybe SDL.Texture)
+-- | Создание текстуры из строки с заданным шрифтом и цветом.
+-- Качественно, с полутонами, но медленно.
+renderStr:: MonadIO m => TTFFont -> GuiColor -> String -> Canvas m (Maybe SDL.Texture)
 renderStr fnt color str = do { renderer <- asks canvasRenderer; lift $ P.renderStr renderer fnt color str}
 {-# INLINE renderStr #-}
 
-renderStrDraft:: MonadIO m => TTFFont -> GuiColor -> String -> GuiCanvas m (Maybe SDL.Texture)
+-- | Создание текстуры из строки с заданным шрифтом и цветом.
+-- Без полутонов, но быстро.
+renderStrDraft:: MonadIO m => TTFFont -> GuiColor -> String -> Canvas m (Maybe SDL.Texture)
 renderStrDraft fnt color str = do { renderer <- asks canvasRenderer; lift $ P.renderStrDraft renderer fnt color str}
 {-# INLINE renderStrDraft #-}
 
-renderStrOpaque:: MonadIO m => TTFFont -> GuiColor -> GuiColor -> String -> GuiCanvas m (Maybe SDL.Texture)
+-- | Создание текстуры из строки с заданным шрифтом и цветом.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+renderStrOpaque:: MonadIO m => TTFFont -> -- ^ Шрифт.
+                               GuiColor -> -- ^ Цвет текста.
+                               GuiColor -> -- ^ Цвет фона.
+                               String -> -- ^ Выводимая строка.
+                               Canvas m (Maybe SDL.Texture)
 renderStrOpaque fnt color bkColor str = do
     renderer <- asks canvasRenderer
     lift $ P.renderStrOpaque renderer fnt color bkColor str
 {-# INLINE renderStrOpaque #-}
 
-drawStr :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> String -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
+-- Качественно, с полутонами, но медленно.
+drawStr :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> String -> Canvas m ()
 drawStr fnt color pnt str = do{ c <- ask; lift $ P.drawStr (canvasRenderer c) fnt color (toCanvasPoint c pnt) str}
 {-# INLINE drawStr #-}
 
-drawStrDraft :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> String -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
+-- Без полутонов, но быстро.
+drawStrDraft :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> String -> Canvas m ()
 drawStrDraft fnt color pnt str = do
     c <- ask
     lift $ P.drawStrDraft (canvasRenderer c) fnt color (toCanvasPoint c pnt) str
 {-# INLINE drawStrDraft #-}
 
-drawStrOpaque :: MonadIO m => TTFFont -> GuiColor -> GuiColor -> GuiPoint -> String -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+drawStrOpaque :: MonadIO m => TTFFont -> -- ^ Шрифт.
+                              GuiColor -> -- ^ Цвет текста.
+                              GuiColor -> -- ^ Цвет фона.
+                              GuiPoint -> -- ^ Позиция вывода.
+                              String -> -- ^ Выводимая строка.
+                              Canvas m ()
 drawStrOpaque fnt color bkColor pnt str = do
     c <- ask
     lift $ P.drawStrOpaque (canvasRenderer c) fnt color bkColor (toCanvasPoint c pnt) str
 {-# INLINE drawStrOpaque #-}
 
-drawStrAligned :: MonadIO m => TTFFont -> Alignment -> GuiColor -> DrawStrMode -> GuiRect -> String -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом,
+--  с заданным выравниванием в пределах заданного прямоугольника и с заданным режимом отрисовки.
+drawStrAligned :: MonadIO m => TTFFont -> -- ^ Шрифт.
+                               Alignment -> -- ^ Режим выравнивания.
+                               GuiColor -> -- ^ Цвет текста.
+                               DrawStrMode -> -- ^ Режим отрисовки.
+                               GuiRect -> -- ^ Прясоугольная область для вывода с учётом выравнивания.
+                               String -> -- ^ Выводимая строка.
+                               Canvas m ()
 drawStrAligned fnt align color mode rect str = do
     c <- ask
     lift $  P.drawStrAligned (canvasRenderer c) fnt align color mode (toCanvasRect c rect) str
 {-# INLINE drawStrAligned #-}
+
 ------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------
-getTextSize :: MonadIO m => TTFFont -> T.Text -> GuiCanvas m (V2 Coord)
+
+-- | Возвращает размер который будет занимать на экране заданная строка выведенная заданным шрифтом.
+getTextSize :: MonadIO m => TTFFont -> T.Text -> Canvas m (V2 Coord)
 getTextSize fnt = getStrSize fnt . T.unpack
 {-# INLINE getTextSize #-}
 
-renderText:: MonadIO m => TTFFont -> GuiColor -> T.Text -> GuiCanvas m (Maybe SDL.Texture)
+-- | Создание текстуры из строки с заданным шрифтом и цветом.
+-- Качественно, с полутонами, но медленно.
+renderText:: MonadIO m => TTFFont -> GuiColor -> T.Text -> Canvas m (Maybe SDL.Texture)
 renderText fnt color = renderStr fnt color . T.unpack
 {-# INLINE renderText #-}
 
-renderTextDraft:: MonadIO m => TTFFont -> GuiColor -> T.Text -> GuiCanvas m (Maybe SDL.Texture)
+-- | Создание текстуры из строки с заданным шрифтом и цветом.
+-- Без полутонов, но быстро.
+renderTextDraft:: MonadIO m => TTFFont -> GuiColor -> T.Text -> Canvas m (Maybe SDL.Texture)
 renderTextDraft fnt color = renderStrDraft fnt color . T.unpack
 {-# INLINE renderTextDraft #-}
 
-renderTextOpaque:: MonadIO m => TTFFont -> GuiColor -> GuiColor -> T.Text -> GuiCanvas m (Maybe SDL.Texture)
+-- | Создание текстуры из строки с заданным шрифтом и цветом.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+renderTextOpaque:: MonadIO m => TTFFont -> -- ^ Шрифт.
+                                GuiColor -> -- ^ Цвет текста.
+                                GuiColor -> -- ^ Цвет фона.
+                                T.Text -> -- ^ Выводимая строка.
+                                Canvas m (Maybe SDL.Texture)
 renderTextOpaque fnt color bkColor = renderStrOpaque fnt color bkColor . T.unpack
 {-# INLINE renderTextOpaque #-}
 
-drawText :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> T.Text -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
+-- Качественно, с полутонами, но медленно.
+drawText :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> T.Text -> Canvas m ()
 drawText fnt color pnt = drawStr fnt color pnt . T.unpack
 {-# INLINE drawText #-}
 
-drawTextDraft :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> T.Text -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
+-- Без полутонов, но быстро.
+drawTextDraft :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> T.Text -> Canvas m ()
 drawTextDraft fnt color pnt = drawStrDraft fnt color pnt . T.unpack
 {-# INLINE drawTextDraft #-}
 
-drawTextOpaque :: MonadIO m => TTFFont -> GuiColor -> GuiColor -> GuiPoint -> T.Text -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+drawTextOpaque :: MonadIO m => TTFFont -> -- ^ Шрифт.
+                               GuiColor -> -- ^ Цвет текста.
+                               GuiColor -> -- ^ Цвет фона.
+                               GuiPoint -> -- ^ Позиция вывода.
+                               T.Text -> -- ^ Выводимая строка.
+                               Canvas m ()
 drawTextOpaque fnt color bkColor pnt = drawStrOpaque fnt color bkColor pnt . T.unpack
 {-# INLINE drawTextOpaque #-}
 
-drawTextAligned :: MonadIO m => TTFFont -> Alignment -> GuiColor -> DrawStrMode -> GuiRect -> T.Text -> GuiCanvas m ()
+-- | Отрисовка строки с заданным шрифтом и цветом,
+--  с заданным выравниванием в пределах заданного прямоугольника и с заданным режимом отрисовки.
+drawTextAligned :: MonadIO m => TTFFont -> -- ^ Шрифт.
+                                Alignment -> -- ^ Режим выравнивания.
+                                GuiColor -> -- ^ Цвет текста.
+                                DrawStrMode -> -- ^ Режим отрисовки.
+                                GuiRect -> -- ^ Прясоугольная область для вывода с учётом выравнивания.
+                                T.Text -> -- ^ Выводимая строка.
+                                Canvas m ()
 drawTextAligned fnt align color mode rect = drawStrAligned fnt align color mode rect . T.unpack
 {-# INLINE drawTextAligned #-}
 ------------------------------------------------------------------------------------------------------
 
-drawRoundBorder :: MonadIO m => GuiRect -> GuiCanvas m ()
+-- | Нарисовать прямоугольник с закруглёнными (на самом деле скошенными, но это мало заметно)
+-- краями из тонкой линии текущего установленного цвета.
+drawRoundBorder :: MonadIO m => GuiRect -> Canvas m ()
 drawRoundBorder (SDL.Rectangle p (V2 w' h')) =
     let radius = 2
         w = w' - 1
@@ -352,7 +509,13 @@ drawRoundBorder (SDL.Rectangle p (V2 w' h')) =
         p .+^ V2 w (h-radius), p .+^ V2 (w-radius) h,
         p .+^ V2 radius h, p .+^ V2 0 (h-radius),    p .+^ V2 0 radius  ]
 
-drawRoundFrame :: MonadIO m => GuiColor -> GuiColor -> GuiColor -> GuiRect -> GuiCanvas m ()
+-- | Нарисовать прямоугольник с закруглёнными краями.
+drawRoundFrame :: MonadIO m =>
+                  GuiColor -> -- ^ Цвет вне прямоугольника. Нужен для восстановления закруглений.
+                  GuiColor -> -- ^ Цвет рамки - границы прямоугольника.
+                  GuiColor -> -- ^ Цвет внутри прямоугольника.
+                  GuiRect -> -- ^ Границы прямоугольника.
+                  Canvas m ()
 drawRoundFrame outsideColor borderColor insideColor r@(SDL.Rectangle p (V2 w' h')) = do
     setColor insideColor
     fillRect r
@@ -366,7 +529,12 @@ drawRoundFrame outsideColor borderColor insideColor r@(SDL.Rectangle p (V2 w' h'
   where cornPnts :: Coord -> Coord -> GuiPoint -> V.Vector GuiPoint
         cornPnts dx dy pt = V.fromList [pt, pt .+^ V2 dx 0, pt .+^ V2 0 dy]
 
-draw3DBorder :: MonadIO m => GuiColor -> GuiColor -> Int -> GuiRect -> GuiCanvas m ()
+-- | Нарисовать псевдо 3D прямоугольную рамку без внутреннего заполнения.
+draw3DBorder :: MonadIO m => GuiColor -> -- ^ Цвет левого и верхнего края.
+                             GuiColor -> -- ^ Цвет правого и нижнего края.
+                             Int -> -- ^ Толщина рамки, пикселей.
+                             GuiRect -> -- ^ Внешние границы рамки.
+                             Canvas m ()
 draw3DBorder lightColor darkColor thickness (SDL.Rectangle p (V2 w' h')) = do
     let w = w' - 1
         h = h' - 1
@@ -381,17 +549,36 @@ draw3DBorder lightColor darkColor thickness (SDL.Rectangle p (V2 w' h')) = do
                     when (cnt>1) $ go (dx - 2*sg) (dy - 2*sg) (pt .+^ V2 sg sg) (cnt-1)
             in go dx' dy' pt' thickness
 
-draw3DFrame :: MonadIO m => GuiColor -> GuiColor -> GuiColor -> Int -> GuiRect -> GuiCanvas m ()
+-- | Нарисовать псевдо 3D прямоугольную рамку с внутренним заполнением.
+draw3DFrame :: MonadIO m => GuiColor -> -- ^ Цвет левого и верхнего края.
+                            GuiColor -> -- ^ Цвет правого и нижнего края.
+                            GuiColor -> -- ^ Цвет внутреннего заполнения.
+                            Int -> -- ^ Толщина рамки, пикселей.
+                            GuiRect -> -- ^ Внешние границы рамк
+                            Canvas m ()
 draw3DFrame lightColor darkColor insideColor thickness r = do
     setColor insideColor
     fillRect r
     draw3DBorder lightColor darkColor thickness r
 
-drawDotBorder :: MonadIO m => Coord -> GuiRect -> GuiCanvas m ()
+-- | Нарисовать прямоугольник
+drawDotBorder :: MonadIO m => Coord -> GuiRect -> Canvas m ()
 drawDotBorder step = drawPoints . mkDotRectVector step
 {-# INLINE drawDotBorder #-}
 
-drawArrowTriangle :: MonadIO m => Orientation -> GuiColor -> GuiPoint -> Coord -> GuiCanvas m ()
+-- | Ориентация
+data Orientation =  OrientationLeft  -- ^ Влево.
+                 | OrientationUp     -- ^ Вверх.
+                 | OrientationRight  -- ^ Вправо.
+                 | OrientationDown   -- ^ Вниз.
+                 deriving (Eq, Show)
+
+-- | Нарисовать почти равносторонний треугольник (относительно медленно).
+drawArrowTriangle :: MonadIO m => Orientation ->  -- ^ Ориентация одного из углов.
+                                  GuiColor -> -- ^ Цвет.
+                                  GuiPoint -> -- ^ Центральная точка.
+                                  Coord ->  -- ^ Высота.
+                                  Canvas m ()
 drawArrowTriangle orient color {-center@-}(P(V2 x y)) h = do
     let sqrt2 = sqrt 0.5 :: Double
         quadrateSide = truncate $ sqrt2 * fromIntegral h
@@ -420,7 +607,13 @@ drawArrowTriangle orient color {-center@-}(P(V2 x y)) h = do
         drawTextureEx t Nothing dstR 45.0 Nothing False False
     lift $ SDL.destroyTexture t
 
-drawArrow :: MonadIO m => Orientation -> GuiPoint -> Coord -> GuiCanvas m ()
+-- | Нарисовать почти равносторонний треугольник только линиями. Быстро. в основании остаётся
+-- треугольная \"впуклость\" которую принимаем за фичу.
+-- Используется текущий цвет.
+drawArrow :: MonadIO m => Orientation -> -- ^ Ориентация одного из углов.
+                          GuiPoint -> -- ^ Центральная точка.
+                          Coord ->  -- ^ Высота.
+                          Canvas m ()
 drawArrow orient center h =
     let go dlt =
             let p = center .-^ fmap (`div` 2) dlt

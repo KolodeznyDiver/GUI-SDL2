@@ -29,6 +29,7 @@ import Maybes (whenIsJust)
 import Data.Default
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
+import GUI.Widget.Handlers
 
 pattern PaddingX :: Coord
 pattern PaddingX = 5
@@ -356,7 +357,7 @@ textEdit TextEditDef{..} parent skin = do
                         txt' = T.drop txtEdOff txt
                         rightOver = T.length txt' > chrsVisible
                         txt1 = T.take chrsVisible txt'
-                        drawUnselected = drawTextOpaque fnt (foregroundColor skin) (windowBkColor skin)
+                        drawUnselected = drawTextOpaque fnt (windowFgColor skin) (windowBkColor skin)
                         drawSemiBorder x = do
                             let outSpan = 5
                                 lineLn = 3
@@ -367,7 +368,7 @@ textEdit TextEditDef{..} parent skin = do
                         drawUnselected p1 txt1
                         blinNow <- readMonadIORef blink
                         when blinNow $ do
-                            setColor (foregroundColor skin)
+                            setColor (windowFgColor skin)
                             let x = PaddingX + widthSum txtEdOff txtEdPos txtEdWidths
                             drawLine (P (V2 x 3)) (P (V2 x (fullH - 4)))
                     else do
@@ -388,7 +389,7 @@ textEdit TextEditDef{..} parent skin = do
                     when rightOver $ drawSemiBorder (fullW - 1)
                 else let chrsVisible = calcCharsVisible txtEdWidths 0
                          txt1 = T.take chrsVisible txt
-                         colorF = if (fl .&. WidgetEnable) == WidgetEnable then foregroundColor
-                                  else disableFgColor
+                         colorF = if (fl .&. WidgetEnable) == WidgetEnable then windowFgColor
+                                  else windowDisabledColor
                      in drawTextOpaque fnt (colorF skin) (windowBkColor skin) p1 txt1
                                      }

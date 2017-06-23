@@ -18,12 +18,12 @@ import SDL.Vect
 import Maybes (whenIsJust)
 import Data.Default
 import GUI
---import GUI.BaseLayer.Geometry
+--import GUI.BaseLayer.Depend1.Geometry
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Widget.Handlers
 import GUI.Utils.TextWrap
 {-
-import GUI.BaseLayer.Internal.Types --debug
+import GUI.BaseLayer.Types --debug
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Class
 -}
@@ -94,7 +94,7 @@ textureButton TextureButtonDef{..} parent skin = do
                 (SDL.Rectangle p0 _) <- getVisibleRect widget
 {-                setColor $ rgb 255 0 0
                 drawRect $ shrinkRect' 2 r
-                (Canvas renderer _ canvOff) <- ask
+                (CanvasRecord renderer _ canvOff) <- ask
                 let clip = SDL.rendererClipRect renderer
                 clipR <- SDL.get clip
                 liftIO $ putStrLn $ concat ["textureButton onDraw ix=",show ix,"  row=", show row,
@@ -108,12 +108,13 @@ getButtonDecoreState (Just WidgetMouseIn) = btnDecoreIn
 getButtonDecoreState (Just WidgetMousePressed) = btnDecorePressed
 getButtonDecoreState _ = btnDecoreDisabled
 
-drawButtonFrame :: MonadIO m => DecoreState -> BtnBorderType -> GuiColor -> GuiRect -> GuiCanvas m ()
+drawButtonFrame :: MonadIO m => DecoreState -> BtnBorderType -> GuiColor -> GuiRect -> Canvas m ()
 drawButtonFrame DecoreState{..} borderType externalColor r = do
     let borderWith = 1
     case borderType of
         BtnBorderRound brdrClr -> drawRoundFrame externalColor brdrClr decoreBkColor r
-        BtnBorder3D{..} -> draw3DFrame btnBrdr3DLightColor btnBrdr3DDarkColor decoreBkColor borderWith r
+        BtnBorder3D brdrClr -> draw3DFrame (brdr3DLightColor brdrClr) (brdr3DDarkColor brdrClr)
+                                    decoreBkColor borderWith r
 
 data ButtonWithTriangleType = ButtonWithTriangleScrollBar
                             | ButtonWithTriangleInForm

@@ -1,4 +1,13 @@
--- | An example module.
+-- |
+-- Module:      Data.Vector.Utils
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Набор вспомогательных функций для работы с векторами.
+
 module Data.Vector.Utils where
 
 import qualified Data.Vector as V

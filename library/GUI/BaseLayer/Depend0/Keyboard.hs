@@ -1,7 +1,19 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GUI.BaseLayer.Keyboard(
+-- |
+-- Module:      GUI.BaseLayer.Depend0.Keyboard
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Вспомогательные функции работы с клавиатурой.
+--
+--
+
+module GUI.BaseLayer.Depend0.Keyboard(
     ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showbKeycode,KeyModifiers(..),KeyWithModifiers(..)
     ,scaToKeyModifier
     ) where
@@ -14,27 +26,34 @@ import TextShow
 import TextShow.Data.Char
 import TextShow.Data.Integral
 import qualified SDL
---import Numeric
 import Data.Char
 
+-- | Состояние клавиш Shift, Ctrl и Alt. Тип сделан для упрощения информации о состоянии клавиатуры
+-- по сравнению с 'SDL.KeyModifier'.
 data ShiftCtrlAlt = ShiftCtrlAlt { isShift :: Bool
                                  , isCtrl  :: Bool
                                  , isAlt   :: Bool
                                  }
                                  deriving (Eq)
 
+-- | Функция отображает тип 'SDL.KeyModifier' в 'ShiftCtrlAlt'.
+-- При этом сокращаются подробности. В типе 'SDL.KeyModifier' находится информация о состоянии двух Shift-ов,
+-- трёх Alt-ов и пр.
 getShftCtrlAlt :: SDL.KeyModifier -> ShiftCtrlAlt
 getShftCtrlAlt km = ShiftCtrlAlt (SDL.keyModifierLeftShift km || SDL.keyModifierRightShift km)
                                  (SDL.keyModifierLeftCtrl  km || SDL.keyModifierRightCtrl km)
                                  (SDL.keyModifierLeftAlt km || SDL.keyModifierRightAlt km || SDL.keyModifierAltGr km)
-{-# INLINE getShftCtrlAlt #-}
+{-# INLINEABLE getShftCtrlAlt #-}
 
+-- | Код клавишы соответсвует какому либо Enter-у?
 isEnterKey :: SDL.Keycode -> Bool
 isEnterKey keycode = keycode == SDL.KeycodeReturn || -- keycode == SDL.KeycodeReturn2 ||
                      keycode == SDL.KeycodeCaret || keycode == SDL.KeycodeKPEnter
-{-# INLINE isEnterKey #-}
+{-# INLINEABLE isEnterKey #-}
 
--- Нужна только для KeyWithModifiers-ев, по этому, не подходящие для них клавишы закомментированы
+-- | Преобразование кода 'SDL.Keycode' в 'Builder' из "TextShow", т.е. в конечном итоге, в текст.
+-- Нужна только для отображений горячих клавиш,
+-- по этому, не подходящие для них клавишы закомментированы.
 showbKeycode :: SDL.Keycode -> Builder
 {-
 showbKeycode SDL.KeycodeSpace  = "' '"
@@ -50,7 +69,6 @@ showbKeycode SDL.KeycodeRight  = "Right"
 showbKeycode SDL.KeycodeLeft = "Left"
 showbKeycode SDL.KeycodeDown = "Down"
 showbKeycode SDL.KeycodeUp  = "Up"
-showbKeycode SDL. = ""
 showbKeycode SDL.KeycodeEscape = "Esc" -}
 showbKeycode k
 --    | isEnterKey k = "Enter"
@@ -62,6 +80,8 @@ showbKeycode k
                                      else showbLitChar c
                         | otherwise -> showbHex key
 
+-- | Состояние клавиш Shift, Ctrl и Alt для горячих клавиш. Ещё большее упрощение, чем 'ShiftCtrlAlt',
+-- однако, в разных случаях удобно пользоваться тем или другим типом.
 data KeyModifiers = KeyNoModifiers
                     | KeyCtrl
                     | KeyShift
@@ -83,6 +103,7 @@ instance Show KeyModifiers where
 instance TextShow KeyModifiers where
     showb = fromString . show
 
+-- | Клавиша вместе с модификаторами. Определяет горячие клавишы.
 data KeyWithModifiers = KeyWithModifiers KeyModifiers SDL.Keycode
                     deriving (Data, Eq, Ord, Generic, Typeable)
 
@@ -92,6 +113,8 @@ instance TextShow KeyWithModifiers where
 instance Show KeyWithModifiers where
     show = toString . showb
 -}
+
+-- | Преобразование из типа 'ShiftCtrlAlt' в 'KeyModifiers'.
 scaToKeyModifier :: ShiftCtrlAlt -> KeyModifiers
 scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl= True, isAlt= False  } = KeyCtrl
 scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt= False } = KeyShift
@@ -100,5 +123,5 @@ scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl=  True, isAlt=  False} = Key
 scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl=  True, isAlt=  True} = KeyCtrlAlt
 scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt=  True} = KeyShiftAlt
 scaToKeyModifier _ = KeyNoModifiers
-{-# INLINE scaToKeyModifier #-}
+{-# INLINEABLE scaToKeyModifier #-}
 

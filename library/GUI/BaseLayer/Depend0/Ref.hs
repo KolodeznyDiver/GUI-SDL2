@@ -1,9 +1,15 @@
-module GUI.BaseLayer.Ref where
+-- |
+-- Module:      GUI.BaseLayer.Depend0.Ref
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Набор простых функций несколько сокращающих запись операции со ссылками в монаде 'MonadIO'.
 
---import qualified SDL
---import SDL.Vect
---import Data.Word
---import GUI.BaseLayer.Types
+module GUI.BaseLayer.Depend0.Ref where
+
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Data.IORef
 -- import Control.Concurrent.STM

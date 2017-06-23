@@ -25,6 +25,7 @@ import SDL.Vect
 --import qualified SDL.TTF as TTF
 import GUI
 import GUI.Utils.TextWrap
+import GUI.Widget.Handlers
 
 data LabelDef = LabelDef    { labelFormItemDef  :: FormItemWidgetDef
                             , labelSize      :: GuiSize
@@ -93,7 +94,7 @@ label LabelDef{..} parent skin = do
             (LabelData prepRf colorRf) parent fns{
         onDraw= \widget -> do
             ena <- allWidgetFlags widget WidgetEnable
-            c <- if ena then readMonadIORef colorRf else return $ disableFgColor skin
+            c <- if ena then readMonadIORef colorRf else return $ disabledFgColor skin
             r <- getVisibleRect widget
 --            liftIO $ putStrLn $ concat ["label.onDraw getVisibleRect=", rectToBriefStr r]
             setColor bkgrndColor

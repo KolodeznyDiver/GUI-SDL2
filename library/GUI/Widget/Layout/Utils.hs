@@ -10,7 +10,7 @@ import Control.Monad.IO.Class (MonadIO)
 import Data.Default
 import SDL.Vect
 import GUI
---import GUI.BaseLayer.Geometry
+--import GUI.BaseLayer.Depend1.Geometry
 
 data LayoutDef = LayoutDef  { layoutMargin    :: WidgetMargin
                             , layoutAlignment :: Alignment

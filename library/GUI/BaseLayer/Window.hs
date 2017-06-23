@@ -1,44 +1,45 @@
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE LiberalTypeSynonyms #-}
-{-# LANGUAGE OverloadedStrings #-}
+-- |
+-- Module:      GUI.BaseLayer.Window
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Функции связанные с окном GUI, выделенные в модуль, не зависящий от "GUI.BaseLayer.Widget"
+-- для уменьшения зависимостей модулей.
+
 module GUI.BaseLayer.Window(
-     pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
-    ,pattern WindowPopupFlag
+     -- * Низкоуровневые функции доступа к полям записи окна.
+     getSDLWindow,getWindowRenderer,getWindowGui,getWinIx',getWinIx,getWindowMainWidget
+    ,getWindowForegroundWidget,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
+    ,getWinCursorIx,setWinCursorIx,getWinMainMenu,setWinMainMenu
+     -- * Извлечение SDL кода окна.
+    ,getWinId'',getWinId',getWinId
+    -- * Флаги окна.
+    ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
+    ,pattern WindowPopupFlag,pattern WindowLocked
     ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
-    ,getWinId'',getWinId',getWinId,getWinIx',getWinIx
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
-    ,getSDLWindow,getWindowRenderer,getWindowGui
-    ,getWindowByIx,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
-    ,getWinCursorIx,setWinCursorIx
-    ,showWinWidgets,getWindowMainWidget,getWindowForegroundWidget,getWindowsMap
-    ,doForWinByIx,allWindowsMap_,redrawWindowByIx,redrawWindow,isSpecStateWidget
-    ,resetSpecStateWidget,setSpecStateWidget,setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured
-    ,resetMouseCapturedWidget,setWinMainMenu,getWinMainMenu
-                 ) where
+    -- * Прочее.
+    ,getSkinFromWin
+    ) where
 
+import Control.Monad
+import Control.Monad.IO.Class
+import Data.Bits
 import qualified SDL
 import qualified SDL.Raw as Raw
 import qualified SDL.Internal.Types
-import SDL.Vect
-import Data.StateVar
-import Data.Bits
-import Control.Monad.IO.Class
-import qualified Data.Vector as V
-import qualified Data.Map.Strict as Map
-import Control.Monad
-import Maybes (whenIsJust)
+import GUI.BaseLayer.Depend0.Types
+import GUI.BaseLayer.Depend0.Ref
+import GUI.BaseLayer.Depend0.BitFlags
+import GUI.BaseLayer.Depend0.Cursor
+import GUI.BaseLayer.Depend1.Skin (Skin)
 import GUI.BaseLayer.Types
-import GUI.BaseLayer.Ref
-import GUI.BaseLayer.BitFlags
-import GUI.BaseLayer.Internal.Types
-import GUI.BaseLayer.Widget
-import GUI.BaseLayer.Cursor
-import qualified GUI.BaseLayer.Primitives as P
-import GUI.BaseLayer.Canvas
-import GUI.BaseLayer.Geometry
-import GUI.BaseLayer.Logging
+import GUI.BaseLayer.GUIRecord
 
 pattern WindowNoFlags :: WindowFlags
 pattern WindowRedrawFlag :: WindowFlags
@@ -49,6 +50,8 @@ pattern WindowPopupFlag :: WindowFlags
 pattern WindowHaveKeyboardFocus :: WindowFlags
 pattern WindowHaveMouseFocus :: WindowFlags
 pattern WindowClickable :: WindowFlags
+pattern WindowLocked :: WindowFlags
+--pattern WindowModal :: WindowFlags
                                       --  5432109876543210
 pattern WindowNoFlags        =    Flags 0x0000000000000000
 pattern WindowRedrawFlag =        Flags 0x0000000000000001
@@ -59,252 +62,179 @@ pattern WindowPopupFlag =         Flags 0x0000000000000008
 pattern WindowHaveKeyboardFocus = Flags 0x0000000000000010
 pattern WindowHaveMouseFocus =    Flags 0x0000000000000020
 pattern WindowClickable =         Flags 0x0000000000000040
+pattern WindowLocked =            Flags 0x0000000000000080
+--pattern WindowModal =             Flags 0x0000000000000100
 
+-- | Получить SDL тип окна из окна GUI.
+getSDLWindow:: MonadIO m => Window -> m SDL.Window
+getSDLWindow rfWin = winSDL <$> readMonadIORef rfWin
+{-# INLINE getSDLWindow #-}
+
+-- | Получить SDL рендерер (визуализатор) окна.
+getWindowRenderer:: MonadIO m => Window -> m SDL.Renderer
+getWindowRenderer rfWin = winRenderer <$> readMonadIORef rfWin
+{-# INLINE getWindowRenderer #-}
+
+-- | Получить ссылку 'Gui' на 'GUIRecord'. Все окна имеют ссылки на один и тот же 'GUIRecord'.
+getWindowGui:: MonadIO m => Window -> m Gui
+getWindowGui rfWin = guiOfWindow <$> readMonadIORef rfWin
+{-# INLINE getWindowGui #-}
+
+-- | Получить индекс окна по которому окно идентифицируется в SDL сообщениях и индексируется в GUI,
+-- в коллекции окон.
+-- Функция принимает запись окна 'WindowRecord', а не ссылку на эту запись 'Window'.
+-- Для оптимизации, когда запись по ссылке уже получена.
+getWinIx':: WindowRecord -> GuiWindowIx
+getWinIx' = winSDL
+{-# INLINE getWinIx' #-}
+
+-- | Получить индекс окна по которому окно идентифицируется в SDL сообщениях и индексируется в GUI,
+-- в коллекции окон.
+getWinIx:: MonadIO m => Window -> m GuiWindowIx
+getWinIx rfWin = getWinIx' <$> readMonadIORef rfWin
+{-# INLINE getWinIx #-}
+
+-- | Получить главный (корневой) виджет основного, нижнего слоя виджетов окна.
+getWindowMainWidget :: MonadIO m => Window -> m Widget
+getWindowMainWidget rfWin = mainWidget <$> readMonadIORef rfWin
+{-# INLINE getWindowMainWidget #-}
+
+-- | Получить главный (корневой) виджет дополнительного, верхнего слоя виджетов окна.
+getWindowForegroundWidget :: MonadIO m => Window -> m Widget
+getWindowForegroundWidget rfWin = winFgWidget <$> readMonadIORef rfWin
+{-# INLINE getWindowForegroundWidget #-}
+
+-- | Получить виджет в фокусе или Nothing.
+getFocusedWidget :: MonadIO m => Window -> m (Maybe Widget)
+getFocusedWidget = fmap focusedWidget . readMonadIORef
+{-# INLINE getFocusedWidget #-}
+
+-- | Установить виджет в фокусе (Just виджет) или сбросить фокус - Nothing.
+-- Замечание: Это весьма низкоуровневая функция, которая только устанавливает соотвествующее поле в 'WindowRecord'.
+-- Для сброса и установки фокуса в пользовательском коде используйте функции из "GUI.BaseLayer.Focus".
+setFocusedWidget :: MonadIO m => Window -> Maybe Widget -> m ()
+setFocusedWidget rfWin mb = modifyMonadIORef' rfWin (\x -> x{focusedWidget=mb})
+{-# INLINE setFocusedWidget #-}
+
+-- | Получить виджет который был ранее установлен как находящийся под курсором
+-- (в его области отображения находился указатель мыши) или Nothing.
+getWidgetUnderCursor :: MonadIO m => Window -> m (Maybe Widget)
+getWidgetUnderCursor = fmap widgetUnderCursor . readMonadIORef
+{-# INLINE getWidgetUnderCursor #-}
+
+-- | Установить виджет на которым находится курсор.
+-- Вызывается только из /GUI.BaseLayer/. Не вызывать из пользовательского кода.
+setWidgetUnderCursor :: MonadIO m => Window -> Maybe Widget -> m ()
+setWidgetUnderCursor rfWin mb = modifyMonadIORef' rfWin (\x -> x{widgetUnderCursor=mb})
+{-# INLINE setWidgetUnderCursor #-}
+
+-- | Возвращает индекс курсора установленного для окна.
+getWinCursorIx :: MonadIO m => Window -> m CursorIx
+getWinCursorIx = fmap curWinCursor . readMonadIORef
+{-# INLINE getWinCursorIx #-}
+
+-- | Установить индекс курсора для окна.
+-- Вызывается только из /GUI.BaseLayer/. Не вызывать из пользовательского кода.
+setWinCursorIx :: MonadIO m => Window -> CursorIx -> m ()
+setWinCursorIx rfWin ix = modifyMonadIORef' rfWin (\x -> x{curWinCursor=ix})
+{-# INLINE setWinCursorIx #-}
+
+-- | Установить виджет как основное (горизонтальное) меню окна или сбросить - Nothing.
+-- Устанавливается виджетом @GUI.Widget.Menu.Horizontal.horizontalMenu@.
+-- Не следует использовать в иных случаях.
+setWinMainMenu :: MonadIO m => Window -> Maybe Widget -> m ()
+setWinMainMenu rfWin menu = modifyMonadIORef' rfWin (\x -> x{winMainMenu=menu})
+{-# INLINE setWinMainMenu #-}
+
+-- | Возвращает виджет, установленный как главное меню окна.
+getWinMainMenu :: MonadIO m => Window -> m (Maybe Widget)
+getWinMainMenu = fmap winMainMenu . readMonadIORef
+{-# INLINE getWinMainMenu #-}
+
+----------------------------------------------------
+-- No exported.
 getSDLRawWindow':: SDL.Window -> Raw.Window
 getSDLRawWindow' (SDL.Internal.Types.Window w) = w
 {-# INLINE getSDLRawWindow' #-}
 
-getSDLRawWindow:: WindowStruct -> Raw.Window
+-- No exported.
+getSDLRawWindow:: WindowRecord -> Raw.Window
 getSDLRawWindow = getSDLRawWindow' . winSDL
 {-# INLINE getSDLRawWindow #-}
 
-getSDLWindow:: MonadIO m => GuiWindow -> m SDL.Window
-getSDLWindow rfWin = winSDL <$> readMonadIORef rfWin
-{-# INLINE getSDLWindow #-}
-
-getWindowRenderer:: MonadIO m => GuiWindow -> m SDL.Renderer
-getWindowRenderer rfWin = winRenderer <$> readMonadIORef rfWin
-{-# INLINE getWindowRenderer #-}
-
-getWindowGui:: MonadIO m => GuiWindow -> m Gui
-getWindowGui rfWin = guiOfWindow <$> readMonadIORef rfWin
-{-# INLINE getWindowGui #-}
-
+-- | Получить код идентификатора окна из SDL окна. Код присваивается внутри SDL.
 getWinId'':: MonadIO m => SDL.Window -> m GuiWindowId
 getWinId'' = Raw.getWindowID . getSDLRawWindow'
 {-# INLINE getWinId'' #-}
 
-getWinId':: MonadIO m => WindowStruct -> m GuiWindowId
+-- | Получить код идентификатора окна из 'WindowRecord'. Код присваивается внутри SDL.
+getWinId':: MonadIO m => WindowRecord -> m GuiWindowId
 getWinId' = Raw.getWindowID . getSDLRawWindow
 {-# INLINE getWinId' #-}
 
-getWinId:: MonadIO m => GuiWindow -> m GuiWindowId
+-- | Получить код идентификатора окна из 'Window'. Код присваивается внутри SDL.
+getWinId:: MonadIO m => Window -> m GuiWindowId
 getWinId rfWin = getWinId' =<< readMonadIORef rfWin
 {-# INLINE getWinId #-}
 
-getWinIx':: WindowStruct -> GuiWindowIx
-getWinIx' = winSDL
-{-# INLINE getWinIx' #-}
-
-getWinIx:: MonadIO m => GuiWindow -> m GuiWindowIx
-getWinIx rfWin = getWinIx' <$> readMonadIORef rfWin
-{-# INLINE getWinIx #-}
 -----------------------------------------------------------------
+-- | Возвращает все флаги окна.
+getWindowFlags:: MonadIO m => Window -> m WindowFlags
+getWindowFlags = fmap winFlags .  readMonadIORef
+{-# INLINE getWindowFlags #-}
+
+-- | Устанавливает все флаги окна.  Вы должны знать что вы делаете!
+setWindowFlags:: MonadIO m => Window -> WindowFlags -> m ()
+setWindowFlags win fl = modifyMonadIORef' win (\x -> x{winFlags=fl})
+{-# INLINE setWindowFlags #-}
+
+-- | Добавляет флаг или несколько флагов объединённых по (.|.) к полю флагов окна.
+windowFlagsAdd:: MonadIO m => Window -> WindowFlags -> m ()
+windowFlagsAdd win add = modifyMonadIORef' win (\x -> x{winFlags=winFlags x .|. add})
+{-# INLINE windowFlagsAdd #-}
+
+-- | Удаляет флаг или несколько флагов объединённых по (.|.) из полю флагов окна.
+windowFlagsRemove:: MonadIO m => Window -> WindowFlags -> m ()
+windowFlagsRemove win rmv = modifyMonadIORef' win (\x -> x{winFlags=winFlags x .&. complement rmv})
+{-# INLINE windowFlagsRemove #-}
+
+-- | Чистая функция для удаления флагов из поля флагов окна.
 removeWindowFlags:: WindowFlags -> WindowFlags -> WindowFlags
 removeWindowFlags fl rmv = fl .&. complement rmv
 {-# INLINE removeWindowFlags #-}
 
-getWindowFlags:: MonadIO m => GuiWindow -> m WindowFlags
-getWindowFlags = fmap winFlags .  readMonadIORef
-{-# INLINE getWindowFlags #-}
-
-setWindowFlags:: MonadIO m => GuiWindow -> WindowFlags -> m ()
-setWindowFlags win fl = modifyMonadIORef' win (\x -> x{winFlags=fl})
-{-# INLINE setWindowFlags #-}
-
-windowFlagsAddRemove:: MonadIO m => GuiWindow -> WindowFlags -> WindowFlags -> m ()
+-- | Одновременно добавляет и удаляет флаги из полю флагов окна.
+windowFlagsAddRemove:: MonadIO m => Window -> -- ^ ссылка на окно.
+                                    WindowFlags -> -- ^ Добавляемые флаги.
+                                    WindowFlags -> -- ^ удаляемые флаги.
+                                    m ()
 windowFlagsAddRemove win add rmv =
     modifyMonadIORef' win (\x -> x{winFlags=(winFlags x .&. complement rmv) .|. add})
 {-# INLINE windowFlagsAddRemove #-}
 
-windowFlagsAdd:: MonadIO m => GuiWindow -> WindowFlags -> m ()
-windowFlagsAdd win add = modifyMonadIORef' win (\x -> x{winFlags=winFlags x .|. add})
-{-# INLINE windowFlagsAdd #-}
-
-windowFlagsRemove:: MonadIO m => GuiWindow -> WindowFlags -> m ()
-windowFlagsRemove win rmv = modifyMonadIORef' win (\x -> x{winFlags=winFlags x .&. complement rmv})
-{-# INLINE windowFlagsRemove #-}
-
-allWindowFlags':: WindowStruct -> WindowFlags -> Bool
+-- | Проверяет, все ли из указанных флагов установлены.
+-- Если задан только один флаг - эквивалентна проверки флага.
+-- Функция принимает запись окна 'WindowRecord', а не ссылку на эту запись 'Window'.
+-- Для оптимизации, когда запись по ссылке уже получена.
+allWindowFlags':: WindowRecord -> WindowFlags -> Bool
 allWindowFlags' w fl = fl == (fl .&. winFlags w)
 {-# INLINE allWindowFlags' #-}
 
-allWindowFlags:: MonadIO m => GuiWindow -> WindowFlags -> m Bool
+-- | Проверяет, все ли из указанных флагов установлены.
+-- Если задан только один флаг - эквивалентна проверки флага.
+allWindowFlags:: MonadIO m => Window -> WindowFlags -> m Bool
 allWindowFlags win fl = (`allWindowFlags'` fl) <$> readMonadIORef win
 {-# INLINE allWindowFlags #-}
 
-anyWindowFlags:: MonadIO m => GuiWindow -> WindowFlags -> m Bool
+-- | Возвращает True если любой из указанных флагов установлен.
+-- Если задан только один флаг - эквивалентна проверки флага.
+anyWindowFlags:: MonadIO m => Window -> WindowFlags -> m Bool
 anyWindowFlags win fl = ((WindowNoFlags /=) . (fl .&.) . winFlags) <$> readMonadIORef win
 {-# INLINE anyWindowFlags #-}
 -----------------------------------------------------------------
-showWinWidgets :: MonadIO m => GuiWindow -> Maybe Widget -> m String
-showWinWidgets rfWin markedWidget = getWindowMainWidget rfWin >>= (`showWidgets` markedWidget)
 
-getWindowMainWidget :: MonadIO m => GuiWindow -> m Widget
-getWindowMainWidget rfWin = mainWidget <$> readMonadIORef rfWin
-{-# INLINE getWindowMainWidget #-}
+-- | Возвращает 'Skin' из окна.
+getSkinFromWin:: MonadIO m => Window -> m Skin
+getSkinFromWin = guiGetSkin <=< getWindowGui
+{-# INLINE getSkinFromWin #-}
 
-getWindowForegroundWidget :: MonadIO m => GuiWindow -> m Widget
-getWindowForegroundWidget rfWin = winFgWidget <$> readMonadIORef rfWin
-{-# INLINE getWindowForegroundWidget #-}
-
-getWindowsMap :: MonadIO m => Gui -> m GuiWindowCollection
-getWindowsMap gui = guiWindows <$> readMonadIORef gui
-{-# INLINE getWindowsMap #-}
-
-getWindowByIx :: MonadIO m => Gui -> GuiWindowIx -> m (Maybe GuiWindow)
-getWindowByIx gui ix = (Map.lookup ix . guiWindows) <$> readMonadIORef gui
-{-# INLINE getWindowByIx #-}
-
-getFocusedWidget :: MonadIO m => GuiWindow -> m (Maybe Widget)
-getFocusedWidget = fmap focusedWidget . readMonadIORef
-{-# INLINE getFocusedWidget #-}
-
-setFocusedWidget :: MonadIO m => GuiWindow -> Maybe Widget -> m ()
-setFocusedWidget rfWin mb = modifyMonadIORef' rfWin (\x -> x{focusedWidget=mb})
-{-# INLINE setFocusedWidget #-}
-
-getWidgetUnderCursor :: MonadIO m => GuiWindow -> m (Maybe Widget)
-getWidgetUnderCursor = fmap widgetUnderCursor . readMonadIORef
-{-# INLINE getWidgetUnderCursor #-}
-
-setWidgetUnderCursor :: MonadIO m => GuiWindow -> Maybe Widget -> m ()
-setWidgetUnderCursor rfWin mb = modifyMonadIORef' rfWin (\x -> x{widgetUnderCursor=mb})
-{-# INLINE setWidgetUnderCursor #-}
-
-getWinCursorIx :: MonadIO m => GuiWindow -> m CursorIx
-getWinCursorIx = fmap curWinCursor . readMonadIORef
-{-# INLINE getWinCursorIx #-}
-
-setWinCursorIx :: MonadIO m => GuiWindow -> CursorIx -> m ()
-setWinCursorIx rfWin ix = modifyMonadIORef' rfWin (\x -> x{curWinCursor=ix})
-{-# INLINE setWinCursorIx #-}
-
-doForWinByIx:: MonadIO m => (GuiWindow -> m ()) -> Gui -> GuiWindowIx -> m ()
-doForWinByIx f gui winIx = (`whenIsJust` f) =<< Map.lookup winIx <$> getWindowsMap gui
-
-allWindowsMap_:: MonadIO m => (GuiWindow -> m ()) -> Gui -> m ()
-allWindowsMap_ f gui = mapM_ f =<< getWindowsMap gui
-{-# INLINE allWindowsMap_ #-}
-
-redrawWindowByIx:: MonadIO m => Gui -> GuiWindowIx -> Bool -> m ()
-redrawWindowByIx gui ix force = doForWinByIx (`redrawWindow` force) gui ix
-{-# INLINE redrawWindowByIx #-}
-
-redrawWindow:: MonadIO m => GuiWindow -> Bool -> m ()
-redrawWindow rfWin force = do
-    win <- readMonadIORef rfWin
-    wSz <- P.fromSDLV2 <$> get (SDL.windowSize $ winSDL win)
-    tSz <- P.getTextureSize $ winBuffer win
-    let szChanged = wSz /= tSz
-        force2 = force || szChanged
-    when (force2 || allWindowFlags' win WindowRedrawFlag) $ do
-        windowFlagsRemove rfWin WindowRedrawFlag
-        gui <- readMonadIORef $ guiOfWindow win
---        liftIO $ putStrLn $ "redrawWindow : wSz=" ++ show wSz
-        let renderer = winRenderer win
-            rm = resourceManager gui
-            target = SDL.rendererRenderTarget renderer
-            clip = SDL.rendererClipRect renderer
-            go parentOff clipRect force3 widget = do
-                w <- readMonadIORef widget
-                let (SDL.Rectangle widgP widgSz) = widgetRect w
-                    pInWinCoord = widgP .+^ parentOff
-                    rect = rectIntersection clipRect $ SDL.Rectangle pInWinCoord widgSz
-{-                liftIO $ putStrLn $ concat ["redrawWindow.go : parentOff=", show parentOff,
-                    "  clipRect=", show clipRect, "  widgetRect=", show $ widgetRect w,
-                    "  widgetCanvasRect=", show $ widgetCanvasRect w,
-                    "  pInWinCoord=", show pInWinCoord, "   rect=", show rect] -}
-                when ((widgetFlags w .&. WidgetVisible) /= WidgetNoFlags && not (isEmptyRect rect)) $ do
-                        let markedForRedraw = isWidgetMarkedForRedrawing' w
-                            force4 = force3 || markedForRedraw
-                            off = pInWinCoord .-. pointOfRect (widgetCanvasRect w)
-                        when force4 $ do
-                            when markedForRedraw $ clearWidgetRedrawFlag widget
-                            clip $= Just (P.toSDLRect rect)
-                            -- liftIO $ putStrLn $ concat ["redrawWindow clip rect=",show (P.toSDLRect rect)]
-                            logOnErr (guiLog gui) "redrawWindow.onDraw" $
-                               runCanvas renderer rm (winTextureCache win) off $ -- do
-                                    (onDraw $ widgetFns w) widget
---                                visibleRect <- getVisibleRect widget
---                                setColor $ V4 255 0 0 0
---                                drawRect $ shrinkRect' 1 visibleRect
-
-                        V.mapM_  (go off rect force4) (cildrenWidgets w)
---                liftIO $ putStrLn $ concat ["redrawWindow.go END "]
-        let do' bufSzChanged oBuf newSz force' widget' off fieldModifyFun = do
-                buf <-  if bufSzChanged then do
-                            SDL.destroyTexture oBuf
-                            newBuf <- P.createTargetTexture renderer newSz
-                            modifyMonadIORef' rfWin (fieldModifyFun newBuf)
-                            return newBuf
-                        else return oBuf
-                target $= Just buf
-                go off (SDL.Rectangle zero newSz) force' widget'
-                return buf
-        mbFgChildren <- getWidgetChild (winFgWidget win) 0
-        mbFg <- case mbFgChildren of
-                    Just fgChildren -> do
-                        rect@(SDL.Rectangle (P off) sz) <- getWidgetRect fgChildren
-                        oSz <- P.getTextureSize $ winFgBuffer win
-                        let fgForce = sz /= oSz
-                        buf <- do' fgForce (winFgBuffer win) sz (force || fgForce) fgChildren
-                                    (fmap negate off) $ \buf w -> w{winFgBuffer=buf}
-                        return $ Just (buf,rect)
-                    _ -> return Nothing
-        buf <- do' szChanged (winBuffer win) wSz force2 (mainWidget win) zero
-                        $ \buf w -> w{winBuffer=buf}
-        clip   $= Nothing
-        target $= Nothing
-        SDL.clear renderer
-        SDL.copy renderer buf Nothing  Nothing -- $ Just $ winRect
-        whenIsJust mbFg $ \ (buf',rect) ->
-            SDL.copy renderer buf' Nothing $ Just (fmap fromIntegral rect)
-        SDL.present renderer
-
-isSpecStateWidget:: MonadIO m => GuiWindow -> Widget -> m Bool
-isSpecStateWidget rfWin widget = do
-    s <- specStateWidget <$> readMonadIORef rfWin
-    case s of
-      WidgetStateMouseCaptured t -> return $ widget == t
-      _ -> return False
-
-resetSpecStateWidget :: MonadIO m => GuiWindow -> m ()
-resetSpecStateWidget win = modifyMonadIORef' win (\x -> x{specStateWidget=WidgetNoSpecState})
-{-# INLINE resetSpecStateWidget #-}
-
-setSpecStateWidget ::  MonadIO m => Widget -> SpecStateWidget -> m ()
-setSpecStateWidget widget s = (`modifyMonadIORef'` (\x -> x{specStateWidget=s})) =<< getWidgetWindow widget
-{-# INLINE setSpecStateWidget #-}
-
-setMouseCapturedWidget ::  MonadIO m => Widget -> m ()
-setMouseCapturedWidget widget = setSpecStateWidget widget $ WidgetStateMouseCaptured widget
-{-# INLINE setMouseCapturedWidget #-}
-
-getMouseCapturedWidget :: MonadIO m => GuiWindow -> m (Maybe Widget)
-getMouseCapturedWidget rfWin = do
-    s <- specStateWidget <$> readMonadIORef rfWin
-    case s of
-        WidgetStateMouseCaptured t -> return $ Just t
-        _ -> return Nothing
-{-# INLINE getMouseCapturedWidget #-}
-
-resetMouseCaptured :: MonadIO m => GuiWindow -> m ()
-resetMouseCaptured rfWin = do
-    w <- readMonadIORef rfWin
-    case specStateWidget w of
-        WidgetStateMouseCaptured _ -> writeMonadIORef rfWin w{specStateWidget=WidgetNoSpecState}
-        _ -> return ()
-{-# INLINE resetMouseCaptured #-}
-
-resetMouseCapturedWidget :: MonadIO m => Widget -> m ()
-resetMouseCapturedWidget widget = getWidgetWindow widget >>= resetMouseCaptured
-{-# INLINE resetMouseCapturedWidget #-}
-
-setWinMainMenu :: MonadIO m => GuiWindow -> Maybe Widget -> m ()
-setWinMainMenu rfWin menu = modifyMonadIORef' rfWin (\x -> x{winMainMenu=menu})
-{-# INLINE setWinMainMenu #-}
-
-getWinMainMenu :: MonadIO m => GuiWindow -> m (Maybe Widget)
-getWinMainMenu = fmap winMainMenu . readMonadIORef
-{-# INLINE getWinMainMenu #-}

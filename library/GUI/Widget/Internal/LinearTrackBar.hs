@@ -24,9 +24,9 @@ data LinearTrackBarDef = LinearTrackBarDef  {
                           , linearTrackBarPos      :: LinearTrackValueType
                           , linearTrackBarSliderLn :: Coord -- 0 - пропорционально соотношению отображаемого окна
                           , linearTrackBarDraw :: forall m. MonadIO m =>
-                                Widget -> Maybe WidgetMouseState -> GuiRect -> GuiCanvas m ()
+                                Widget -> Maybe WidgetMouseState -> GuiRect -> Canvas m ()
                           , linearTrackBarSliderDraw :: forall m. MonadIO m =>
-                                Widget -> Maybe WidgetMouseState -> GuiRect -> GuiCanvas m ()
+                                Widget -> Maybe WidgetMouseState -> GuiRect -> Canvas m ()
                           , linearTrackBarRounder :: forall m. MonadIO m => LinearTrackValueType -> m LinearTrackValueType
                                             }
 
