@@ -17,15 +17,18 @@ module GUI.BaseLayer.RunGUI(
   ) where
 
 import Foreign
+import Data.Monoid
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Map.Strict as Map (empty)
 import Control.Exception
 import Control.Monad
 import System.Directory
+import Data.Char
 import Data.Default
 import Data.Maybe
 import Maybes (whenIsJust)
 import MonadUtils (whenM)
+import TextShow (showb)
 import qualified SDL
 import qualified SDL.Raw as Raw
 import qualified SDL.Internal.Types
@@ -38,7 +41,8 @@ import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend0.Cursor
 import GUI.BaseLayer.Depend0.Keyboard
 import GUI.BaseLayer.Depend1.Skin
-import GUI.BaseLayer.Depend1.Logging hiding (logPutLn,logOnErr)
+import           GUI.BaseLayer.Depend1.Logging hiding (logPutLn,logOnErr)
+import qualified GUI.BaseLayer.Depend1.Logging as L
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Widget
 import GUI.BaseLayer.Pipe
@@ -46,7 +50,7 @@ import GUI.BaseLayer.Resource
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.Core
 import GUI.BaseLayer.Action
-import System.Utils (hideConsole)
+import System.Utils (hideConsole,getUILang)
 import GUI.BaseLayer.Window
 import GUI.BaseLayer.RedrawWindow
 import GUI.BaseLayer.SpecStateWidget
@@ -65,12 +69,16 @@ data GUIDef = GUIDef {
       -- Если строка пуста, вместо неё используется результат выполнения
       -- @getXdgDirectory XdgData \"ИмяПриложения\"@ (см. документацию к пакету __directory__).
     , guiDataDirectory :: String
+      -- | Например "en-US" or "ru-Ru". Если задана пустая строка, будет произведена попытка
+      -- определить язык из ОС.
+    , guiNaturalLanguage :: String
                      }
 
 instance Default GUIDef where
     def = GUIDef { guiLogDef = def
                  , guiConsoleVisible = True
                  , guiDataDirectory = "" -- set default. Not current dur.
+                 , guiNaturalLanguage = ""
                  }
 
 -- | Функция с которой начинается выполнения GUI.
@@ -89,9 +97,22 @@ runGUI skin fntLst GUIDef{..} initFn =
                     getXdgDirectory XdgData =<< getAppName
                else return guiDataDirectory
     mbLog <- guiLogStart guiLogDef dataDir guiConsoleVisible
-    whenIsJust mbLog $ \gLog -> SDL.TTF.withInit $
-        bracket_ (IMAGE.initialize [IMAGE.InitJPG,IMAGE.InitPNG]) IMAGE.quit $
-        bracket (initResourceManager (skinName skin) fntLst dataDir gLog) destroyResourceManager $ \rm -> do
+    whenIsJust mbLog $ \gLog -> do
+        let langCorr [l0,l1,_,c0,c1] = [toLower l0, toLower l1,'_',toUpper c0, toUpper c1]
+            langCorr _ = "en_US"
+        uiLang <- langCorr <$> (if null guiNaturalLanguage then do
+                                m <- try $ getUILang
+                                case m of
+                                    Right s -> return s
+                                    Left  e -> do
+                                        L.logPutLn gLog $ "Can't get system language : "
+                                           <> showb (e :: IOError)
+                                           <> "  Set en_US as default."
+                                        return "en_US"
+                        else return guiNaturalLanguage)
+        SDL.TTF.withInit $
+          bracket_ (IMAGE.initialize [IMAGE.InitJPG,IMAGE.InitPNG]) IMAGE.quit $
+          bracket (initResourceManager (skinName skin) fntLst dataDir uiLang gLog) destroyResourceManager $ \rm -> do
             usrEvCode <- Raw.registerEvents 1
             gui <- newMonadIORef GUIRecord    { guiWindows = Map.empty
                                               , guiSkin = skin
@@ -195,16 +216,17 @@ onEvent gui evpl = case evpl of
 --            putStrLn "WindowLostKeyboardFocusEvent"
     --
     SDL.WindowClosedEvent (SDL.WindowClosedEventData win) -> -- do
-      withNoLockedWindow win $ \_rfWin -> do
+      withNoLockedWindow win $ \ rfWin -> do
 --        cWins' <- getWindowsCount gui
-        delWindowByIx gui win
+        whenM (canWinClose rfWin) $
+            delWindowByIx gui win
 --        cWins <- getWindowsCount gui
 --        putStrLn $ concat ["WindowClosedEvent cWins before = ", show cWins', "   cWins after = ", show cWins]
 {-        when (cWins>0) $ do
             popupOnly <- windowsFold gui (\b rfWin -> (b &&) <$> allWindowFlags rfWin WindowPopupFlag) True
             when popupOnly $ guiApplicationExitSuccess gui -}
-        cNoPopupWins <- windowsFold gui (\n rfWin -> do
-                            isPopup <- allWindowFlags rfWin WindowPopupFlag
+        cNoPopupWins <- windowsFold gui (\n rfWin' -> do
+                            isPopup <- allWindowFlags rfWin' WindowPopupFlag
                             return (if isPopup then n else n+1)) (0::Int)
         when (cNoPopupWins==0) $ guiApplicationExitSuccess gui
     -- A keyboard key has been pressed or released.

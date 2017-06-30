@@ -1,152 +1,187 @@
 {-# LANGUAGE PatternSynonyms #-}
--- {-# LANGUAGE RankNTypes #-}
+
+-- |
+-- Module:      GUI
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Модуль реэкспортирующий типы и функции из /GUI.BaseLayer/ и из "GUI.Widget.Types" которые,
+-- предположительно, будут использованы при построении виджетов верхнего у ровня и в коде приложения.
+--
+-- Для использования конкретных виджетов, разумеется, кроме
+--
+-- > import GUI
+--
+-- требуется импортировать ещё и модули кокретных виджетов.
+
 module GUI(
-    -- GUI.BaseLayer.Types
-    WidgetOpts,WindowOpts,WidgetFlags,WindowFlags,Widget,Window,Gui,Canvas
-    ,GuiNotifyCode(..),WidgetFunctions(..),SpecStateWidget(..)
-    ,WidgetRecord(..),WindowRecord(..),GUIRecord(..)
-    -- GUI.BaseLayer.Depend0.Types
-    ,Coord,SDLCoord,ColorComponent,GuiTransparency,GuiColor,MousePoint,GuiSize,GuiCoordOffset,GuiPoint,GuiRect
-    ,GuiWindowId,GuiWindowIx,GuiCurDrawColor,MarginLTRB(..),GuiMargin,WidgetMargin(..)
-    -- GUI.BaseLayer.GUIRecord
-    ,guiGetLog,guiGetSkin,guiGetResourceManager
-    -- GUI.BaseLayer.Window
-    ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
-    ,pattern WindowPopupFlag,pattern WindowLocked
-    ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
-    ,getSDLWindow,getWindowRenderer,getWindowGui
-    ,getWinId'',getWinId',getWinId,getWinIx',getWinIx
-    ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
-    ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags,getWindowMainWidget
-    ,getWindowForegroundWidget,getWindowsMap,getWindowByIx
-    ,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
-    ,getWinCursorIx,setWinCursorIx,doForWinByIx,allWindowsMap_,setWinMainMenu,getWinMainMenu
-    -- GUI.BaseLayer.RedrawWindow
-    ,showWinWidgets
-    -- GUI.Widget
-    ,pattern WidgetNoFlags, pattern WidgetRedrawFlag, pattern WidgetSelectable, pattern WidgetEnable
-    ,pattern WidgetVisible, pattern WidgetFocusable, pattern WidgetTabbed, pattern WidgetMouseWheelControl
-    ,pattern WidgetFocused
-    ,GuiWidget(..),getWidget,getWidgetData,getWidgetParent
-    ,getWidgetRect,setWidgetRect,getWidgetCanvasRect,setWidgetCanvasRect,getWidgetVisibleRect
-    ,getVisibleRect
-    ,getWidgetMargin,setWidgetMargin,setWidgetMargin'
-    ,getWidgetMarginSize,setWidgetRectWithMarginShrink
-    ,getWidgetRectWithMargin,calcWidgetSizeWithMargin
-    ,widgetCoordsToStr,showWidgets,showWidgetsFromMain
-    ,getWidgetFlags,setWidgetFlags,widgetFlagsAddRemove
-    ,widgetFlagsAdd,widgetFlagsRemove,allWidgetFlags',allWidgetFlags,anyWidgetFlags
-    ,setWidgetFns,getWidgetFns,getWidgetParentFns,widgetResizingIfChanged
-    ,setWidgetCursorIx,getWidgetCursorIx,getWidgetWindow
-    ,getWidgetChildrenCount,getWidgetChild
-    ,foldByWidgetChildren,foldByWidgetChildren',ifoldByWidgetChildren,ifoldByWidgetChildren'
-    ,foldByWidgetChildren_,foldByWidgetChildren'_,ifoldByWidgetChildren_,ifoldByWidgetChildren'_
-    ,mapByWidgetChildren,imapByWidgetChildren,mapByWidgetChildren_,imapByWidgetChildren_,forEachWidgets
-    ,getChildWidgetIx,getWidgetParentIx,getPrevNextWidgets,isMainWidget,getWinMainWidget
-    ,findWidgetInTreeForward,findWidgetInTreeBackward,findNextTabbedWidget,findPrevTabbedWidget
-    -- GUI.Utils
-    ,WidgetComposer(..),newForeground,moveWidget,resizeWidget,resizeWidgetWithCanvas
-    ,mulDiv,getWidgetCoordOffset,coordToWidget,mouseToWidget
-    ,runProxyWinCanvas,runProxyCanvas,getSkinFromWin,getSkinFromWidget
-    ,guiSetCursor,setGuiState,getGuiState,notifyEachWidgetsInAllWin
-    ,redrawAll,forEachWidgetsInAllWin,createWidget,mkWidget,SimpleWidget(..),mkSimpleWidget
-    ,delWidget,delAllChildWidgets,lastChildReplaceFirst
-    ,delWindowByIx,delWindow,delAllWindows,delWindowsBy,windowsFold,getWindowsCount,delAllPopupWindows
-    ,markWidgetForRedraw,setWidgetFlag,notifyParentAboutSize,simpleOnResizing
-    ,extendableOnResizing,enableWidget,visibleWidget,newWindow',newWindow,newModalWindow',newModalWindow
-    ,overlapsChildrenFns,setWinCursorIx,setWinSize
-    ,guiApplicationExitSuccess,guiApplicationExitFailure,guiApplicationExitWithCode
-    ,logPutLn,guiOnSomeException,logOnErr
-    -- GUI.BaseLayer.Pipe
-    ,GuiPipeId,GuiPipeProducer,GuiPipe(newGuiPipe,sendToGuiPipe,replaceGuiPipeHandler),getPipeIdFromProducer,delGuiPipe
-    -- GUI.BaseLayer.Depend0.Cursor
-    ,CursorIx(..),pattern DefCursorIx,freeCursor
-    -- GUI.BaseLayer.Depend1.Skin
-    ,Border3DColors(..),BtnBorderType(..),DecoreState(..),ButtonDecore(..),Skin(..)
-    -- GUI.BaseLayer.Depend0.Ref
-    ,newMonadIORef,readMonadIORef,writeMonadIORef,modifyMonadIORef' -- ,atomicallyMonadIO,newTVarMonadIO,readTVarMonadIO
-    -- GUI.BaseLayer.Depend1.Geometry
-    ,Alignment(..),VAlign(..),HAlign(..),DirectionVH(..)
-    ,xV2,yV2,getRectLT,sizeOfRect,hvAlignToAlignment,getVAlign,getHAlign,vAlignToOff,hAlignToOff
-    ,rectToBriefStr,directionLetter,rectAlign,toBound,isInRect,rectIntersection,getRectLB,getRectRT,getRectRB
-    ,rectCenter,isEmptyRect,marginSize,rectShrinkByMargin,rectGrowByMargin,marginToLTRB,marginToBriefStr
-    ,moveRect,moveRectTo,rectMove,shrinkRect,shrinkRect',mkDotLineVector,sizeReplaceIfNoPositive,sizeRestoreNegative
-    ,mkDotRectVector
-    -- GUI.BaseLayer.Depend1.Color
-    ,rgb,grayColor
-    -- GUI.BaseLayer.Depend0.TTF
-    ,GuiFontStyle(..)
-    -- GUI.BaseLayer.Depend1.Resource
-    ,GuiFontOptions(..),GuiFontDef(..),ResourceManager
-    -- GUI.BaseLayer.Resource
-    ,initResourceManager,destroyResourceManager,rmGetSurfaceFromCache,rmGetSurface,rmAddSurface
-    ,rmGetFont,rmLoadFont,rmGetCursor,rmSetCursor,rmAddCursor
-    -- GUI.BaseLayer.Primitives
-    ,DrawStrMode(..)
-    -- GUI.BaseLayer.Canvas
-    ,Orientation(..)
-    ,toCanvasPoint,toCanvasRect,toSDLPoint,toSDLRect
-    ,drawStretchedTexture,drawTexturePartial,drawTexture,drawTextureAligned,drawTextureEx
-    ,drawLine,drawLines,drawPoint,drawPoints,drawRect,drawRects,fillRect,fillRects
-    ,getTexture
-    ,drawStretchedTextureR,drawTexturePartialR,drawTextureR,drawTextureAlignedR,drawTextureExR
-    ,createTargetTexture,setBlendMode,setColor,withBlendMode,withColor,withTargetTexture,withClipRect,getFont
-    ,withTransparentTexture,getStrSize
-    ,renderStr,renderStrDraft,renderStrOpaque,drawStr,drawStrDraft,drawStrOpaque,drawStrAligned
-    ,getTextSize,renderText,renderTextDraft,renderTextOpaque,drawText,drawTextDraft,drawTextOpaque,drawTextAligned
-    ,drawRoundBorder,drawRoundFrame,draw3DBorder,draw3DFrame,drawDotBorder,drawArrowTriangle,drawArrow
-    -- GUI.Widget.Types
-    ,pattern MinInsideSpaceX, pattern MinInsideSpaceY, pattern KbdClickSpecPoint
-    ,WidgetMouseState(..),FormItemWidgetDef(..),NoArgAction(..),OneArgAction(..),OneArgPredicate(..)
-    ,Clickable(..),Changeable(..)
-    ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),RowNumProperty(..)
-    ,MouseStateProperty(..)
-    -- GUI.BaseLayer.Action
-    ,pattern AllInvisibleActionMask,pattern AllDisableActionMask,pattern AllEnableActionMask
-    ,ActionMask(..),GuiState(..),ActionValue(..),Action(..),Actions
-    ,ActionState(..),ActionFn
-    ,kNoModifier,kCtrl,kShift,kAlt,kCtrlShift,kCtrlAlt,kShiftAlt,getActionValueState,isVisibleActionState
-    ,mkActionMask,mkEmptyActions
-    ,addActions,chkHotKey,getActionByGroupAndId,getActionsByGroupAndId,setActionEnable
-    ,setAction,getVisibleActions,fromActionMask
-    -- GUI.BaseLayer.Depend0.Keyboard
-    ,ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showbKeycode,KeyModifiers(..),KeyWithModifiers(..)
-    ,scaToKeyModifier
-    -- GUI.BaseLayer.Depend1.Logging
-    ,LogDateTime(..),GUILogDef(..)
-    -- GUI.BaseLayer.Depend0.Auxiliaries
-    ,getAppName,mkRandomWinTitle,showErrMsgBoxT,showErrMsgBoxTL,showErrMsgBoxB,showErrMsgBox
-    -- GUI.BaseLayer.UniqueCode
-    ,UniqueCode(..),getUniqueCode
-    -- GUI.BaseLayer.SpecStateWidget
-    ,setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured,resetMouseCapturedWidget
-    -- GUI.BaseLayer.Focus
-    ,clearFocusInWindow,clearWidgetFocus,setWidgetFocus
-    -- GUI.BaseLayer.RunGUI
-    ,GUIDef(..),runGUI
+     module GUI.BaseLayer.Depend0.Types
+    ,module GUI.BaseLayer.Depend0.Auxiliaries
+    ,module GUI.BaseLayer.Depend0.Cursor
+    ,module GUI.BaseLayer.Depend0.Keyboard
+    ,module GUI.BaseLayer.Depend0.Ref
+    ,module GUI.BaseLayer.Depend1.Color
+    ,module GUI.BaseLayer.Depend1.Geometry
+    ,module GUI.BaseLayer.Depend1.Skin
+    ,module GUI.BaseLayer.Depend1.Logging
+    ,module GUI.BaseLayer.Types
+    ,module GUI.BaseLayer.Widget
+    ,module GUI.BaseLayer.Window
+    ,module GUI.BaseLayer.Pipe
+    ,module GUI.BaseLayer.Resource
+    ,module GUI.BaseLayer.Canvas
+    ,module GUI.BaseLayer.Core
+    ,module GUI.BaseLayer.RunGUI
+    ,module GUI.BaseLayer.Action
+    ,module GUI.BaseLayer.UniqueCode
+    ,module GUI.BaseLayer.GUIRecord
+    ,module GUI.BaseLayer.SpecStateWidget
+    ,module GUI.BaseLayer.Focus
+    ,module GUI.Widget.Types
   ) where
 
-import GUI.BaseLayer.Depend0.Types
-import GUI.BaseLayer.Depend0.Auxiliaries
-import GUI.BaseLayer.Depend0.Cursor
+import GUI.BaseLayer.Depend0.Types (
+        Coord,GuiSize,GuiCoordOffset,GuiPoint,GuiRect
+        ,ColorComponent,GuiTransparency,GuiColor,GuiCurDrawColor
+        ,MarginLTRB(..),GuiMargin,WidgetMargin(..),GuiWindowId,GuiWindowIx)
+import GUI.BaseLayer.Depend0.Auxiliaries (
+        getAppName,withUTF8,withUtf8Locale
+        ,showErrMsgBoxT,showErrMsgBoxTL,showErrMsgBoxB,showErrMsgBox)
+import GUI.BaseLayer.Depend0.Cursor (CursorIx(..))
 import GUI.BaseLayer.Depend0.Keyboard
 import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend1.Color
 import GUI.BaseLayer.Depend1.Geometry
 import GUI.BaseLayer.Depend1.Skin
 import GUI.BaseLayer.Depend1.Logging (LogDateTime(..),GUILogDef(..))
-import GUI.BaseLayer.Types
-import GUI.BaseLayer.Widget
-import GUI.BaseLayer.Window
-import GUI.BaseLayer.Pipe
-import GUI.BaseLayer.Resource
+import GUI.BaseLayer.Types (WidgetFlags,WindowFlags,Widget,Window,Gui,GuiNotifyCode(..)
+        ,WidgetFunctions(..),GuiWidgetCollection,WindowRetcode(..)
+        ,WidgetRecord,WindowRecord,GUIRecord)
+import GUI.BaseLayer.Widget (
+         -- * Виджет Базового уровня.
+         -- ** Низкоуровневые функции доступа к полям записи виджета.
+         getWidgetParent,getWidgetRect,setWidgetRect
+        ,getWidgetCanvasRect,setWidgetCanvasRect,getWidgetFns,setWidgetFns
+        ,getWidgetCursorIx,setWidgetCursorIx,getWidgetWindow
+         -- ** Флаги виджета
+        ,pattern WidgetNoFlags, pattern WidgetRedrawFlag, pattern WidgetSelectable, pattern WidgetEnable
+        ,pattern WidgetVisible ,pattern WidgetFocusable,pattern WidgetTabbed, pattern WidgetMouseWheelControl
+        ,pattern WidgetFocused
+        ,getWidgetFlags,widgetFlagsAdd,widgetFlagsRemove,widgetFlagsAddRemove,allWidgetFlags
+        ,anyWidgetFlags,isWidgetMarkedForRedrawing
+         -- ** Поля (margin) виджета и функции использующие их.
+        ,getWidgetMargin,setWidgetMargin,setWidgetMargin',getWidgetMarginSize,getWidgetRectWithMargin
+        ,setWidgetRectWithMarginShrink,calcWidgetSizeWithMargin,widgetResizingIfChanged
+        ,getWidgetVisibleRect,getVisibleRect
+         -- ** Функции использующие вектор дочерих виджетов.
+        ,getWidgetChildrenCount,getChildWidgetIx,getWidgetChild
+         -- *** Map-ы по вектору виджетов.
+        ,mapByWidgetChildren,imapByWidgetChildren,mapByWidgetChildren_,imapByWidgetChildren_
+         -- *** Свёртки по вектору виджетов.
+        ,foldByWidgetChildren,foldByWidgetChildren',ifoldByWidgetChildren,ifoldByWidgetChildren'
+        ,foldByWidgetChildren_,foldByWidgetChildren'_,ifoldByWidgetChildren_,ifoldByWidgetChildren'_
+        -- ** Функции извлечения информации из родительского виджета.
+        ,getWidgetParentIx,getWidgetParentFns,getPrevNextWidgets
+        -- ** Оперции с деревом виджетов.
+        ,forEachWidgets,isMainWidget,getWinMainWidget
+        ,findWidgetInTreeForward,findWidgetInTreeBackward,findNextTabbedWidget,findPrevTabbedWidget
+        -- ** Доступ к данным 'Window' или 'Gui' через виджет.
+        ,getGuiFromWidget,getSkinFromWidget
+        -- ** Использование виджета базового уровня
+        ,markWidgetForRedraw
+        -- *** Изменение координат виджета.
+        ,moveWidget,resizeWidget,resizeWidgetWithCanvas,getWidgetCoordOffset
+        ,notifyParentAboutSize,simpleOnResizing,extendableOnResizing
+        -- *** Поиск и преобразование из клиентских координат в координаты виджета.
+        ,coordToWidget,mouseToWidget
+        -- ** Обработка прерываний в контексте виджета.
+        ,logOnErrInWidget
+        -- ** Отладочные функции вывода парметров виджета(ов) в виде строки.
+        ,widgetCoordsToStr,showWidgets,showWidgetsFromMain,showWinWidgets
+        -- * Виджет пользовательского уровня.
+        ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget
+        -- ** Простейший виджет пользовательского уровня не имеюший своих параметров.
+        ,SimpleWidget(..),mkSimpleWidget
+        --  * Создание виджетов.
+        ,mkWidget',mkWidget,createWidget
+             )
+import GUI.BaseLayer.Window (
+        -- * Низкоуровневые функции доступа к полям записи окна.
+         getSDLWindow,getWindowRenderer,getWindowGui,getWinIx,getWindowMainWidget
+        ,getWindowForegroundWidget,getFocusedWidget,setFocusedWidget
+        ,getWinCursorIx,getWinMainMenu,setWinMainMenu,getWinRetcode,setWinRetcode,setWinOnClosed
+        ,setWinOnCloseConfirm
+        -- * Флаги окна.
+        ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
+        ,pattern WindowPopupFlag,pattern WindowLocked
+        ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
+        ,getWindowFlags,windowFlagsAddRemove,windowFlagsAdd
+        ,windowFlagsRemove,allWindowFlags,anyWindowFlags
+        -- * Логирование и обработка ошибок.
+        ,logOnErrInWindow',logOnErrInWindow
+        -- * Прочее.
+        ,getSkinFromWin )
+import GUI.BaseLayer.Pipe (
+        GuiPipeId,GuiPipeProducer,GuiPipe(newGuiPipe,replaceGuiPipeHandler,sendToGuiPipe)
+        ,getPipeIdFromProducer,delGuiPipe )
+import GUI.BaseLayer.Resource (ResourceManager,GuiFontStyle(..),GuiFontOptions(..),GuiFontDef(..)
+        ,rmGetFont,rmLoadFont,rmGetCursor,rmAddCursor,rmGetB)
 import GUI.BaseLayer.Canvas
-import GUI.BaseLayer.Core
+import GUI.BaseLayer.Core (
+        -- * Создание окон.
+        newWindow',newWindow,newModalWindow',newModalWindow
+        -- * Композиция виджетов. Присоединение виджета к контейнеру для составления дерева виджетов.
+        ,WidgetComposer(..),newForeground
+        -- * Действия захватывающие все окна.
+        ,forEachWidgetsInAllWin,notifyEachWidgetsInAllWin,setGuiState,getGuiState
+        -- * Удаление окон.
+        ,delWindowByIx,delWindow,delWindowsBy,delAllPopupWindows
+        -- * Удаление виджетов.
+        ,delWidget,delAllChildWidgets
+        -- * Перестановки дочерних виджетов.
+        ,lastChildReplaceFirst
+        -- * Наборы функций - обработчиков событий базового виджета.
+        ,overlapsChildrenFns
+        -- * Изменение окна.
+        ,setWinSize',setWinSize
+        -- * Proxy Canvas.
+        ,runProxyWinCanvas,runProxyCanvas
+                                           )
 import GUI.BaseLayer.RunGUI
-import GUI.BaseLayer.Action
+import GUI.BaseLayer.Action (
+    -- GUI.BaseLayer.Action.Internal.Action
+     ActionMask,GuiState(..),ActionValue(..),Action(..),Actions
+    ,ActionState(..),ActionFn(..)
+    ,pattern AllInvisibleActionMask,pattern AllDisableActionMask,pattern AllEnableActionMask
+    ,fromActionMask,getActionValueState,isVisibleActionState
+    ,mkActionMask
+    -- GUI.BaseLayer.Action
+    ,addActions,getActionByGroupAndId,getActionsByGroupAndId,setActionEnable
+    ,setAction,getVisibleActions
+
+    -- * Функции, упрощающие назначение горячих клавиш при описании действий в пользовательском коде.
+    ,kNoModifier,kCtrl,kShift,kAlt,kCtrlShift,kCtrlAlt,kShiftAlt
+    )
 import GUI.BaseLayer.UniqueCode
+import GUI.BaseLayer.GUIRecord (
+    -- * Функции, просто возвращающие значения полей.
+    guiGetSkin,getWindowsMap,guiGetResourceManager
+    -- * Функции подстановки натурального языка.
+    ,getB,getT
+    -- * Функции использующие вектор окон @guiWindows :: GuiWindowCollection@ .
+    ,getWindowsCount,getWindowByIx,doForWinByIx,allWindowsMap_
+    ,windowsFold
+    -- ** Отладочные.
+    ,showWindowsAsStr
+    -- * Логирования и обработки исключений.
+    ,logPutLn,guiOnSomeException,logOnErr
+    -- * Завершение выполнения GUI приложения.
+    ,guiApplicationExitSuccess,guiApplicationExitFailure,guiApplicationExitWithCode
+                                   )
+import GUI.BaseLayer.SpecStateWidget (
+    setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured,resetMouseCapturedWidget)
+import GUI.BaseLayer.Focus (clearFocusInWindow,clearWidgetFocus,setWidgetFocus)
 import GUI.Widget.Types
-import GUI.BaseLayer.RedrawWindow
-import GUI.BaseLayer.GUIRecord
-import GUI.BaseLayer.SpecStateWidget
-import GUI.BaseLayer.Focus

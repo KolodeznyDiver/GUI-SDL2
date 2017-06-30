@@ -27,6 +27,9 @@ module GUI.BaseLayer.Canvas(
     -- ** Рисование произвольных текстур.
     ,drawTexture,drawStretchedTexture,drawTexturePartial,drawTextureAligned,drawTextureEx
     -- ** Текстуры из графических файлов (кешируемые).
+    -- Предупреждение : При загрузки некоторых графических файлов в консоль/терминал могут выдаваться сообщения
+    -- __/\"libpng warning: iCCP: known incorrect sRGB profile\"/__.
+    -- Такие файлы можно исправить, см. <https://stackoverflow.com/questions/22745076/libpng-warning-iccp-known-incorrect-srgb-profile>
     ,getTexture,drawTextureR,drawStretchedTextureR,drawTexturePartialR,drawTextureAlignedR,drawTextureExR
     -- ** Прочие функции относящиеся к текстурам.
     ,createTargetTexture,withTargetTexture,withTransparentTexture

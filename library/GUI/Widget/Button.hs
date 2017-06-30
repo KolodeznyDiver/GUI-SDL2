@@ -4,11 +4,45 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GUI.Widget.Button where
+-- |
+-- Module:      GUI.Widget.Button
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Несколько разных виджетов - кнопок.
+
+module GUI.Widget.Button(
+    -- * Общий для нескольких типов кнопок тип состояния 'TextureButtonData'.
+    TextureButtonData
+    -- ** @textureButton@.
+    -- Кнопка textureButton отображает только картинку (текстуру) произвольного происхождения,
+    -- зато она может отображать часть картинки
+    -- (колонки) в зависимости от состояния : мышm над ней или нет, нажата, disabled.
+    -- К тому же картинка может быть разбита на ряды. Какой ряд отображать устанавливается программно.
+    ,TextureButtonDef(..),textureButton
+    -- ** @pictureButton@.
+    -- Вариант предыдущей кнопки для которой текстура загружается из ресурса (из файла).
+    ,PictureButtonDef(..),pictureButton
+    -- ** @pictureWidget@.
+    -- Упрощённый в настройке вариант кнопки, отображающий статическую картинку.
+    ,PictureWidgetDef(..),pictureWidget
+    -- * Общий для нескольких типов кнопок тип состояния 'ButtonData'.
+    ,ButtonData
+    -- * @button@
+    -- Основная кнопка с возможностью отображения м картинки и текста (возможно, многострочного).
+    ,ButtonPicture(..),ButtonDef(..),button
+    -- * @buttonWithTriangle@.
+    -- Кнопка с изображением повёрнутого в одну из 4-х сторон треугольника.
+    ,ButtonWithTriangleType(..),ButtonWithTriangleDef(..),buttonWithTriangle
+    -- * Вспомогательные функции.
+    ,getButtonDecoreState,drawButtonFrame
+    ) where
 
 import Control.Monad
 import Control.Monad.IO.Class
---import Control.Monad.Trans.Class
 import qualified Data.Text as T
 import Data.Bits
 import Data.IORef
@@ -18,24 +52,27 @@ import SDL.Vect
 import Maybes (whenIsJust)
 import Data.Default
 import GUI
---import GUI.BaseLayer.Depend1.Geometry
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Widget.Handlers
 import GUI.Utils.TextWrap
-{-
-import GUI.BaseLayer.Types --debug
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Class
--}
-data TextureButtonDef = TextureButtonDef    { buttonFormItemDef  :: FormItemWidgetDef
-                                            , buttonSize      :: GuiSize
-                                            , buttonFlags     :: WidgetFlags
-                                            , buttonTexture   :: SDL.Texture
-                                            , buttonTextureOwned :: Bool
-                                            , buttonMouseInPictIx :: Maybe Int
-                                            , buttonPressedPictIx ::  Maybe Int
-                                            , buttonDisabledPictIx :: Maybe Int
-                                            , buttonInitPictRow :: Int
+
+-- | Параметры настройки кнопки с картинкой самого общего вида.
+data TextureButtonDef = TextureButtonDef {
+    buttonFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм
+                                            -- в настоящий момент только margin's.
+  , buttonSize      :: GuiSize -- ^ размер без полей. Он же равен или кратен размеру картинки.
+  , buttonFlags     :: WidgetFlags -- ^ Флаги базового виджета.
+  , buttonTexture   :: SDL.Texture -- ^ текстура созданная заранее
+  , buttonTextureOwned :: Bool -- ^ Если True, текстура будет удалена при закрытии виджета.
+  , buttonMouseInPictIx :: Maybe Int  -- ^ если задано, то колонка в текстуре (часть текстуры)
+                                      -- отображаемая когда указатель над кнопкой. \>0.
+                                      -- 0 - колонка для обычного отображения.
+  , buttonPressedPictIx ::  Maybe Int -- ^ если задано, то колонка в текстуре
+                                      -- отображаемая когда указатель нажат над кнопкой.
+  , buttonDisabledPictIx :: Maybe Int -- ^ если задано, то колонка в текстуре
+                                      -- отображаемая когда виджет в состоянии disabled
+                                      -- (его флаг @WidgetEnable@ сброшен, см. @enableWidget@).
+  , buttonInitPictRow :: Int -- ^  начальное отображение ряда в текстуре.
                                             }
 
 instance Default TextureButtonDef where
@@ -50,11 +87,14 @@ instance Default TextureButtonDef where
                             , buttonInitPictRow = 0
                             }
 
+-- | ОБщий тип для нескольких кнопок. Создаётся при создании кнопки,
+-- экспортируется только левая часть.
 data TextureButtonData = TextureButtonData { txtrbttnOnClick :: IORef NoArgAction
                                            , txtrbttnPictRow :: IORef Int
                                            , txtrbttnMouseState :: IORef WidgetMouseState
                                            }
 
+-- | Экземпляры этого класса - виджеты, которые могут выполнить действие в ответ на клик.
 instance Clickable (GuiWidget TextureButtonData) where
     onClick w a = writeMonadIORef (txtrbttnOnClick $ getWidgetData w) $ NoArgAction a
 
@@ -69,7 +109,12 @@ instance RowNumProperty (GuiWidget TextureButtonData) where
 instance MouseStateProperty (GuiWidget TextureButtonData) where
     getMouseState = readMonadIORef . txtrbttnMouseState . getWidgetData
 
-textureButton :: MonadIO m => TextureButtonDef -> Widget -> Skin -> m (GuiWidget TextureButtonData)
+-- | Универсальный виджет с текстурой.
+textureButton :: MonadIO m =>
+                 TextureButtonDef ->  -- ^ Параметры виджета.
+                 Widget ->  -- ^ Будующий предок в дереве виджетов.
+                 Skin -> -- ^ Skin.
+                 m (GuiWidget TextureButtonData)
 textureButton TextureButtonDef{..} parent skin = do
     MouseAnimatedClickableHndlr
             { mouseAnimatedClickableMouseState = mouseState
@@ -101,34 +146,117 @@ textureButton TextureButtonDef{..} parent skin = do
                    " r=", rectToBriefStr r, "  canvOff=", show canvOff, "  clipR", show clipR] -}
                 drawTexturePartial buttonTexture (SDL.Rectangle srcP buttonSize) p0
                                                         }
+--------------------------------------------------
 
-getButtonDecoreState :: Maybe WidgetMouseState -> ButtonDecore -> DecoreState
-getButtonDecoreState (Just WidgetMouseOut) = btnDecoreOut
-getButtonDecoreState (Just WidgetMouseIn) = btnDecoreIn
-getButtonDecoreState (Just WidgetMousePressed) = btnDecorePressed
-getButtonDecoreState _ = btnDecoreDisabled
+-- | Параметры настройки кнопки с картинкой из ресурса.
+data PictureButtonDef = PictureButtonDef    {
+      pictBtnFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм
+                                               -- в настоящий момент только margin's.
+    , pictBtnFlags     :: WidgetFlags -- ^ флаги базового виджета.
+    , pictBtnPicture   :: T.Text -- ^ Имя графического файла с картинкой.
+    , pictBtnMouseInPictIx :: Maybe Int -- ^ если задано, то колонка в текстуре (часть текстуры)
+                                        -- отображаемая когда указатель над кнопкой. \>0.
+                                        -- 0 - колонка для обычного отображения.
+    , pictBtnPressedPictIx ::  Maybe Int -- ^ если задано, то колонка в текстуре
+                                         -- отображаемая когда указатель нажат над кнопкой.
+    , pictBtnDisabledPictIx :: Maybe Int -- ^ если задано, то колонка в текстуре
+                                         -- отображаемая когда виджет в состоянии disabled
+                                         -- (его флаг @WidgetEnable@ сброшен, см. @enableWidget@).
+    , pictBtnMaxRow :: Int -- ^ Кол-во рядов на которые следует разбить картинку.
+    , pictBtnInitPictRow :: Int  -- ^  начальное отображение ряда в текстуре.
+                                            }
 
-drawButtonFrame :: MonadIO m => DecoreState -> BtnBorderType -> GuiColor -> GuiRect -> Canvas m ()
-drawButtonFrame DecoreState{..} borderType externalColor r = do
-    let borderWith = 1
-    case borderType of
-        BtnBorderRound brdrClr -> drawRoundFrame externalColor brdrClr decoreBkColor r
-        BtnBorder3D brdrClr -> draw3DFrame (brdr3DLightColor brdrClr) (brdr3DDarkColor brdrClr)
-                                    decoreBkColor borderWith r
+instance Default PictureButtonDef where
+    def = PictureButtonDef { pictBtnFormItemDef = def
+                           , pictBtnFlags = WidgetVisible .|. WidgetEnable
+                           , pictBtnPicture = T.empty
+                           , pictBtnMouseInPictIx = Nothing
+                           , pictBtnPressedPictIx = Nothing
+                           , pictBtnDisabledPictIx = Nothing
+                           , pictBtnMaxRow = 1
+                           , pictBtnInitPictRow = 0
+                           }
 
-data ButtonWithTriangleType = ButtonWithTriangleScrollBar
-                            | ButtonWithTriangleInForm
-                            | ButtonWithTriangleUser { btTriangleDecore :: ButtonDecore
-                                                     , btTriangleExternalColor :: GuiColor
-                                                     }
+-- | Кнопка с картинкой из ресурса.
+pictureButton :: MonadIO m => PictureButtonDef ->  -- ^ Параметры виджета.
+                              Widget ->  -- ^ Будующий предок в дереве виджетов.
+                              Skin -> -- ^ Skin.
+                              m (GuiWidget TextureButtonData)
+pictureButton PictureButtonDef{..} parent skin = do
+    let incIfJust (Just _) prev' = succ prev'
+        incIfJust _ prev' = prev'
+        cCols = incIfJust pictBtnMouseInPictIx $ incIfJust pictBtnPressedPictIx $ incIfJust pictBtnDisabledPictIx 1
+    texture <- runProxyCanvas parent $ getTexture pictBtnPicture
+    (V2 tW tH) <- P.getTextureSize texture
+    textureButton TextureButtonDef{ buttonFormItemDef = pictBtnFormItemDef
+                                 , buttonSize = V2 (tW `div` cCols) (tH `div` pictBtnMaxRow)
+                                 , buttonFlags = pictBtnFlags
+                                 , buttonTexture = texture
+                                 , buttonTextureOwned = False
+                                 , buttonMouseInPictIx = pictBtnMouseInPictIx
+                                 , buttonPressedPictIx = pictBtnPressedPictIx
+                                 , buttonDisabledPictIx = pictBtnDisabledPictIx
+                                 , buttonInitPictRow = pictBtnInitPictRow
+                                                                             } parent skin
 
-data ButtonWithTriangleDef = ButtonWithTriangleDef  { btTriangleFormItemDef  :: FormItemWidgetDef
-                                                    , btTriangleFlags     :: WidgetFlags
-                                                    , btTriangleOrientation :: Orientation
-                                                    , btTriangleSize        :: GuiSize
-                                                    , btTriangleType :: ButtonWithTriangleType
+--------------------------------------------------------------------
+
+-- | Параметры настройки кнопки без анимации. Она, впрочем, тоже отзовётся на щелчок,
+-- но внешне это не отразится. Предполагается использовать как картики на форме.
+-- Програмно менять ряд отображения, т.е. отображаемую часть картики так же можно
+data PictureWidgetDef = PictureWidgetDef {
+      pictFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм
+                                            -- в настоящий момент только margin's.
+    , pictFlags     :: WidgetFlags -- ^ флаги базового виджета.
+    , pictPicture   :: T.Text -- ^ Имя графического файла с картинкой.
+    , pictMaxRow :: Int -- ^ Кол-во рядов на которые следует разбить картинку.
+    , pictInitPictRow :: Int  -- ^  начальное отображение ряда в текстуре.
+    }
+
+instance Default PictureWidgetDef where
+    def = PictureWidgetDef { pictFormItemDef = def
+                           , pictFlags = WidgetVisible
+                           , pictPicture = T.empty
+                           , pictMaxRow = 1
+                           , pictInitPictRow = 0
+                           }
+
+-- | Кнопка без анимации. Практически, область на форме для отображения картинки.
+pictureWidget :: MonadIO m => PictureWidgetDef -> Widget -> Skin -> m (GuiWidget TextureButtonData)
+pictureWidget PictureWidgetDef{..} = pictureButton PictureButtonDef {
+                             pictBtnFormItemDef = pictFormItemDef
+                           , pictBtnFlags = pictFlags
+                           , pictBtnPicture = pictPicture
+                           , pictBtnMouseInPictIx = Nothing
+                           , pictBtnPressedPictIx = Nothing
+                           , pictBtnDisabledPictIx = Nothing
+                           , pictBtnMaxRow = pictMaxRow
+                           , pictBtnInitPictRow = pictInitPictRow }
+
+
+-------------------------------------- * @buttonWithTriangle@.
+-- Кнопка с изображением повёрнутого в одну из 4-х сторон треугольника.
+
+-- | Вид оформления для кнопки с треугольником.
+data ButtonWithTriangleType =
+         ButtonWithTriangleScrollBar  -- ^ по 'Skin' -у для кнопок у ScrollBar-ов.
+       | ButtonWithTriangleInForm  -- ^ по 'Skin' -у для элементов форм, например,
+                                   -- для кнопки выпадающего списка combobox-а.
+       | ButtonWithTriangleUser { -- ^ Свои настройки цветов.
+            btTriangleDecore :: ButtonDecore
+          , btTriangleExternalColor :: GuiColor
+                                }
+
+-- | Параметры настройки кнопки с треугольником.
+data ButtonWithTriangleDef = ButtonWithTriangleDef  {
+      btTriangleFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм
+                                                  -- в настоящий момент только margin's.
+    , btTriangleFlags     :: WidgetFlags -- ^ Флаги базового виджета.
+    , btTriangleOrientation :: Orientation -- ^ OrientationLeft | OrientationUp |
+                                           -- OrientationRight | OrientationDown, см. "GUI.BaseLayer.Canvas".
+    , btTriangleSize        :: GuiSize -- ^ Высота треугольника (несколько условно).
+    , btTriangleType :: ButtonWithTriangleType -- ^ Вид оформления.
                                                     }
---                                                    deriving (Show)
 
 newtype ButtonData = ButtonData { buttonOnClick :: IORef NoArgAction
                                 }
@@ -136,7 +264,9 @@ newtype ButtonData = ButtonData { buttonOnClick :: IORef NoArgAction
 instance Clickable (GuiWidget ButtonData) where
     onClick w a = writeMonadIORef (buttonOnClick $ getWidgetData w) $ NoArgAction a
 
-
+-- | Виджет - кнопка с треугольником.
+-- Вообще то не так и нужен. Можно просто нарисовать картинку и использовать @pictureButton@.
+-- В данной функции демонстрируется динамическое создание текстуры перед созданием собственно виджета.
 buttonWithTriangle :: MonadIO m => ButtonWithTriangleDef -> Widget -> Skin -> m (GuiWidget ButtonData)
 buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
     let (V2 btTriangleWidth btTriangleHeight) = btTriangleSize
@@ -149,19 +279,6 @@ buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
         draw1 x state = do
             let r=SDL.Rectangle (P (V2 x 0)) btTriangleSize
                 decoreSt = getButtonDecoreState state btDecore
-{-                c = case x `div` btTriangleWidth of
-                        1 -> V4 255   0   0 0
-                        2 -> V4 0   255   0 0
-                        3 -> V4 0     0 255 0
-                        _ -> V4 255 255   0 0
-{-            setColor c
-            fillRect r
-            setColor $ V4 0 0 0 0
-            drawLine (P (V2 x 0)) (P (V2 (x+btTriangleWidth) (btTriangleWidth)))
-            drawLine (P (V2 x (btTriangleWidth))) (P (V2 (x+btTriangleWidth) 0)) -}
--}
---            drawRoundFrame btTriangleExternalColor (V4 0 0 255 0) c r
-            --drawRoundFrame btTriangleExternalColor decoreBrdrColor decoreBkColor r
             drawButtonFrame decoreSt (btnDecoreBorder btDecore) externalColor r
             drawArrowTriangle btTriangleOrientation (decoreFgColor decoreSt) (rectCenter r) triangleW
             return $ x + btTriangleWidth
@@ -180,19 +297,28 @@ buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
                      , buttonDisabledPictIx = Just 3
                      } parent skin
     return $ GuiWidget widgetSelf (ButtonData onClk)
-------------------------------------------- button -----------------------------------------------------------------
 
-data ButtonPicture = ButtonNoPicture
-                   | ButtonLeftPicture T.Text
-                   | ButtonBottomPicture T.Text
+
+------------------------------------------- * @button@
+------- Основная кнопка с возможностью отображения м картинки и текста (возможно, многострочного).
+
+-- | Местоположение картинки для @button@ и имя гравфайла.
+data ButtonPicture = ButtonNoPicture  -- ^ Кнопка без картинки, только с текстом.
+                   | ButtonLeftPicture T.Text -- ^ Картинка слева, указывается имя графического файла.
+                   | ButtonBottomPicture T.Text  -- ^ Картинка снизу, указывается имя графического файла.
                    deriving (Show)
 
-data ButtonDef = ButtonDef  { btnFormItemDef  :: FormItemWidgetDef
-                            , btnSize      :: GuiSize
-                            , btnFlags     :: WidgetFlags
-                            , btnPicture :: ButtonPicture
-                            , btnTextWrapMode :: TextWrapMode
-                            , btnText  :: T.Text
+-- | Параметры настройки кнопки с текстом и картинкой.
+data ButtonDef = ButtonDef  {
+      btnFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм
+                                           -- в настоящий момент только margin's.
+    , btnSize  :: GuiSize -- ^ Размер кнопки без полей. Может увеличиваться, в зависимости
+                          -- от настроек @btnTextWrapMode@ и размера текста.
+    , btnFlags :: WidgetFlags -- ^ флаги базового виджета.
+    , btnPicture :: ButtonPicture -- ^ Местоположение картинки и имя гравфайла.
+    , btnTextWrapMode :: TextWrapMode -- ^ Способ отображения надписи.
+    , btnText  :: T.Text -- ^ Собственно надпись для кнопки.
+    , btnUseBorder :: Bool -- ^ Рисовать ли рамку кнопки.
                             }
                             deriving (Show)
 
@@ -203,8 +329,10 @@ instance Default ButtonDef where
                     , btnPicture = ButtonNoPicture
                     , btnTextWrapMode = def
                     , btnText = T.empty
+                    , btnUseBorder = True
                     }
 
+-- | Виджет - кнопка с текстом и картинкой.
 button :: MonadIO m => ButtonDef -> Widget -> Skin -> m (GuiWidget ButtonData)
 button ButtonDef{..} parent skin = do
     let (V2 btnW btnH) = btnSize
@@ -212,7 +340,7 @@ button ButtonDef{..} parent skin = do
             let wm  = case btnTextWrapMode of
                         TextNoWrap{..} -> TextNoWrap (textAreaMaxWidth + rW - btnW)
                         TextWrap{..} -> TextWrap (textAreaMaxHeight + rH - btnH) textAreaLineSpacing
-            in prepareText parent skin DrawTextDef  { drawTextRect = r
+            in prepareText parent DrawTextDef  { drawTextRect = r
                                                       , drawTextWrap = wm
                                                       , drawTextFontKey = "label"
                                                       , drawTextAlignment = AlignCenter
@@ -234,15 +362,18 @@ button ButtonDef{..} parent skin = do
             let btnH' = max (btnH - 2*MinInsideSpaceY) textureH
                 r = SDL.Rectangle (P (V2 (textureW + 2*MinInsideSpaceX) MinInsideSpaceY))
                         (V2 (btnW - textureW - 3*MinInsideSpaceX) btnH')
---            liftIO $ putStrLn $ concat ["button.ButtonLeftPicture textureW=",show textureW,
---               " textureH=", show textureH, "  btnH'=", show btnH', " r=", rectToBriefStr r ]
+{-            liftIO $ putStrLn $ concat ["button.ButtonLeftPicture textureW=",show textureW,
+               " textureH=", show textureH, "  btnH'=", show btnH', " r=", rectToBriefStr r ] -}
             p <- prepareLabel r
             let SDL.Rectangle (P (V2 lx _)) (V2 lw lh) = drawTextRect $ preparedTextDef p
                 maxH = max lh textureH
-            let texturePos = P (V2 MinInsideSpaceX (MinInsideSpaceY + (maxH - textureH) `div` 2))
+                textL = getLeftOfPreparedWrapText $ preparedText p
+                textureL = max MinInsideSpaceX  (textL - textureW - MinInsideSpaceX )
+            let texturePos = P (V2 textureL
+                                   (MinInsideSpaceY + (maxH - textureH) `div` 2))
                 resSz = V2 (lx + lw + MinInsideSpaceX) (maxH + 2*MinInsideSpaceY)
---            liftIO $ putStrLn $ concat ["button.ButtonLeftPicture p=",show p, "   dtR=", rectToBriefStr dtR,
---                "  maxH=", show maxH, " texturePos= ", show texturePos, "  resSz=",show resSz]
+{-            liftIO $ putStrLn $ concat ["button.ButtonLeftPicture p=",show p, "   dtR=", rectToBriefStr dtR,
+                "  maxH=", show maxH, " texturePos= ", show texturePos, "  resSz=",show resSz] -}
             return (resSz,Just (texture,texturePos),p)
         (ButtonBottomPicture k) -> do
             texture <- runProxyCanvas parent $ getTexture k
@@ -281,7 +412,9 @@ button ButtonDef{..} parent skin = do
 --                fillRect r
 --                drawRoundFrame  (decoreBrdrColor d) (decoreBkColor d) r
 --                liftIO $ putStrLn $ concat ["button.onDraw ", rectToBriefStr r]
-                drawButtonFrame d btnDecoreBorder (bkColor skin) r
+                if btnUseBorder then
+                     drawButtonFrame d btnDecoreBorder (bkColor skin) r
+                else setColor (decoreBkColor d) >> fillRect r
                 drawPreparedText prep (decoreFgColor d)
                     (textWrapModeToMbBkColor btnTextWrapMode skin $ decoreBkColor d)
                 whenIsJust mbPict $ \(texture,texturePos) ->
@@ -290,4 +423,21 @@ button ButtonDef{..} parent skin = do
 --                when ((fl .&. WidgetFocused) /= WidgetNoFlags) $
 --                    drawDotBorder 4 $ shrinkRect' 2 r
                                                                           }
+
+------------------------------ * Вспомогательные функции.
+
+
+getButtonDecoreState :: Maybe WidgetMouseState -> ButtonDecore -> DecoreState
+getButtonDecoreState (Just WidgetMouseOut) = btnDecoreOut
+getButtonDecoreState (Just WidgetMouseIn) = btnDecoreIn
+getButtonDecoreState (Just WidgetMousePressed) = btnDecorePressed
+getButtonDecoreState _ = btnDecoreDisabled
+
+drawButtonFrame :: MonadIO m => DecoreState -> BtnBorderType -> GuiColor -> GuiRect -> Canvas m ()
+drawButtonFrame DecoreState{..} borderType externalColor r = do
+    let borderWith = 1
+    case borderType of
+        BtnBorderRound brdrClr -> drawRoundFrame externalColor brdrClr decoreBkColor r
+        BtnBorder3D brdrClr -> draw3DFrame (brdr3DLightColor brdrClr) (brdr3DDarkColor brdrClr)
+                                    decoreBkColor borderWith r
 

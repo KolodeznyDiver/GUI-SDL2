@@ -3,6 +3,24 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+
+-- |
+-- Module:      GUI.Widget.Container.Border
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- @border@ отчасти выполняет рольдекоративного виджета, позволяющего создавать на форме
+-- различные, рамки, полоски, линии, прямоугольники. Возможно, с заголовками.
+--
+-- Однако, border, так же является и контейнером виджетов, т.е в него можно вставить другой виджет,
+-- как в рамку (название frame было после некоторых размышлений отклонено).
+-- Можно вставить и несколько виджетов которые будут занимать одно и то же место.
+-- Понятно, что если только один дочерний виджет сделать видимым, то можно получить, в будущем,
+-- область с закладками.
+
 module GUI.Widget.Container.Border(
     BorderBackground(..),BorderType(..),BorderDef(..),BorderData,border
     ) where
@@ -18,39 +36,53 @@ import qualified SDL
 import SDL.Vect
 import GUI
 
+-- | Отсступ заголовка от края виджета.
 pattern CaptionPaddingX :: Coord
 pattern CaptionPaddingX = 5
 
-data BorderBackground = BorderTransparent
-                      | BorderBkColorOfSkin
-                      | BorderBkColor GuiColor
+-- | Настройка фона
+data BorderBackground = BorderTransparent -- ^ Прозрачный.
+                      | BorderBkColorOfSkin -- ^ взять цвет из поля @bkColor@ типа 'Skin'.
+                      | BorderBkColor GuiColor -- ^ Свой цвет.
                       deriving Eq
 
-data BorderType = BorderMono
-                | BorderRect
+-- | Тип рпедставления.
+data BorderType = BorderMono  -- ^ Просто прямоуольник равномерно заполненный цветом.
+                | BorderRect  -- ^ Тонкая рамка (в 1 пиксель).
+                -- | Рамка с закруглёнными краями. Механизм её отрисовки требует знать цвет
+                -- фона на котором она рисуется.
                 | BorderRound { borderRoundOutsideColor :: Maybe GuiColor
                               }
+                -- | Трёхмерная рамка. Плохо смотрится вместе с заголовоком.
                 | Border3D  {border3DLightColor :: Maybe GuiColor
                             ,border3DDarkColor :: Maybe GuiColor
                             }
+                -- | Рамка из точек заданного шага.
                 | BorderDot {borderDotStep :: Coord }
+                -- | Линия. Вертикальная или горизонтальная определяется по соотношению сторон.
                 | BorderLine
                 deriving Eq
 
-data BorderDef = BorderDef  { borderFormItemDef  :: FormItemWidgetDef
-                            , borderSize      :: GuiSize
-                            , borderFlags     :: WidgetFlags
-                            , borderType      :: BorderType
-                            , borderBkgrnd :: BorderBackground
-                            , borderThickness :: Coord
-                            , borderCaption :: T.Text
-                            , borderCaptionColor :: Maybe GuiColor
-                            , borderCaptionAlignment :: HAlign
-                            , borderFontKey :: T.Text
-                            , borderFgColor :: Maybe GuiColor
-                            , borderOnlyOneChild :: Bool
-                            , borderSizeByChild :: Bool
-                            }
+-- | Все параметры border-а.
+data BorderDef = BorderDef  {
+      borderFormItemDef  :: FormItemWidgetDef  -- ^ Общие настройки для всех виджетов для форм
+                                               -- в настоящий момент только margin's.
+    , borderSize      :: GuiSize -- ^ Размер без полей.
+    , borderFlags     :: WidgetFlags -- ^ Флаги базового виджета.
+    , borderType      :: BorderType -- ^ См. выше.
+    , borderBkgrnd :: BorderBackground -- ^ См. выше.
+    , borderThickness :: Coord -- ^ Указывает не только ширину 3D рамки, но, так же определяет область
+                               -- занимаемую дочерними виджетами.
+    , borderCaption :: T.Text -- ^ Заголовок отображаемый на рамке. T.empty если он не нужен (по умолчанию).
+    , borderCaptionColor :: Maybe GuiColor -- ^ Цвет рамки или прямоугольника если не устраивает из 'Skin'.
+    , borderCaptionAlignment :: HAlign -- ^ Выравнивание заголовка на верхней границе рамки.
+    , borderFontKey :: T.Text -- ^ Ключ шрифта заголовка. По умолчанию \"small\".
+    , borderFgColor :: Maybe GuiColor -- ^ Цвет заголовка если не устраивает из 'Skin'.
+    , borderOnlyOneChild :: Bool -- ^ Разрешать добавлять только один дочерний виджет.
+                                 -- Если есть предыдущий - он удаляется.
+    , borderSizeByChild :: Bool -- ^ Если @False@ - border пытается подогнать под свой размер
+                                -- дочерние виджеты. Если True - наоборот.
+                           }
 
 instance Default BorderDef where
     def = BorderDef  { borderFormItemDef = def
@@ -68,8 +100,11 @@ instance Default BorderDef where
                      , borderSizeByChild = False
                      }
 
+-- | Тип созданного border-а. В отличии  от большинста виджетов он не имеет IORef-ов.
+-- как и все подобные типы экспортируется только левая часть.
 data BorderData = BorderData {brdbrDataOnlyOneChild :: Bool}
 
+-- | Функция создания бордера.
 border :: MonadIO m => BorderDef -> Widget -> Skin -> m (GuiWidget BorderData)
 border BorderDef{..} parent skin = do
     let bkgrndColor = case borderBkgrnd of
@@ -127,6 +162,7 @@ border BorderDef{..} parent skin = do
                     mapByWidgetChildren_ (\c -> do {fs <- getWidgetFns c; onResizing fs c r'}) widget
                                 }
 
+-- | Реализация вставки виджета в border.
 instance WidgetComposer (GuiWidget BorderData) where
     (GuiWidget widget BorderData{..}) $+ initF = do
         when brdbrDataOnlyOneChild $ delAllChildWidgets widget

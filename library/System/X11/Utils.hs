@@ -12,10 +12,11 @@
 -- для ОС MS Windows см. "System.Win32.Utils".
 
 module System.X11.Utils(
-    hideConsole,withRemoveFromTaskbar
+    hideConsole,withRemoveFromTaskbar,getUILang
     ) where
 
 import Control.Monad.IO.Class
+import System.Environment
 
 -- | Под MS Windows функция прячет консольное окно на экране, см. @System.Win32.Utils.hideConsole@.
 -- В настоящий момент @hideConsole@ из этого модуля ничего не делает.
@@ -32,3 +33,7 @@ withRemoveFromTaskbar :: MonadIO m =>
     m a -> -- ^ Функция создающее окно.
     m a
 withRemoveFromTaskbar _title f = f
+
+-- | Должна возвращать, например "en-US" or "ru-Ru" или выбрасывать исключение.
+getUILang :: IO String
+getUILang = getEnv "LANGUAGE"

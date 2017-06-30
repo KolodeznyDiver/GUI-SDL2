@@ -32,8 +32,6 @@ module GUI.BaseLayer.Core(
     ,setWinSize',setWinSize
     -- * Proxy Canvas.
     ,runProxyWinCanvas,runProxyCanvas
-    -- * Логирование и обработка ошибок.
-    ,logOnErrInWindow
                  ) where
 
 import Control.Monad
@@ -43,26 +41,23 @@ import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import Data.Default
-import qualified TextShow as TS
 import Maybes (whenIsJust)
 import Data.StateVar
 import qualified SDL
 import SDL.Vect
 import GUI.BaseLayer.Depend0.Types
+import GUI.BaseLayer.Depend0.Auxiliaries
+import GUI.BaseLayer.Depend0.Cursor
 import GUI.BaseLayer.Depend0.Ref
+import GUI.BaseLayer.Depend1.Geometry
+import GUI.BaseLayer.Depend1.Skin
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Window
 import GUI.BaseLayer.Widget
-import GUI.BaseLayer.Depend1.Geometry
 import qualified GUI.BaseLayer.Primitives as P
-import GUI.BaseLayer.Depend1.Skin
-import GUI.BaseLayer.Resource
-import GUI.BaseLayer.Depend0.Cursor
 import Data.Vector.Utils
 import GUI.BaseLayer.Canvas
 import GUI.BaseLayer.Action
-import qualified GUI.BaseLayer.Depend1.Logging as L (logOnSomeException)
-import GUI.BaseLayer.Depend0.Auxiliaries
 import System.Utils (withRemoveFromTaskbar)
 import GUI.BaseLayer.SpecStateWidget
 import GUI.BaseLayer.GUIRecord
@@ -79,7 +74,7 @@ newWindow':: MonadIO m =>
     SDL.WindowConfig -> -- ^ параметры создания SDL окна.
     m Window
 newWindow' rfGui winTitle winFl winCfg = do
-    isMainWin <- (0==) <$> getWindowsCount rfGui
+    isMainWin <- Map.null <$> getWindowsMap rfGui
     wSDL <- if isMainWin then SDL.createWindow winTitle winCfg
             else do
                 tmpTitle <- mkRandomWinTitle
@@ -107,6 +102,10 @@ newWindow' rfGui winTitle winFl winCfg = do
                                    , winTextureCache = textureCache
                                    , winFgWidget = undefined
                                    , winFgBuffer = fgTexture
+                                   , winRetcode = WindowRetcode 0
+                                   , winCloseConfirm = \_ -> return True
+                                   , winOnClosed = \_ -> return ()
+
                                    }
     let rect = SDL.Rectangle zero sz
         foregroundFns = def{
@@ -193,11 +192,13 @@ newForeground rfWin p initF = do
 
 ------------------------ * Действия захватывающие все окна.
 
--- |
+-- | Выполнить действие для каждого виджета во всех окнах.
 forEachWidgetsInAllWin :: MonadIO m => Gui -> (Widget -> m ()) -> m ()
 forEachWidgetsInAllWin gui f = allWindowsMap_ ( (`forEachWidgets` f) <=< getWindowMainWidget) gui
 {-# INLINE forEachWidgetsInAllWin #-}
 
+-- | Для каждого виджета во всех окнах вызвать @onNotify@ с указанным кодом, и, возможно, исходным виджетом.
+-- Предполагается использование в пользовательском коде.
 notifyEachWidgetsInAllWin :: MonadIO m => Gui -> GuiNotifyCode -> Maybe Widget -> m ()
 notifyEachWidgetsInAllWin gui nc mbW =
     forEachWidgetsInAllWin gui $ \widget -> do
@@ -205,6 +206,8 @@ notifyEachWidgetsInAllWin gui nc mbW =
         logOnErr gui "notifyEachWidgetsInAllWin.onNotify" $ onNotify fns widget nc mbW
 {-# INLINE notifyEachWidgetsInAllWin #-}
 
+-- | Изменить код состояния программы и информировать об этом все виджеты.
+-- Предполагается использование в пользовательском коде.
 setGuiState :: MonadIO m => Gui -> GuiState -> m ()
 setGuiState gui n = do
     g@GUIRecord{..} <- readMonadIORef gui
@@ -215,14 +218,16 @@ setGuiState gui n = do
             logOnErr gui "setGuiState.onGuiStateChange" $ onGuiStateChange fns widget n
 {-# INLINE setGuiState #-}
 
+-- | Озвращает текущий код состояния программы. Функция находится здесь просто потому, что
+-- рядом с @setGuiState@.
 getGuiState :: MonadIO m => Gui -> m GuiState
 getGuiState = fmap guiState . readMonadIORef
 {-# INLINE getGuiState #-}
 
--------------------------------------------------------------
-
 ------------------------ * Удаление окон.
 
+-- | Удаление окна по индексу. Именно она выполняет собственно удаление окна.
+-- Остальные вызывают её.
 delWindowByIx:: MonadIO m => Gui -> GuiWindowIx -> m ()
 delWindowByIx gui winIx = do
 --    cWins' <- getWindowsCount gui
@@ -247,6 +252,7 @@ delWindowByIx gui winIx = do
             SDL.destroyWindow $ winSDL win
             mapM_ SDL.destroyTexture =<< readMonadIORef (winTextureCache win)
             guiUpdateWindowsAndModalWins gui updtFn
+            doWinOnClosed rfWin
 {-
             modifyMonadIORef' gui (\x -> x{guiWindows = Map.delete winIx $ guiWindows x
                                           ,guiModalWins = modals}) -}
@@ -264,11 +270,13 @@ delWindowByIx gui winIx = do
                                         x -> return x
                             return (wins', modals)
 
+-- | Удаление окна по ссылке на GUI окно.
 delWindow:: MonadIO m => Window -> m ()
 delWindow rfWin = do
     win <- readMonadIORef rfWin
     delWindowByIx (guiOfWindow win) $ getWinIx' win
 
+-- | Удаление всех окон.
 delAllWindows:: MonadIO m => Gui -> m ()
 delAllWindows gui = do
     m <- getWindowsMap gui
@@ -276,6 +284,7 @@ delAllWindows gui = do
         [] -> return ()
         ks -> forM_ ks (delWindowByIx gui) >> delAllWindows gui
 
+-- | Удаление окон удовлетворяющих предикату.
 delWindowsBy:: MonadIO m => Gui -> (Window -> m Bool) -> m ()
 delWindowsBy gui predicate = do
     m <- getWindowsMap gui
@@ -283,6 +292,7 @@ delWindowsBy gui predicate = do
         b <- predicate win
         when b $ delWindowByIx gui winIx
 
+-- | Удаление popup окон (всплывающих меню).
 delAllPopupWindows :: MonadIO m => Gui -> m ()
 delAllPopupWindows gui = delWindowsBy gui (`allWindowFlags` WindowPopupFlag)
 {-# INLINE delAllPopupWindows #-}
@@ -339,7 +349,8 @@ lastChildReplaceFirst widget = do
 
 
 ------------------------------------ * Наборы функций - обработчиков событий базового виджета.
-
+-- | Набор обработчиков сообщений для виджета у которого все (возможно один) потомок имеют
+-- тот же размер и местоположение как родительский без полей, только у потомков это размер с полями.
 overlapsChildrenFns :: GuiSize -> WidgetFunctions
 overlapsChildrenFns initInsideSz = def{
     onCreate = (`notifyParentAboutSize` initInsideSz)
@@ -354,6 +365,8 @@ overlapsChildrenFns initInsideSz = def{
 
 -------------------------------- * Изменение окна.
 
+-- | Устанавливает размер корневого (главного) виджета окна по заданному и вызывает для него @onResizing@.
+-- Размеры совственно SDL окна (окна ОС) не меняются.
 setWinSize' :: MonadIO m => Window -> GuiSize -> m ()
 setWinSize' rfWin newSz = do
     widget <- getWindowMainWidget rfWin
@@ -366,6 +379,7 @@ setWinSize' rfWin newSz = do
         logOnErrInWindow rfWin "setWinSize'.onResizing" $ onResizing fs widget r
         markWidgetForRedraw widget
 
+-- | Устанавливает размеры SDL окна (окна ОС).
 setWinSize :: MonadIO m => Window -> GuiSize -> m ()
 setWinSize rfWin newSz = do
     winSDL <- getSDLWindow rfWin
@@ -375,6 +389,9 @@ setWinSize rfWin newSz = do
 
 -------------------------------- * Proxy Canvas.
 
+-- | Создать фиктивный Canvas для окна и выполнить в нём действие.
+--  Используется для создания текстур и/или загрузки шрифтов вне @onDraw@.
+-- Рисовать для непосредственного вывода на экран в proxy Canvas, и, в целом, не из @onDraw@ нельзя.
 runProxyWinCanvas :: MonadIO m => Window -> Canvas m a -> m a
 runProxyWinCanvas rfWin f = do
     win <- readMonadIORef rfWin
@@ -382,17 +399,9 @@ runProxyWinCanvas rfWin f = do
     P.withRendererTarget (winRenderer win) (winProxyTexture win) $
         runCanvas (winRenderer win) rm (winTextureCache win) zero f
 
+-- | Создать фиктивный Canvas указывая виджет и выполнить в нём действие.
+-- Cм. @runProxyWinCanvas@.
 runProxyCanvas :: MonadIO m => Widget -> Canvas m a -> m a
 runProxyCanvas widget f = getWidgetWindow widget >>= (`runProxyWinCanvas` f)
 {-# INLINE runProxyCanvas #-}
-
--------------------------------- * Логирование и обработка ошибок.
-
--- | Выполнение некоторого действия в контексте окна, и, если, при этом возникнет исключение, вывести его в журнал.
-logOnErrInWindow :: MonadIO m => Window -> TS.Builder -> IO () -> m ()
-logOnErrInWindow window t f = liftIO $ guiCatch f (\e -> do
-        l <- guiGetLog =<< getWindowGui window
-        L.logOnSomeException l t e)
-{-# INLINEABLE logOnErrInWindow #-}
-
 

@@ -15,9 +15,7 @@
 module GUI.BaseLayer.RedrawWindow(
      -- * Функции перерисоки окон.
      redrawWindowByIx,redrawWindow,redrawAll
-     -- * Отладочная функция.
-    ,showWinWidgets
-                 ) where
+                     ) where
 
 import qualified SDL
 import SDL.Vect
@@ -136,8 +134,4 @@ redrawAll :: MonadIO m => Gui -> m ()
 redrawAll = allWindowsMap_ (`redrawWindow` False)
 {-# INLINE redrawAll #-}
 
-
--- | Для отладки. Вывести дерево виджетов. Пометить указанный виджет.
-showWinWidgets :: MonadIO m => Window -> Maybe Widget -> m String
-showWinWidgets rfWin markedWidget = getWindowMainWidget rfWin >>= (`showWidgets` markedWidget)
 

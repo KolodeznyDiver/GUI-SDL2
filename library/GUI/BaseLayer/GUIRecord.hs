@@ -19,6 +19,8 @@
 module GUI.BaseLayer.GUIRecord(
      -- * Функции, просто возвращающие значения полей.
      guiGetLog,guiGetSkin,getWindowsMap,guiGetResourceManager,guiGetActionsAndState
+    -- * Функции подстановки натурального языка.
+    ,getB,getT
      -- * Функции использующие вектор окон @guiWindows :: GuiWindowCollection@ .
     ,getWindowsCount,getWindowByIx,doForWinByIx,allWindowsMap_
     ,windowsFold
@@ -40,6 +42,8 @@ import Control.Exception
 import System.Exit
 import qualified Data.Map.Strict as Map
 import Maybes (whenIsJust)
+import qualified Data.Text as T
+import           Data.ByteString.Char8   (ByteString)
 import qualified TextShow as TS
 import GUI.BaseLayer.Depend0.Auxiliaries
 import GUI.BaseLayer.Depend0.Cursor (CursorIx)
@@ -81,6 +85,19 @@ guiGetActionsAndState gui= do
     GUIRecord{..} <- readMonadIORef gui
     return (guiActions,guiState)
 {-# INLINE guiGetActionsAndState #-}
+
+--------- * Функции подстановки натурального языка.
+
+-- | Возвращает строку натурального языка по ключу.
+getB :: MonadIO m => Gui -> ByteString -> m TS.Builder
+getB gui k = (`rmGetB` k) <$> guiGetResourceManager gui
+{-# INLINE getB #-}
+
+-- | Возвращает строку натурального языка по ключу.
+getT :: MonadIO m => Gui -> ByteString -> m T.Text
+getT gui = fmap TS.toText . getB gui
+{-# INLINE getT #-}
+
 
 -- | Возвращает текущее число окон GUI.
 getWindowsCount :: MonadIO m => Gui -> m Int

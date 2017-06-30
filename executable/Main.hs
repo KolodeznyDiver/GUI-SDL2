@@ -1,8 +1,9 @@
 {-# LANGUAGE CPP #-}
 -- Для просмотра примеров изменять номер и перекомпилировать
-#define EXAMPLE_NUM 7
+#define EXAMPLE_NUM 0
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase #-}
 module Main where
 
 import Data.Monoid
@@ -34,9 +35,10 @@ import GUI.Widget.Splitter
 import GUI.Widget.Menu.Horizontal
 import GUI.Widget.Container.Border
 import GUI.Widget.TextEdit
+import GUI.Window.MessageBox
 
 main :: IO ()
-main = runGUI defSkin  -- Запуск GUI с оформлением ("кожей", скином) по умолчанию
+main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
 
         -- Список предзагруженных шрифтов : ключ, имя файла, размер шрифта, опции
         [GuiFontDef ""            "PTM55F.ttf" 14 def -- по молч., если не найден указанный ключ
@@ -258,7 +260,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
 
     hL0 <- vL $+ hLayout def
     btn0 <- hL0 $+ button def{btnSize = V2 200 35, btnText = "Восстановить текст"}
-    onClick btn0 $ do
+    onClick btn0 $
         setText lb txtHotKeyPrompt
         
     addActions gui "Hotkeys" [
@@ -271,14 +273,18 @@ main = runGUI defSkin  -- Запуск GUI с оформлением ("коже�
 
     -- Пример задания/замены действия для Action после его создания.
     setAction gui "File" "Save" $ setText lb "Нажат пункт меню File/Save"
-    setAction gui "File" "New" $ void $ newModalWindow gui "Модальное окно"
-        SDL.defaultWindow { SDL.windowInitialSize = V2 300 150}
+    setAction gui "File" "New" $ messageBox gui MsgBoxRetrySkipCancel
+        "Это модальное окно, когда оно активно, невозможно выбрать ранее созданные окна - фокус возвращается к модальному окну"
+        def $ \case
+                ButtonRetry -> say gui MsgBoxLambda "Была нажата ButtonRetry"
+                ButtonSkip -> say gui MsgBoxWarning "Была нажата ButtonSkip"
+                ButtonCancel -> say gui MsgBoxOk "Была нажата ButtonCancel"
+                k -> say gui MsgBoxError $ "Завершение с кодом " <> showb (fromEnum k)
 #elif EXAMPLE_NUM == 8
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
     hL0 <- vL $+ hLayout def
     void $ hL0 $+ border def {borderSize = V2 150 100, borderType = BorderRound Nothing
                              , borderThickness = 20, borderCaption = "border 1"
-                             --, borderBkgrnd = BorderBkColor $ rgb 0 255 255
                              }
     void $ hL0 $+ border def {borderSize = V2 150 100, borderType = BorderDot 4
                              , borderThickness = 20, borderCaptionAlignment = HCenter

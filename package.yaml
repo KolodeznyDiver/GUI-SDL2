@@ -59,6 +59,7 @@ library:
   - GUI.BaseLayer.Canvas.Types
   - GUI.BaseLayer.Focus
   - GUI.BaseLayer.GUIRecord
+  - GUI.BaseLayer.NaturalLangIO
   - GUI.BaseLayer.RunGUI
   - GUI.BaseLayer.Pipe
   - GUI.BaseLayer.PopupWindow
@@ -89,6 +90,7 @@ library:
   - GUI.Widget.TextEdit
   - GUI.Widget.TH
   - GUI.Widget.Types
+  - GUI.Window.MessageBox
   - GUI.Window.PopupMenu
   - GUI
   - Data.Vector.Utils
@@ -140,4 +142,4 @@ license: BSD3
 maintainer: Kolodezny Diver
 name: GUI-SDL2
 synopsis: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
-version: '0.1.5'
+version: '0.1.6'

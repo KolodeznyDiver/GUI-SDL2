@@ -1,18 +1,31 @@
 {-# LANGUAGE  TemplateHaskell #-}
+-- |
+-- Module:      GUI.Widget.TH
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- GUI-виджеты часто можно сгруппировать по принципу вертикальный-горизонтальный.
+-- Например, вертикальный лайаут - горизонтальный лайаут,
+-- вертикальный скролл- или трекбар и горизонтальный.
+--
+-- Имеющиеся в этом модуле наборы TH функций помогают описывать таикие виджеты однократно,
+-- выбирая разный набор предложенных функций мы меняем во время компиляции вертикальные координаты с горизонтальными,
+-- а так же вертикальные и горизонтальные выравнивания.
+
 module GUI.Widget.TH where
 
 import Language.Haskell.TH
 import GUI.BaseLayer.Depend1.Geometry
 import qualified SDL
---import GUI.BaseLayer.Depend0.Types
 import SDL.Vect
 
 data ParallelOrthogonallyExpQFns = ParallelOrthogonallyExpQFns  { parallelMkV2 :: ExpQ
                                                                 , orthoMkV2  :: ExpQ
                                                                 , parallelV2 :: ExpQ
                                                                 , orthoV2 :: ExpQ
---                                                                , parallelGetFromP :: ExpQ
---                                                                , orthoGetFromP :: ExpQ
                                                                 , parallelGetFst :: ExpQ
                                                                 , parallelGetSnd :: ExpQ
                                                                 , orthoGetFst :: ExpQ
@@ -31,8 +44,6 @@ horizontalFns = ParallelOrthogonallyExpQFns{
                 ,orthoMkV2 = [| (\a b -> V2 b a) |]
                 ,parallelV2 = [| (\(V2 a b) -> V2 a b) |]
                 ,orthoV2 = [| (\(V2 a b) -> V2 b a) |]
---                ,parallelGetFromP = [| (\(P (V2 a b)) -> V2 a b) |]
---                ,orthoGetFromP = [| (\(P (V2 a b)) -> V2 b a) |]
                 ,parallelGetFst = [| (\(V2 a _) -> a) |]
                 ,parallelGetSnd = [| (\(V2 _ b) -> b) |]
                 ,orthoGetFst = [| (\(V2 _ b) -> b) |]
@@ -52,8 +63,6 @@ verticalFns = let s=horizontalFns in
                 ,orthoMkV2 = parallelMkV2 s
                 ,parallelV2 = orthoV2 s
                 ,orthoV2 = parallelV2 s
---                ,parallelGetFromP = orthoGetFromP s
---                ,orthoGetFromP = parallelGetFromP s
                 ,parallelGetFst = orthoGetFst s
                 ,parallelGetSnd = orthoGetSnd s
                 ,orthoGetFst = parallelGetFst s

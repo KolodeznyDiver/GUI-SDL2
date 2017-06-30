@@ -1,5 +1,17 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE MultiWayIf #-}
+
+-- |
+-- Module:      GUI.Widget.Handlers
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Заготовки наборов - обработчиков событий, используемые в разных виджетах.
+-- (Повторное использование кода рекомендуется лучшими ...)
+
 module GUI.Widget.Handlers(
     noChildrenFns,colorRectFns,grayRectFns
     ,MouseAnimatedHndlr(..),MouseAnimatedClickableHndlr(..)
@@ -13,6 +25,8 @@ import Data.Default
 import qualified SDL
 import GUI
 
+-- | Набор обработчиков базового виджета, годится для большинства виджетов
+-- не имеющих дочерних виджетов.
 noChildrenFns :: GuiSize -> WidgetFunctions
 noChildrenFns initInsideSz = def{
     onCreate = \widget -> notifyParentAboutSize widget initInsideSz
@@ -20,22 +34,30 @@ noChildrenFns initInsideSz = def{
                              }
 {-# INLINEABLE noChildrenFns #-}
 
-
+-- | Годится для демонстрации - отрисовки прямоугольника заданного размера и цвета.
 colorRectFns :: GuiSize -> GuiColor -> WidgetFunctions
 colorRectFns sz color = (noChildrenFns sz){
     onDraw= \widget -> setColor color >> getVisibleRect widget >>= fillRect
                                            }
-
+-- | Годится для демонстрации - отрисовки прямоугольника заданного размера и цвета серой шкалы.
 grayRectFns:: GuiSize -> ColorComponent -> WidgetFunctions
 grayRectFns sz = colorRectFns sz . grayColor
 {-# INLINE grayRectFns #-}
 
-data MouseAnimatedHndlr = MouseAnimatedHndlr
-        { mouseAnimatedMouseState :: IORef WidgetMouseState
-        , mouseAnimatedOnClick :: forall m. MonadIO m => Widget -> Bool -> GuiPoint -> m ()
-        , mouseAnimatedFs :: WidgetFunctions
+-- | Запись, которая пригодится для виджета отслеживающего и анимирующего своё положение
+-- в зависимости от положения мыши. Она генерируется @noChildrenMouseAnimatedHndlr@.
+data MouseAnimatedHndlr = MouseAnimatedHndlr {
+      -- | Состояние мыши относительно виджета. См. "GUI.Widget.Types".
+      mouseAnimatedMouseState :: IORef WidgetMouseState
+      -- | Событие, которое отреагирует и на нажатие и на отпускание мыши.
+    , mouseAnimatedOnClick :: forall m. MonadIO m => Widget -> Bool -> GuiPoint -> m ()
+      -- | Функции - обработчики событий базового виджета которые предлагается использовать.
+      -- Никто не мешает их далее модифицировать.
+    , mouseAnimatedFs :: WidgetFunctions
         }
 
+-- | Функция, создающая 'MouseAnimatedHndlr' из которого просто делается виджет без потомков.
+-- Например, "GUI.Widget.TH.LinearTrackBar".
 noChildrenMouseAnimatedHndlr :: forall m. MonadIO m => GuiSize ->
         (forall n. MonadIO n => Widget -> Bool -> GuiPoint -> n ()) -> m MouseAnimatedHndlr
 noChildrenMouseAnimatedHndlr sz onClickAction = do
@@ -55,12 +77,21 @@ noChildrenMouseAnimatedHndlr sz onClickAction = do
             when (ena && (mouseButton == SDL.ButtonLeft)) $ clickHandler widget (motion==SDL.Pressed) pnt
                                })
 
-data MouseAnimatedClickableHndlr = MouseAnimatedClickableHndlr
-        { mouseAnimatedClickableMouseState :: IORef WidgetMouseState
-        , mouseAnimatedClickableAction :: IORef NoArgAction
-        , mouseAnimatedClickableFs :: WidgetFunctions
-        }
+-- | Запись, которая пригодится для виджета отслеживающего и анимирующего своё положение
+-- в зависимости от положения мыши и кнопки Enter, когда виджет в фокусе.
+-- Она генерируется @noChildrenClickableHndlr@.
+data MouseAnimatedClickableHndlr = MouseAnimatedClickableHndlr {
+      -- | Состояние мыши относительно виджета. См. "GUI.Widget.Types".
+      mouseAnimatedClickableMouseState :: IORef WidgetMouseState
+      -- | Событие, которое отреагирует на нажатие мыши и кнопки Enter если виджет будет в фокусе.
+    , mouseAnimatedClickableAction :: IORef NoArgAction
+      -- | Функции - обработчики событий базового виджета которые предлагается использовать.
+      -- Никто не мешает их далее модифицировать.
+    , mouseAnimatedClickableFs :: WidgetFunctions
+                                                               }
 
+-- | Функция, создающая 'MouseAnimatedClickableHndlr' из которого просто делается виджет без потомков.
+-- Например, @GUI.Widget.Button.button@.
 noChildrenClickableHndlr :: forall m. MonadIO m => GuiSize ->
         (forall n. MonadIO n => Widget -> Bool -> GuiPoint -> n ()) ->
         m MouseAnimatedClickableHndlr

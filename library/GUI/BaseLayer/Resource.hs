@@ -15,8 +15,8 @@
 --
 -- Менеджер ресурсов GUI приложения.
 --
--- Менеджер ресурсов может загружать графические файлы, шрифты и курсоры. Всё это, в данном контексте,
--- будем называть русурсами.
+-- Менеджер ресурсов может загружать графические файлы, шрифты, курсоры и строки на выбранном естественном языке.
+-- Всё это, в данном контексте, будем называть русурсами.
 -- Загруженные ресурсы кешируются. При попытке загрузить точно такой же ресурс
 -- (для шрифтов и с теми же параметрами) будет возвращаться сохранённый в памяти ресурс.
 -- Ресурсы загруженные с помощью менеджера ресурсов не следует удалять вручную, не через менеджер ресурсов.
@@ -83,6 +83,8 @@ module GUI.BaseLayer.Resource(
     ,GuiFontStyle(..),GuiFontOptions(..),GuiFontDef(..),rmGetFont,rmLoadFont,fontTuning
     -- * Функции относящиеся к курсорам.
     ,rmGetCursor,rmSetCursor,rmAddCursor
+    -- * Функции подстановки натурального языка
+    ,rmGetB
     ) where
 
 import Data.Monoid
@@ -96,6 +98,7 @@ import System.Exit (exitFailure)
 import Data.Char
 import Data.IORef
 import qualified Data.Text as T
+import qualified Data.ByteString.Char8 as B
 import qualified Data.HashMap.Strict as HM
 import MonadUtils (unlessM)
 import Maybes (whenIsJust)
@@ -112,6 +115,7 @@ import GUI.BaseLayer.Depend0.TTF (GuiFontStyle(..),setFontStyleIfNeed)
 import GUI.BaseLayer.Depend0.Auxiliaries
 import GUI.BaseLayer.Depend1.Logging
 import GUI.BaseLayer.Depend1.Resource
+import GUI.BaseLayer.NaturalLangIO
 
 pattern DefResourceSubDirectory :: String
 pattern DefResourceSubDirectory         = "GUI.Resources"
@@ -127,9 +131,10 @@ initResourceManager :: MonadIO m =>
                         String -> -- ^ Имя скина.
                         [GuiFontDef] -> -- ^ Список описаний шрифтов для начальной загрузки.
                         String -> -- ^ Директория ресурсов (определяется в @GUI.BaseLayer.RunGUI.runGUI@).
+                        String -> -- ^ Название языка, например "en-En" or "ru-Ru" - имя поддиректории.
                         GUILog -> -- ^ Журнал приложения для вывода сообщений обошибках.
                         m ResourceManager
-initResourceManager skinName fntLst dataDirectory gLog = do
+initResourceManager skinName fntLst dataDirectory uiLang gLog = do
 --  liftIO (putStr "Displays : " >> SDL.getDisplays >>= print)
     appName <- liftIO getAppName
     -- for ex. set GUIDEMO_GUIRESOURCES=c:\...\GUI.Resources
@@ -162,6 +167,10 @@ initResourceManager skinName fntLst dataDirectory gLog = do
 
 --    liftIO $ putStrLn $ "p=" ++ p
     let resP = addTrailingPathSeparator p
+        langP = resP </> "I18n" </> uiLang
+--    liftIO $ putStrLn $ "initResourceManager langP=" ++ langP
+    natS <- liftIO $ loadLangFiles gLog langP
+--    liftIO $ print natS
     sf <- newMonadIORef HM.empty
     fnts <- newMonadIORef HM.empty
     sysCursors <- mkSystemCursorSet
@@ -172,6 +181,7 @@ initResourceManager skinName fntLst dataDirectory gLog = do
                             , userCursors = userCursorsHM
                             , surfaces = sf
                             , fonts = fnts
+                            , natStrs = natS
                             }
     mapM_ (rmLoadFont rm) fntLst
     return rm;
@@ -350,3 +360,8 @@ rmAddCursor r abbr cursor = do
             Just oc -> freeCursor oc >> return (HM.adjust (const cursor) abbr uc)
             _ -> return $ HM.insert abbr cursor uc)
         >>= writeMonadIORef (userCursors r)
+
+rmGetB :: ResourceManager -> B.ByteString -> TS.Builder
+rmGetB rm k = case HM.lookup k $ natStrs rm of
+                Just t -> TS.fromText t
+                _ -> "?" <> TS.showb (B.unpack k) <> "?"

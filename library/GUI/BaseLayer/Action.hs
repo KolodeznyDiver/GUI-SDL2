@@ -19,7 +19,7 @@ module GUI.BaseLayer.Action(
     -- GUI.BaseLayer.Action.Internal.Action
     pattern AllInvisibleActionMask,pattern AllDisableActionMask,pattern AllEnableActionMask
     ,ActionMask(..),GuiState(..),ActionValue(..),Action(..),Actions
-    ,ActionState(..),ActionFn
+    ,ActionState(..),ActionFn(..)
     ,fromActionMask,getActionValueState,isVisibleActionState
     ,mkActionMask,mkEmptyActions
     -- GUI.BaseLayer.Action

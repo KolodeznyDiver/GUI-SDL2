@@ -45,7 +45,7 @@ module GUI.BaseLayer.Widget(
     ,forEachWidgets,isMainWidget,getWinMainWidget
     ,findWidgetInTreeForward,findWidgetInTreeBackward,findNextTabbedWidget,findPrevTabbedWidget
     -- ** Доступ к данным 'Window' или 'Gui' через виджет.
-    ,getSkinFromWidget
+    ,getGuiFromWidget,getSkinFromWidget
     -- ** Использование виджета базового уровня
     ,markWidgetForRedraw
     -- *** Изменение координат виджета.
@@ -54,9 +54,9 @@ module GUI.BaseLayer.Widget(
     -- *** Поиск и преобразование из клиентских координат в координаты виджета.
     ,coordToWidget,mouseToWidget
     -- ** Обработка прерываний в контексте виджета.
-    ,logOnErrInWidget
+    ,logOnErrInWidget',logOnErrInWidget
     -- ** Отладочные функции вывода парметров виджета(ов) в виде строки.
-    ,widgetCoordsToStr,showWidgets,showWidgetsFromMain
+    ,widgetCoordsToStr,showWidgets,showWidgetsFromMain,showWinWidgets
     -- * Виджет пользовательского уровня.
     ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget
     -- ** Простейший виджет пользовательского уровня не имеюший своих параметров.
@@ -532,6 +532,11 @@ findPrevTabbedWidget = findWidgetInTreeBackward isTabbedInternalPredicate
 
 --------------------- ** Доступ к данным 'Window' или 'Gui' через виджет.
 
+-- | Получить 'Gui' из виджета.
+getGuiFromWidget:: MonadIO m => Widget -> m Gui
+getGuiFromWidget = getWindowGui <=< getWidgetWindow
+{-# INLINE getGuiFromWidget #-}
+
 -- | Получить активный 'Skin' из виджета.
 getSkinFromWidget:: MonadIO m => Widget -> m Skin
 getSkinFromWidget = getSkinFromWin <=< getWidgetWindow
@@ -702,10 +707,22 @@ mouseToWidget rfWin pnt = do
 --------------------- ** Обработка прерываний.
 
 -- | Перехват и логирование прерываний в контексте виджета.
-logOnErrInWidget :: MonadIO m => Widget -> TS.Builder -> IO () -> m ()
-logOnErrInWidget widget t f = liftIO $ guiCatch f (\e -> do
+logOnErrInWidget' :: MonadIO m => Widget -> -- ^ Ссылка на виджет.
+                                  TS.Builder -> -- ^ Префикс сообщения об исключении, если оно возникнет.
+                                  IO a -> -- ^ Действие выполняемое в случае возникновение исключения.
+                                  IO a -> -- ^ Действие в котором может возникнуть неперехваченное исключение.
+                                  m a
+logOnErrInWidget' widget t h f = liftIO $ guiCatch f (\e -> do
         l <- guiGetLog =<< getWindowGui =<< getWidgetWindow widget
-        L.logOnSomeException l t e)
+        L.logOnSomeException l t e >> h)
+{-# INLINEABLE logOnErrInWidget' #-}
+
+-- | Перехват и логирование прерываний в контексте виджета.
+logOnErrInWidget :: MonadIO m => Widget -> -- ^ Ссылка на виджет.
+                                 TS.Builder -> -- ^ Префикс сообщения об исключении, если оно возникнет.
+                                 IO () -> -- ^ Действие в котором может возникнуть неперехваченное исключение.
+                                 m ()
+logOnErrInWidget widget t = logOnErrInWidget' widget t (return ())
 {-# INLINEABLE logOnErrInWidget #-}
 
 --------------------- ** Отладочные функции вывода парметров виджета(ов) в виде строки.
@@ -729,6 +746,10 @@ showWidgetsFromMain :: MonadIO m => Widget -> m String
 showWidgetsFromMain widget = do
     mainWidg <- getWinMainWidget widget
     showWidgets mainWidg $ Just widget
+
+-- | Для отладки. Вывести дерево виджетов. Пометить указанный виджет.
+showWinWidgets :: MonadIO m => Window -> Maybe Widget -> m String
+showWinWidgets rfWin markedWidget = getWindowMainWidget rfWin >>= (`showWidgets` markedWidget)
 
 --------------------- * Виджет пользовательского уровня.
 

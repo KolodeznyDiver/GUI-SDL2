@@ -1,0 +1,6 @@
+confirmB     Подтвердить
+yesB         Да
+noB          Нет
+cancelB      Отменить
+retryB       Повторить
+skipB        Пропустить

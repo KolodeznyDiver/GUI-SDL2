@@ -14,14 +14,15 @@
 -- для *nix систем см. "System.X11.Utils".
 
 module System.Win32.Utils(
-    hideConsole,withRemoveFromTaskbar
+    hideConsole,withRemoveFromTaskbar,getUILang
     ) where
 
 import Data.Bits
 import Foreign hiding(void)
 import Control.Monad
 import Control.Monad.IO.Class
-import System.Win32
+import Control.Exception
+import System.Win32 hiding (try)
 import Graphics.Win32.GDI.Types
 import Graphics.Win32.Window
 import Maybes (whenIsJust)
@@ -86,6 +87,12 @@ withRemoveFromTaskbar title f = do
             void $ c_SetWindowLongPtr w GWLP_HWNDPARENT $ castPtr wParent
     return r
 
+-- | Должна возвращать, например "en-US" or "ru-Ru" или выбрасывать исключение.
+getUILang :: IO String
+getUILang = bracket
+                (regOpenKeyEx hKEY_LOCAL_MACHINE "SYSTEM\\CurrentControlSet\\Control\\MUI\\UILanguages" kEY_READ)
+                (regCloseKey)
+                ((fmap head) . regEnumKeys)
 
 
 

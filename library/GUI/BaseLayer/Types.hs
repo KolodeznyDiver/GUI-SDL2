@@ -207,6 +207,9 @@ type GuiWidgetCollection = V.Vector Widget
 --  Тип только для GUI.BaseLayer.
 type GuiWindowCollection = Map.Map GuiWindowIx Window
 
+-- | Тип кода сообщаемого обработчику @winOnClosed@ после закрытия окна.
+newtype WindowRetcode = WindowRetcode { unWindowRetcode :: Int }
+
 -- | Структура (запись, record) хранящая параметры обобщённого виджета базового уровня.
 data WidgetRecord = WidgetRecord {
     windowOfWidget :: Window -- ^ Ссылка на своё окно.
@@ -253,6 +256,13 @@ data WindowRecord = WindowRecord {
                                 -- элементов интерфейса в процессе перетаскивания, выпадающих
                                 -- списков и подобного. (in the future).
   , winFgBuffer :: SDL.Texture -- ^ Буфер (растр) отображения верхнего (foreground) слоя в окне.
+    -- | Код сообщаемый обработчику @winOnClosed@ после закрытия окна.
+  , winRetcode :: WindowRetcode
+    -- | Обработчик события вызывается при попытке закрыть окно средствами ОС (нажание на [x] и подобные.
+    -- окно закрывается если функция возвращает True.
+  , winCloseConfirm :: forall m. MonadIO m => Window -> m Bool
+    -- | Обработчик события  вызывается после закрытия окна и получает установленный ранее код возврата.
+  , winOnClosed :: forall m. MonadIO m => WindowRetcode -> m ()
   }
 
 -- | Структура (запись, record) хранящая параметры целого GUI.

@@ -1,0 +1,6 @@
+confirmB     Ok
+yesB         Yes
+noB          No
+cancelB      Cancel
+retryB       Retry
+skipB        Skip

@@ -58,8 +58,7 @@ instance TextProperty (GuiWidget LabelData) where
     setText (GuiWidget widget LabelData{..}) txt = do
         PreparedText{..} <- readMonadIORef labelPreparedText
         when (txt /= drawTextText preparedTextDef) $ do
-            skin <- getSkinFromWidget widget
-            p <- prepareText widget skin preparedTextDef{drawTextText=txt}
+            p <- prepareText widget preparedTextDef{drawTextText=txt}
             writeMonadIORef labelPreparedText p
             markWidgetForRedraw widget
     getText (GuiWidget _ LabelData{..}) = (drawTextText . preparedTextDef) <$> readMonadIORef labelPreparedText
@@ -75,7 +74,7 @@ instance TextColorProperty (GuiWidget LabelData) where
 
 label :: MonadIO m => LabelDef -> Widget -> Skin -> m (GuiWidget LabelData)
 label LabelDef{..} parent skin = do
-    p <- prepareText parent skin DrawTextDef  { drawTextRect = SDL.Rectangle zero $
+    p <- prepareText parent DrawTextDef  { drawTextRect = SDL.Rectangle zero $
                                                     sizeReplaceIfNoPositive (V2 100 100) labelSize
                                                 , drawTextWrap = labelWrapMode
                                                 , drawTextFontKey = labelFontKey
@@ -115,6 +114,6 @@ label LabelDef{..} parent skin = do
 --            liftIO $ putStrLn $ concat ["label.onResizing  "]
             when (sizeOfRect newRect /= sizeOfRect (drawTextRect preparedTextDef)) $ do
                 r <- getWidgetCanvasRect widget
-                prepareText widget skin preparedTextDef{drawTextRect=r} >>= writeMonadIORef prepRf
+                prepareText widget preparedTextDef{drawTextRect=r} >>= writeMonadIORef prepRf
                                                 }
 

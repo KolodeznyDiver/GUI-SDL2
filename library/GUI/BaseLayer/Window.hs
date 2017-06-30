@@ -1,4 +1,7 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module:      GUI.BaseLayer.Window
 -- Copyright:   (c) 2017 KolodeznyDiver
@@ -14,7 +17,10 @@ module GUI.BaseLayer.Window(
      -- * Низкоуровневые функции доступа к полям записи окна.
      getSDLWindow,getWindowRenderer,getWindowGui,getWinIx',getWinIx,getWindowMainWidget
     ,getWindowForegroundWidget,getFocusedWidget,setFocusedWidget,getWidgetUnderCursor,setWidgetUnderCursor
-    ,getWinCursorIx,setWinCursorIx,getWinMainMenu,setWinMainMenu
+    ,getWinCursorIx,setWinCursorIx,getWinMainMenu,setWinMainMenu,getWinRetcode,setWinRetcode,setWinOnClosed
+    ,setWinOnCloseConfirm
+    -- * Вызов обработчиков изменения состояния окна.
+    ,doWinOnClosed,canWinClose
      -- * Извлечение SDL кода окна.
     ,getWinId'',getWinId',getWinId
     -- * Флаги окна.
@@ -23,6 +29,8 @@ module GUI.BaseLayer.Window(
     ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
+    -- * Логирование и обработка ошибок.
+    ,logOnErrInWindow',logOnErrInWindow
     -- * Прочее.
     ,getSkinFromWin
     ) where
@@ -30,13 +38,16 @@ module GUI.BaseLayer.Window(
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Bits
+import qualified TextShow as TS
 import qualified SDL
 import qualified SDL.Raw as Raw
 import qualified SDL.Internal.Types
 import GUI.BaseLayer.Depend0.Types
+import GUI.BaseLayer.Depend0.Auxiliaries
 import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend0.BitFlags
 import GUI.BaseLayer.Depend0.Cursor
+import qualified GUI.BaseLayer.Depend1.Logging as L (logOnSomeException)
 import GUI.BaseLayer.Depend1.Skin (Skin)
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.GUIRecord
@@ -151,6 +162,45 @@ getWinMainMenu :: MonadIO m => Window -> m (Maybe Widget)
 getWinMainMenu = fmap winMainMenu . readMonadIORef
 {-# INLINE getWinMainMenu #-}
 
+-- | Возвращает код возврата окна сообщаемый обработчику @winOnClosed@ после закрытия окна.
+getWinRetcode :: MonadIO m => Window -> m WindowRetcode
+getWinRetcode = fmap winRetcode . readMonadIORef
+{-# INLINE getWinRetcode #-}
+
+-- | Установить код возврата окна сообщаемый обработчику @winOnClosed@ после закрытия окна.
+setWinRetcode :: MonadIO m => Window -> WindowRetcode -> m ()
+setWinRetcode rfWin v = modifyMonadIORef' rfWin (\x -> x{winRetcode=v})
+{-# INLINE setWinRetcode #-}
+
+-- | Установить обработчик закрытия окна. (Поле @WindowRecord.winOnClosed@).
+setWinOnClosed :: MonadIO m => Window -> (forall n. MonadIO n => WindowRetcode -> n ()) -> m ()
+setWinOnClosed rfWin v = modifyMonadIORef' rfWin (\x -> x{winOnClosed=v})
+{-# INLINE setWinOnClosed #-}
+
+-- | Установить обработчик подтверждения закрытия окна. (Поле @WindowRecord.winCloseConfirm@).
+setWinOnCloseConfirm :: MonadIO m => Window -> (forall n. MonadIO n => Window -> n Bool) -> m ()
+setWinOnCloseConfirm rfWin v = modifyMonadIORef' rfWin (\x -> x{winCloseConfirm=v})
+{-# INLINE setWinOnCloseConfirm #-}
+
+
+---------------------- * Вызов обработчиков изменения состояния окна.
+
+-- | Выполнить обработчика @winOnClosed@. Функция должна быть вызвана в __/GUI.BaseLayer.Core/__ .
+doWinOnClosed :: MonadIO m => Window -> m ()
+doWinOnClosed rfWin = do
+    WindowRecord{..} <- readMonadIORef rfWin
+    logOnErrInWindow rfWin "doWinOnClosed" $ winOnClosed winRetcode
+{-# INLINE doWinOnClosed #-}
+
+-- | Вызов обработчика @winCloseConfirm@ лдя подтверждения закрытия окна средствами ОС (нажание на [x] и подобные.
+-- Разрешает закрыть окно если возвращает True
+-- Функция должна быть вызвана в __/GUI.BaseLayer.Core/__ .
+canWinClose :: MonadIO m => Window -> m Bool
+canWinClose rfWin = do
+    WindowRecord{..} <- readMonadIORef rfWin
+    logOnErrInWindow' rfWin "canWinClosed" (return True) $ winCloseConfirm rfWin
+{-# INLINE canWinClose #-}
+
 ----------------------------------------------------
 -- No exported.
 getSDLRawWindow':: SDL.Window -> Raw.Window
@@ -231,6 +281,29 @@ allWindowFlags win fl = (`allWindowFlags'` fl) <$> readMonadIORef win
 anyWindowFlags:: MonadIO m => Window -> WindowFlags -> m Bool
 anyWindowFlags win fl = ((WindowNoFlags /=) . (fl .&.) . winFlags) <$> readMonadIORef win
 {-# INLINE anyWindowFlags #-}
+
+-------------------------------- * Логирование и обработка ошибок.
+
+-- | Выполнение некоторого действия в контексте окна, и, если, при этом возникнет исключение, вывести его в журнал.
+logOnErrInWindow' :: MonadIO m => Window -> -- ^ Ссылка на GUI окно.
+                                  TS.Builder -> -- ^ Префикс сообщения об исключении, если оно возникнет.
+                                  IO a -> -- ^ Действие выполняемое в случае возникновение исключения.
+                                  IO a -> -- ^ Действие в котором может возникнуть неперехваченное исключение.
+                                  m a
+logOnErrInWindow' window t h f = liftIO $ guiCatch f (\e -> do
+        l <- guiGetLog =<< getWindowGui window
+        L.logOnSomeException l t e >> h)
+{-# INLINEABLE logOnErrInWindow' #-}
+
+-- | Выполнение некоторого действия в контексте окна, и, если, при этом возникнет исключение, вывести его в журнал.
+logOnErrInWindow :: MonadIO m => Window -> -- ^ Ссылка на GUI окно.
+                                 TS.Builder -> -- ^ Префикс сообщения об исключении, если оно возникнет.
+                                 IO () -> -- ^ Действие в котором может возникнуть неперехваченное исключение.
+                                 m ()
+logOnErrInWindow window t = logOnErrInWindow' window t (return ())
+{-# INLINEABLE logOnErrInWindow #-}
+
+
 -----------------------------------------------------------------
 
 -- | Возвращает 'Skin' из окна.

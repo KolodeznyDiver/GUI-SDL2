@@ -1,7 +1,24 @@
 {-# LANGUAGE RecordWildCards #-}
+-- |
+-- Module:      GUI.Utils.TextWrap
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Модуль поддержки универсального текста, как с переносом строк, так и нет.
+
 module GUI.Utils.TextWrap(
+    -- * 'PreparedWrapText'
+    -- Более простой тип, требующий соблюдения одинакового шрифта при поготовки текста и при отрисовки.
+    -- Кроме того, не предусматривает изменение текста.
     PreparedWrapText,prepareWrapText,getHeightOfPreparedWrapText,drawSplitPreparedText
-    ,TextWrapMode(..),DrawTextDef(..),PreparedText(..),prepareText,drawPreparedText,textWrapModeToMbBkColor
+    ,getLeftOfPreparedWrapText,textWrapModeToMbBkColor
+    -- * 'PreparedText'.
+    -- Тип включает в себя 'PreparedWrapText', ссылку на использованный шрифт и исходные параметры
+    -- подкготовки шрифта. Более громоздок но более универсален.
+    ,TextWrapMode(..),DrawTextDef(..),PreparedText(..),prepareTextGui,prepareText,drawPreparedText
                         ) where
 
 import Control.Monad.IO.Class
@@ -19,19 +36,55 @@ import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Utils.Wrap
 
-data PreparedWrapText = PreparedWrapText (V.Vector T.Text) (VU.Vector GuiPoint) Coord Coord
+-- | Разобранный для отрисовки (возможно) на нескольких строках текст.
+data PreparedWrapText = PreparedWrapText
+        -- | Текст разбитый не непробельные последовательности символов (фрагменты).
+        (V.Vector T.Text)
+        -- | Координаты левых верхних точек отрисовки фрагментов.
+        -- Для отрисовки достаточно первых двух полей.
+        (VU.Vector GuiPoint)
+        -- | Левая граница текста. Вначале (до выравнивания) равна 0. Потом увеличивается вместе с координатами всех точек.
+        Coord
+        -- | Высота всего текста. По вектору координт точно рассчитать нельзя, нуже ещё междустрочный интервал.
+        Coord
         deriving (Show, Eq)
 
-prepareWrapText :: MonadIO m => Alignment -> GuiRect -> Double -> TTFFont -> T.Text -> m PreparedWrapText
+-- | Строит разобранный для отрисовки (возможно) на нескольких строках текст, который можно отрисовать
+-- с помощью @drawSplitPreparedText@.
+prepareWrapText :: MonadIO m =>
+    -- | Выравнивания. 'HAlign' используется уже в @rowWrapping@ Для каждой строки.
+    -- 'VAlign' применяется перед самым возвратом, используя функцию @moveWrapText@.
+    Alignment ->
+    -- | Прямоугольник в котором нужно выровнять текст.
+    GuiRect ->
+    -- | Черезстрочное расстояние.
+    Double ->
+    -- | Шрифт.
+    TTFFont ->
+    -- | Исходный текст.
+    T.Text ->
+    m PreparedWrapText
 prepareWrapText align r@(SDL.Rectangle (P (V2 x0 _)) (V2 width _)) lineSpacing fnt str =
-    let wrds = V.fromList $ T.words str
+    let wrds = splitToVector $ T.dropWhile (`elem` " \n") str
         cWords = V.length wrds in
     if cWords == 0 then return $ PreparedWrapText V.empty VU.empty x0 0
     else do
-        szS <- VU.generateM cWords (P.strSize fnt . T.unpack . (wrds V.!) )
-        (V2 spaceWidth _) <- P.strSize fnt " "
+        szS <- VU.generateM cWords ((\s -> if head s =='\n' then return $ V2 maxBound 0 else P.strSize fnt s).
+                    T.unpack . (wrds V.!) )
+        (V2 spaceWidth spaceHeight) <- P.strSize fnt " "
 --        liftIO $ putStrLn $ concat ["textSplitPrepare  width=", show width, "   szS=",show szS]
-        let vv = rowWrapping (getHAlign align) width spaceWidth szS
+        let vv' = rowWrapping (getHAlign align) width spaceWidth szS
+            deltaLine maxH = ceiling (lineSpacing * fromIntegral maxH)
+            maxHeight = deltaLine $ V.maximum $ V.map snd vv'
+            delEmptyLn out x =  let (l,rest) = V.splitAt 1 x in
+                                if V.null l then out
+                                else let (_,y) = V.head l in
+                                     if y == 0 then let (i,e) = V.splitAt (V.length out - 1) out in
+                                                    if V.null e then delEmptyLn out rest
+                                                    else let (v,h) = V.head e in
+                                                         delEmptyLn (V.snoc i (v,h+maxHeight)) rest
+                                     else delEmptyLn (out V.++ l) rest
+            vv = delEmptyLn V.empty vv'
             cElem = V.sum $ V.map (VU.length . fst) vv
 --        liftIO $ putStrLn $ concat ["textSplitPrepare vv=", show vv, " lineSpacing=", show lineSpacing,
 --           "  dY=", show (truncate ((1+lineSpacing) * (fromIntegral $ snd $ V.head vv))) ]
@@ -42,17 +95,29 @@ prepareWrapText align r@(SDL.Rectangle (P (V2 x0 _)) (V2 width _)) lineSpacing f
                                                                 VUM.write v n (V2 x y)
                                                                 byRow (j+1) (n+1)
                                                       | otherwise = return n
-                                        in byRow 0 m >>=
-                                                go (y + ceiling (lineSpacing * fromIntegral maxH)) (i + 1)
+                                        in byRow 0 m >>= go (y + deltaLine maxH) (i + 1)
                                      | otherwise = return v
                         go 0 0 0
             (V2 _ maxY) = VU.last offsets
-            prepH = maxY + snd (V.last vv)
+            prepH = maxY + spaceHeight -- maxHeight -- snd (V.last vv)
 --            offY = vAlignToOff (getVAlign align) $ height - prepH
 --            pLT = p0 .+^ (V2 0 offY)
 --        liftIO $ putStrLn $ concat ["textSplitPrepare offsets=", show offsets]
-        return $ moveWrapText (getVAlign align) r $ PreparedWrapText wrds (VU.map P offsets) 0 prepH
+        return $ moveWrapText (getVAlign align) r $ PreparedWrapText
+            (V.filter (T.singleton '\n' /=) wrds) (VU.map P offsets) 0 prepH
+  where splitToVector = V.unfoldr $ \b -> let t = T.dropWhile (' '==) b in
+                                          case T.uncons t of
+                                            Just ('\t',rest) -> Just (T.pack "   ",rest)
+                                            Just ('\n',rest) -> Just (T.singleton '\n',rest)
+                                            Just _ -> let a@(l,_) = T.span (`notElem` " \t\n") t in
+                                                      if T.null l then Nothing else Just a
+                                            _ -> Nothing
 
+-- V.unfoldr :: (b -> Maybe (a, b)) -> b -> Vector a
+-- T.uncons :: Text -> Maybe (Char, Text)
+
+-- | Выровнять 'PreparedWrapText' вертикально в заданном прямоугольнике, а по __/x/__ просто перенести в
+-- область начала прямоугольника.
 moveWrapText :: VAlign -> GuiRect -> PreparedWrapText -> PreparedWrapText
 moveWrapText align (SDL.Rectangle (P (V2 newX newY)) (V2 _ height)) pwt@(PreparedWrapText vt vp oldX prepH)
     | VU.null vp = pwt
@@ -60,11 +125,29 @@ moveWrapText align (SDL.Rectangle (P (V2 newX newY)) (V2 _ height)) pwt@(Prepare
                       off= V2 (newX - oldX) (newY + vAlignToOff align (height - prepH) - top) in
                   PreparedWrapText vt (VU.map ( .+^ off) vp) newX prepH
 
+-- | Возвращает левую границу текстовой области.
+getLeftOfPreparedWrapText :: PreparedWrapText -> Coord
+getLeftOfPreparedWrapText (PreparedWrapText _ _ l _) = l
+{-# INLINE getLeftOfPreparedWrapText #-}
+
+-- | Возвращает высоту текстовой области.
 getHeightOfPreparedWrapText :: PreparedWrapText -> Coord
 getHeightOfPreparedWrapText (PreparedWrapText _ _ _ h) = h
 {-# INLINE getHeightOfPreparedWrapText #-}
 
-drawSplitPreparedText :: MonadIO m => PreparedWrapText -> TTFFont -> GuiColor -> Maybe GuiColor -> Canvas m ()
+-- | Рисует подготовленный текст указанным шрифтом, цветом, и, возможно, цветом фона.
+drawSplitPreparedText :: MonadIO m =>
+    -- | Поготовленный для вывода текст
+    PreparedWrapText ->
+    -- | Шрифт, который должен быть тем же что и использовался при создании 'PreparedWrapText'
+    TTFFont ->
+    -- | Цвет текста.
+    GuiColor ->
+    -- | Или цвет фона для более быстрой отрисовки, или Nothing - для медленной отрисовки по прозрачному фону.
+    -- Примечание: если межстрочный интервал был \<1, то нельзя устанавливать непрозрачный фон - он будет
+    -- затирать части соседних строк.
+    Maybe GuiColor ->
+    Canvas m ()
 drawSplitPreparedText (PreparedWrapText vT vP _ _) fnt color mbBkColor =
     let f = case mbBkColor of
                 Just bc -> drawTextOpaque fnt color bc
@@ -72,30 +155,72 @@ drawSplitPreparedText (PreparedWrapText vT vP _ _) fnt color mbBkColor =
     in V.imapM_ (\i -> f (vP VU.! i)) vT
 {-# INLINE drawSplitPreparedText #-}
 
-data TextWrapMode = TextNoWrap {textAreaMaxWidth :: Coord}
-                  | TextWrap {textAreaMaxHeight :: Coord, textAreaLineSpacing :: Maybe Double}
+-- | Вспомогательная функция, которая выбирает прозрачный или не прозрачный фон использовать для отрисовки.
+textWrapModeToMbBkColor :: TextWrapMode -> Skin -> GuiColor -> Maybe GuiColor
+textWrapModeToMbBkColor TextNoWrap{} _ c = Just c
+textWrapModeToMbBkColor TextWrap{textAreaLineSpacing=s} skin c
+    | fromMaybe (formTextLineSpacing skin) s < 1 = Nothing
+    | otherwise = Just c
+{-# INLINE textWrapModeToMbBkColor #-}
+
+----------- * 'PreparedText'.
+
+-- | Описание способа вывода текста.
+data TextWrapMode =
+        -- | Без переноса строк
+        TextNoWrap {
+            -- | До скольки можно увеличить ширину заданного первоначально прямоугольника
+            -- (не в этом типе).
+            textAreaMaxWidth :: Coord
+                   } |
+        -- | С переносом строк
+        TextWrap {
+            -- | Максимально допустимая высота текста. (Минимальная задаётся прямоугольником не в этом типе).
+            textAreaMaxHeight :: Coord,
+            -- | Междустрочный интервал. Если Nothing, то взять из 'Sikn'.
+            textAreaLineSpacing :: Maybe Double
+                 }
         deriving (Show, Eq)
 
 instance Default TextWrapMode where
     def = TextNoWrap 0
 
-data DrawTextDef = DrawTextDef  { drawTextRect :: GuiRect
-                                , drawTextWrap :: TextWrapMode
-                                , drawTextFontKey :: T.Text
-                                , drawTextAlignment :: Alignment
-                                , drawTextText :: T.Text
+-- | Подробное описание текста со способ вывода текста. И с переносом на другие строки, и без.
+data DrawTextDef = DrawTextDef  {
+    -- | Прямоугольник в котором выполняется выравнивание текста. Может расширяться до указанных пределов если
+    -- они заданы в 'TextWrapMode'.
+      drawTextRect :: GuiRect
+    -- | 'TextWrapMode' см. выше.
+    , drawTextWrap :: TextWrapMode
+    -- | Текстовый ключ шрифта.
+    , drawTextFontKey :: T.Text
+    -- | Выравнивание.
+    , drawTextAlignment :: Alignment
+    -- | Собственно, сам выводимый текст.
+    , drawTextText :: T.Text
                                 }
                                 deriving (Show, Eq)
 
-data PreparedText = PreparedText    { preparedText :: PreparedWrapText
-                                    , preparedTextDef :: DrawTextDef
-                                    , preparedTextFont :: TTFFont
+-- | В таком формате текст хранится после разбора.
+-- Тип включает в себя 'PreparedWrapText', ссылку на использованный шрифт и исходные параметры
+-- подкготовки шрифта. Более громоздок но более универсален.
+data PreparedText = PreparedText    {
+    -- | 'PreparedWrapText' см. ранее.
+      preparedText :: PreparedWrapText
+    -- | Исходные параметры, по которым препарировался текст
+    -- | (Кроме поля @drawTextRect@, которое может быть расширено, см. 'TextWrapMode'.)
+    , preparedTextDef :: DrawTextDef
+    -- | Шрифт
+    , preparedTextFont :: TTFFont
                                     }
                                     deriving (Show)
 
-prepareText :: MonadIO m => Widget -> Skin -> DrawTextDef -> m PreparedText
-prepareText widget skin d@DrawTextDef{..} = do
-    fnt <- runProxyCanvas widget $ getFont drawTextFontKey
+-- | Препарировать текст.
+prepareTextGui :: MonadIO m => Gui -> DrawTextDef -> m PreparedText
+prepareTextGui gui d@DrawTextDef{..} = do
+    skin <- guiGetSkin gui
+    rm <- guiGetResourceManager gui
+    fnt <- rmGetFont rm drawTextFontKey
     let (SDL.Rectangle p' (V2 w' h')) = drawTextRect
     case drawTextWrap of
       TextNoWrap{..} -> do
@@ -115,14 +240,25 @@ prepareText widget skin d@DrawTextDef{..} = do
         let h2 = if (prepH > h') && (textAreaMaxHeight > 0) then min prepH textAreaMaxHeight else h'
         return $ PreparedText t d{drawTextRect=SDL.Rectangle p' (V2 w' h2)} fnt
 
-drawPreparedText :: MonadIO m => PreparedText -> GuiColor -> Maybe GuiColor -> Canvas m ()
+-- | Препарировать текст используя текущий виджет (только для получения шрифта и 'Skin').
+prepareText :: MonadIO m => Widget -> DrawTextDef -> m PreparedText
+prepareText widget d = getGuiFromWidget widget >>= (`prepareTextGui` d)
+{-# INLINE prepareText #-}
+
+-- | Вывод препарированного текста. В отличии от @drawSplitPreparedText@ используется другой
+-- тип представления подготовленного тексата в который предыдущий тип 'PreparedWrapText' входит как одно из полей.
+-- Таким образом поддерживается большая косистентность, шрифт будет выбран именно тот что использован при
+-- подготовке текста.
+drawPreparedText :: MonadIO m =>
+    -- | Подготовленный текст.
+    PreparedText ->
+    -- | Цвет текста.
+    GuiColor ->
+    -- | Или цвет фона для более быстрой отрисовки, или Nothing - для медленной отрисовки по прозрачному фону.
+    -- Примечание: если межстрочный интервал был \<1, то нельзя устанавливать непрозрачный фон - он будет
+    -- затирать части соседних строк.
+    Maybe GuiColor ->
+    Canvas m ()
 drawPreparedText PreparedText{..} color mbBkColor =
     withClipRect (drawTextRect preparedTextDef) $ drawSplitPreparedText preparedText preparedTextFont color mbBkColor
 {-# INLINE drawPreparedText #-}
-
-textWrapModeToMbBkColor :: TextWrapMode -> Skin -> GuiColor -> Maybe GuiColor
-textWrapModeToMbBkColor TextNoWrap{} _ c = Just c
-textWrapModeToMbBkColor TextWrap{textAreaLineSpacing=s} skin c
-    | fromMaybe (formTextLineSpacing skin) s < 1 = Nothing
-    | otherwise = Just c
-{-# INLINE textWrapModeToMbBkColor #-}

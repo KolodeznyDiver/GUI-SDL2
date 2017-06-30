@@ -142,7 +142,7 @@ delGuiPipe gui prod = do
         modifyMonadIORef' gui (\x -> x{guiPipes=GuiPipes (IntMap.delete pipeId $ hndlrs guiPipes)
                                                          (VU.snoc (removedIds guiPipes) pipeId)})
 
--- | Создать тип управления каналами. Вызывается из @GUI.BaseLayer.RunGUI.runGUI@
+-- | Создать данные для управления каналами. Вызывается из @GUI.BaseLayer.RunGUI.runGUI@
 mkGuiPipes :: GuiPipes
 mkGuiPipes = GuiPipes IntMap.empty VU.empty
 {-# INLINE mkGuiPipes #-}

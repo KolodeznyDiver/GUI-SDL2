@@ -14,9 +14,10 @@ module GUI.BaseLayer.Depend1.Resource(
     -- * Типы относящиеся к менеджеру ресурсов, "GUI.BaseLayer.Resource" и вынесенные в отдельный файл
     -- для исключения циклической зависимости модулей.
     CachedItem,CacheCollection,GuiFontOptions(..),GuiFontDef(..),FontCollectionItem(..),FontCollection
-    ,CursorCollection,ResourceManager(..)
+    ,NaturalStringCollection,CursorCollection,ResourceManager(..)
                         ) where
 import qualified Data.HashMap.Strict as HM
+import           Data.ByteString.Char8   (ByteString)
 import qualified Data.Text as T
 import Data.IORef
 import Data.Default
@@ -35,6 +36,9 @@ type CacheCollection a = HM.HashMap T.Text (CachedItem a)
 
 -- | Тип коллеции кешируемых графических файлов в виде 'Surface' т.е., не привязанных к конкретному окну.
 type SurfaceCollection = CacheCollection SDL.Surface
+
+-- | Тип коллеции строк естественного языка из файлов /I18n/ru_RU/*.txt.
+type NaturalStringCollection = HM.HashMap ByteString T.Text
 
 -- | Дополнительные параметры шрифта используемые в 'GuiFontDef'
 data GuiFontOptions = GuiFontOptions {
@@ -82,5 +86,7 @@ data ResourceManager = ResourceManager {
     , surfaces  :: IORef SurfaceCollection -- ^ Коллекция загруженных графических файлов в виде
                                            -- 'Surface', т.е. не привязанных к конкретному окну.
     , fonts     :: IORef FontCollection -- ^ Коллекция загруженных шрифтов.
+    -- | Cтроки естественного языка из файлов /I18n/ru_RU/*.txt.
+    , natStrs :: NaturalStringCollection
                                        }
 

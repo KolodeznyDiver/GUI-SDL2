@@ -16,7 +16,7 @@ module GUI.BaseLayer.Primitives(
     ,getTextureSize,drawTexture,drawTextureAligned,fromRawColor,toRawColor,strSize,getPixelFormat
     ,createTargetTexture,renderStr,renderStrDraft,renderStrOpaque,drawStr,drawStrDraft,drawStrOpaque
     ,withStateVar,withColor,withRendererColor,withRendererTarget,withRendererClipRect,withRendererViewport
-    ,withUTF8,DrawStrMode(..),drawStrAligned
+    ,DrawStrMode(..),drawStrAligned
                      ) where
 
 import Control.Monad.IO.Class (MonadIO,liftIO)
@@ -29,6 +29,7 @@ import SDL.Vect
 import qualified SDL.TTF as TTF
 import SDL.TTF.FFI (TTFFont)
 import GUI.BaseLayer.Depend0.Types
+import GUI.BaseLayer.Depend0.Auxiliaries
 import GUI.BaseLayer.Depend1.Geometry
 
 -- | Преобразование из @V2 Coord@ в @V2 SDLCoord@.
@@ -126,15 +127,6 @@ withRendererClipRect renderer r = withStateVar (SDL.rendererClipRect renderer) $
 withRendererViewport :: MonadIO m => SDL.Renderer -> GuiRect -> m a -> m a
 withRendererViewport renderer r = withStateVar (SDL.rendererViewport renderer) $ Just $ toSDLRect r
 {-# INLINE withRendererViewport #-}
-
--- | Для переданной функции временно устанавливает режим кодировки @setForeignEncoding utf8@.
-withUTF8 ::  MonadIO m => m a -> m a
-withUTF8 f = do
-    save <- liftIO (getForeignEncoding <* setForeignEncoding utf8)
-    r <- f
-    liftIO $ setForeignEncoding save
-    return r
-{-# INLINE withUTF8 #-}
 
 -- | Возвращает размер который будет занимать на экране заданная строка выведенная заданным шрифтом.
 strSize :: MonadIO m => TTFFont -> String -> m (V2 Coord)
