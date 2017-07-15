@@ -2,6 +2,16 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
+-- |
+-- Module:      GUI.Widget.Menu.Horizontal
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Виджет горизонтального меню из которого могут вызываться @GUI.Window.PopupMenu@
+
 module GUI.Widget.Menu.Horizontal(
     -- GUI.Widget.Menu.Internal.Popup
     MenuItem(..), MenuItems, DynMenuItem(..)
@@ -32,9 +42,13 @@ pattern PaddingX = 7
 pattern PaddingY :: Coord
 pattern PaddingY = 3
 
-data HMenuItem = HMenuItem  { hmenuText :: T.Text
-                            , hmenuMask :: ActionMask
-                            , hmenuPopup :: MenuItems
+-- | Описание элемента (пункта) горизонтального меню
+data HMenuItem = HMenuItem {
+          hmenuText :: T.Text -- ^ Текст в меню.
+        , hmenuMask :: ActionMask -- ^ Маска задающая состояние пункта меню в зависимости от
+                                  -- кода состояния приложения. См. "GUI.BaseLayer.Depend1.Action".
+        , hmenuPopup :: MenuItems -- Вектор элементов вертикального (выпадающего) меню с которым
+                                  -- выпадающее меню будет вызвано при выборе этого пункта меню.
                             }
 
 instance Default HMenuItem where
@@ -43,7 +57,7 @@ instance Default HMenuItem where
                      , hmenuPopup = V.empty
                      }
 
--- polyvariadic mkHMenu impl.
+-- | Класс поддержки polyvariadic функции @mkHMenu@ для построения вектора элементов меню.
 class HMenuMaker r where
     hmenuMaker :: V.Vector HMenuItem -> r
 
@@ -51,31 +65,46 @@ instance HMenuMaker (V.Vector HMenuItem) where
     hmenuMaker = id
 
 instance HMenuMaker r => HMenuMaker (HMenuItem -> r) where
-   hmenuMaker menu = \a -> hmenuMaker $ V.snoc menu a
+   hmenuMaker menu = hmenuMaker . V.snoc menu
 
+-- | Polyvariadic функция для построения вектора элементов меню.
+-- Хотя, вместо
+--
+-- > mkHMenu def{hmenuText = "Файл", hmenuPopup = popupFile}
+-- >         def{hmenuText = "Правка", hmenuPopup = popupEdit}
+-- >         def{hmenuText = "Поиск", hmenuPopup = popupFind}
+--
+-- Можно и
+--
+-- > V.fromList [def{hmenuText = "Файл", hmenuPopup = popupFile}, ...]
+--
 mkHMenu :: HMenuMaker r => r
 mkHMenu = hmenuMaker V.empty
 
-
-
-data HorizontalMenuDef = HorizontalMenuDef  { hmenuItems :: V.Vector HMenuItem
---                                            , hmenuHeight :: Coord
-                                            }
+-- | Параметры горизонтального меню.
+-- Хотя параметры состоят только из вектора пунктов меню, он обёрнут в тип для
+-- унификации функций создания виджетов.
+newtype HorizontalMenuDef = HorizontalMenuDef  { hmenuItems :: V.Vector HMenuItem }
 
 instance Default HorizontalMenuDef where
     def = HorizontalMenuDef { hmenuItems = V.empty
                             }
 
--- no exported
+-- | no exported. Используется внутри horizontalMenu
 data Item = Item { itemText :: T.Text
                  , itemX    :: Coord
                  , itemW    :: Coord
                  , itemPopup  :: MenuItems
                  }
 
+-- | Тип созданного горизонтального меню.
 data HorizontalMenuData = HorizontalMenuData
 
-horizontalMenu :: MonadIO m => HorizontalMenuDef -> Widget -> Skin -> m (GuiWidget HorizontalMenuData)
+-- | Функция создания виджета горизонтального меню.
+horizontalMenu :: MonadIO m => HorizontalMenuDef ->  -- ^ Параметры виджета.
+                               Widget -> -- ^ Будующий предок в дереве виджетов (обычно @vLayout@).
+                               Skin -> -- ^ Skin.
+                               m (GuiWidget HorizontalMenuData)
 horizontalMenu HorizontalMenuDef{..} parent skin = do
     win <- getWidgetWindow parent
     gui <- getWindowGui win

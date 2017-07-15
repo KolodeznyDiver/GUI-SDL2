@@ -3,6 +3,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
+-- |
+-- Module:      GUI.Widget.Layout.TH.LinearLayout
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Линейные layout-ы бывают горизонтальные hLayout и вертикальные vLayout, но оба определяются
+-- через одну slide (TH) функцию
+-- т.к. имеют идентичную реализацию отличающуюся переменой координат осей.
+
 module GUI.Widget.Layout.TH.LinearLayout where
 
 import Language.Haskell.TH
@@ -18,9 +30,12 @@ import SDL.Vect
 import GUI
 import GUI.Widget.TH
 import GUI.Widget.Handlers
-import GUI.Widget.Layout.Utils
+import GUI.Widget.Layout.LinearLayoutUtils
 
-mkLinearLayoutQ :: DirectionVH -> DecsQ
+-- | Slide функция для создания функций горизонтального hLayout или вертикального vLayout
+-- лайаута в модуле "GUI.Widget.Layout.LinearLayout".
+mkLinearLayoutQ :: DirectionVH -> -- ^ Направление лайаута. Так же определяет первую букву генерируемой функции.
+                   DecsQ
 mkLinearLayoutQ direction = do
     argNameLst{-@[layoutDefN,parentN,skinN]-} <- mapM newName ["layoutDef","parent","skin"]
     let ~[layoutDef,parent,skin] = map varE argNameLst

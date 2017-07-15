@@ -38,7 +38,7 @@ module GUI.BaseLayer.GUIRecord(
 
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO,liftIO)
-import Control.Exception
+import Control.Exception.Safe
 import System.Exit
 import qualified Data.Map.Strict as Map
 import Maybes (whenIsJust)

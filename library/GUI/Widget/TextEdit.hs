@@ -6,9 +6,24 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiWayIf #-}
+-- |
+-- Module:      GUI.Widget.TextEdit
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Поле для редактирования текста.
+-- Использует шрифт \"edit\" из таблицы шрифтов менеджера ресурсов.
+
 module GUI.Widget.TextEdit(
+    -- * Типы поля для редактирования текста.
     TextEditDef(..),TextEditData
-    ,onTextEditAtEnd,setTextEditVerifier,textEdit
+    -- * Функция создания виджета для редактирования текста.
+    ,textEdit
+    -- * Функции установки обработчиков событий специфичных для виджета.
+    ,onTextEditAtEnd,setTextEditVerifier
     ) where
 
 import Control.Monad
@@ -36,13 +51,18 @@ pattern PaddingX = 5
 pattern PaddingY :: Coord
 pattern PaddingY = 3
 
-data TextEditDef = TextEditDef  { textEditFormItemDef  :: FormItemWidgetDef
-                                , textEditWidth   :: Coord
-                                , textEditFlags   :: WidgetFlags
-                                , textEditText    :: T.Text
-                                , textEditMaxChar :: Int
-                                , textEditCharFilter :: Char -> Bool
-                                }
+-- | Начальные настройки виджета для редактирования текста.
+data TextEditDef = TextEditDef {
+          textEditFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
+                                                    -- в настоящий момент только margin's.
+        , textEditWidth   :: Coord -- ^ Ширина поля редактирования. Высота определяется размером шрифта
+                                   -- и внутренними полями фиксированного размера.
+        , textEditFlags   :: WidgetFlags -- ^ Флаги базового виджета.
+        , textEditText    :: T.Text -- ^ Исходный текст.
+        , textEditMaxChar :: Int -- ^ максимально допустимое число символов.
+        , textEditCharFilter :: Char -> Bool -- ^ функция-фильтр допустимых для ввода символов.
+                                             -- по умолчанию недопустимы пробельные символы кроме пробела.
+                               }
 
 instance Default TextEditDef where
     def = TextEditDef { textEditFormItemDef = def
@@ -53,6 +73,7 @@ instance Default TextEditDef where
                       , textEditCharFilter = \c -> not (isSpace c) || c == ' '
                       }
 
+-- | Не экспортируемый тип записи. Хранится по ссылке в 'TextEditData'.
 data TextEditStruct = TextEditStruct    { txtEdText :: T.Text
                                         , txtEdOnChanged :: forall m. MonadIO m => T.Text -> m ()
                                         , txtEdAtEnd :: forall m. MonadIO m => T.Text -> m ()
@@ -61,16 +82,21 @@ data TextEditStruct = TextEditStruct    { txtEdText :: T.Text
                                         , txtEdSetText :: forall m. MonadIO m => T.Text -> m Bool
                                         }
 
+-- | Тип созданного виджета. Обычно используется как  @GuiWidget TextEditData@.
 newtype TextEditData = TextEditData { getTxtEd :: IORef TextEditStruct }
 
+-- | Установка функции-обработчика на изменение текста.
 instance Changeable (GuiWidget TextEditData) T.Text where
     onChanged w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdOnChanged= a})
 
+-- | Установка функции-обработчика вызываемого когда поле редактирования теряет фокус или нажат Enter.
 onTextEditAtEnd :: forall m. MonadIO m => GuiWidget TextEditData ->
                             (forall n. MonadIO n => T.Text -> n ()) -> m ()
 onTextEditAtEnd w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdAtEnd= a})
 {-# INLINE onTextEditAtEnd #-}
 
+-- | Установка предиката-верификатора. Он вызывается при любой ПОПЫТКЕ изменения текста.
+-- если предикат вернёт False, текст не будет изменён.
 setTextEditVerifier :: forall m. MonadIO m => GuiWidget TextEditData ->
                             (forall n. MonadIO n => T.Text -> n Bool) -> m ()
 setTextEditVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdVerif= a})
@@ -81,6 +107,8 @@ setTextEditCharVerifier :: forall m. MonadIO m => GuiWidget TextEditData ->
 setTextEditCharVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdCharVerif= a})
 {-# INLINE setTextEditCharVerifier #-}
 -}
+
+-- | Установка и извлечение редактируемого текста.
 instance TextProperty (GuiWidget TextEditData) where
     setText (GuiWidget widget TextEditData{..}) txt = do
         TextEditStruct{..} <- readMonadIORef getTxtEd
@@ -103,11 +131,13 @@ data TextEditState = TextEditState      { txtEdPos :: Int -- Caret pos. or start
                                         , txtEdWidths :: VU.Vector Coord
                                         }
 
-textEdit :: MonadIO m => TextEditDef -> Widget -> Skin -> m (GuiWidget TextEditData)
+-- | Функция создания виджета для редактирования текста.
+textEdit :: MonadIO m => TextEditDef -> -- ^ Параметры виджета.
+                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Skin -> -- ^ Skin.
+                         m (GuiWidget TextEditData)
 textEdit TextEditDef{..} parent skin = do
     fnt <- runProxyCanvas parent $ getFont "edit"
---    TTF.setFontKerning fnt KerningOff
---    TTF.setFontHinting fnt TTFHNone
     fntHeight <- TTF.getFontHeight fnt
 
     let allSz = V2 textEditWidth (fntHeight + 2*PaddingY)

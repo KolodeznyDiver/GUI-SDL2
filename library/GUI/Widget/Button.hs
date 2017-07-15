@@ -249,7 +249,7 @@ data ButtonWithTriangleType =
 
 -- | Параметры настройки кнопки с треугольником.
 data ButtonWithTriangleDef = ButtonWithTriangleDef  {
-      btTriangleFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм
+      btTriangleFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
                                                   -- в настоящий момент только margin's.
     , btTriangleFlags     :: WidgetFlags -- ^ Флаги базового виджета.
     , btTriangleOrientation :: Orientation -- ^ OrientationLeft | OrientationUp |
@@ -258,6 +258,7 @@ data ButtonWithTriangleDef = ButtonWithTriangleDef  {
     , btTriangleType :: ButtonWithTriangleType -- ^ Вид оформления.
                                                     }
 
+-- | Тип созданного виджета. Обычно используется как  @GuiWidget ButtonData@.
 newtype ButtonData = ButtonData { buttonOnClick :: IORef NoArgAction
                                 }
 
@@ -267,7 +268,10 @@ instance Clickable (GuiWidget ButtonData) where
 -- | Виджет - кнопка с треугольником.
 -- Вообще то не так и нужен. Можно просто нарисовать картинку и использовать @pictureButton@.
 -- В данной функции демонстрируется динамическое создание текстуры перед созданием собственно виджета.
-buttonWithTriangle :: MonadIO m => ButtonWithTriangleDef -> Widget -> Skin -> m (GuiWidget ButtonData)
+buttonWithTriangle :: MonadIO m => ButtonWithTriangleDef -> -- ^ Параметры виджета.
+                                   Widget -> -- ^ Будующий предок в дереве виджетов.
+                                   Skin -> -- ^ Skin.
+                                   m (GuiWidget ButtonData)
 buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
     let (V2 btTriangleWidth btTriangleHeight) = btTriangleSize
         cPict = 4
@@ -333,7 +337,10 @@ instance Default ButtonDef where
                     }
 
 -- | Виджет - кнопка с текстом и картинкой.
-button :: MonadIO m => ButtonDef -> Widget -> Skin -> m (GuiWidget ButtonData)
+button :: MonadIO m => ButtonDef ->  -- ^ Параметры виджета.
+                       Widget -> -- ^ Будующий предок в дереве виджетов.
+                       Skin -> -- ^ Skin.
+                       m (GuiWidget ButtonData)
 button ButtonDef{..} parent skin = do
     let (V2 btnW btnH) = btnSize
         prepareLabel r@(SDL.Rectangle _ (V2 rW rH)) =

@@ -7,9 +7,28 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE StrictData #-}
+
+-- |
+-- Module:      GUI.Window.PopupMenu
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Окно вспывающего вертикального меню. Может быть каскадным и сочететься с горизонтальным меню,
+-- см. "GUI.Widget.Menu.Horizontal"
+--
+-- Картинки (иконки) для пунктов меню указанные в соотвествующих
+-- 'GUI.BaseLayer.Depend1.Action.Action' безутся из подкаталога \"menu\" каталога ресурсов.
+
 module GUI.Window.PopupMenu(
-    MenuItem(..), MenuItems, DynMenuItem(..)
-    ,mkMenu,mItem,mItemSub,popupMenu
+    -- * Типы которыми описывается вертикальное каскадное меню.
+    MenuItem(..), DynMenuItem(..), MenuItems
+    -- * Вспомогательные функции для упрощения описания меню.
+    ,mkMenu,mItem,mItemSub
+    -- * Функция создающая выпадающее меню.
+    ,popupMenu
     ) where
 
 import Data.Monoid
@@ -32,6 +51,7 @@ import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.PopupWindow
 import GUI.Widget.Handlers
 
+-- | Класс поддержки polyvariadic функции @mkMenu@ для построения вектора элементов меню.
 class MenuMaker r where
     menuMaker :: MenuItems -> r
 
@@ -39,18 +59,36 @@ instance MenuMaker MenuItems where
     menuMaker = id
 
 instance MenuMaker r => MenuMaker (MenuItem -> r) where
-    menuMaker menu = \i -> menuMaker $ V.snoc menu i
+    menuMaker menu = menuMaker . V.snoc menu
 
+-- | Polyvariadic функция для построения вектора элементов вертикального меню.
+-- Хотя, вместо
+--
+-- > mkMenu (mItem "Edit" "Cut") (mItem "Edit" "Copy") (mItem "Edit" "Paste")
+--
+-- Можно и
+--
+-- > V.fromList [mItem "Edit" "Cut", mItem "Edit" "Copy", mItem "Edit" "Paste"]
+--
 mkMenu :: MenuMaker r => r
 mkMenu = menuMaker V.empty
 
+-- | Функция создания описания одного пункта меню без подменю.
 mItem :: ByteString -> ByteString -> MenuItem
 mItem g k = MenuItem g k V.empty
 
+-- | Функция создания описания одного пункта меню с подменю.
 mItemSub :: ByteString -> ByteString -> MenuItems -> MenuItem
-mItemSub g k s = MenuItem g k s
+mItemSub = MenuItem
 
-popupMenu :: MonadIO m => Widget -> GuiRect -> MenuItems -> m ()
+-- | Функция создающая окно с выпадающим меню.
+popupMenu :: MonadIO m =>
+                -- | Виджет активного сейчас окна. Popup окно станет дочерним по отношению к этому окну.
+                Widget ->
+                -- | Начальные координаты окна в координатах указанного виджета.
+                GuiRect ->
+                MenuItems ->  -- ^ Вектор пунктов меню.
+                m ()
 popupMenu parent rect vm = do
     parentWin <- getWidgetWindow parent
     isParentPopup <- allWindowFlags parentWin WindowPopupFlag
@@ -91,41 +129,65 @@ pattern ArrowW = 8
 pattern BorderThickness :: Coord
 pattern BorderThickness = 1
 
-data MenuItem = MenuItem { menuItemGroup :: ByteString
-                         , menuItemName  :: ByteString
-                         , menuItemSubmenu :: V.Vector MenuItem
-                         }
-              | MenuItemsGenerator (forall m. MonadIO m => m (V.Vector DynMenuItem))
+-- | Определение или одного пункта меню, либо генератора нескольких пунктов меню.
+-- Пункты меню взятые из разных груп 'GUI.BaseLayer.Depend1.Action.Action' разделяются
+-- вертикальной чертой. Так же разделяются от остальных пунктов меню, пункты созданные с помощью
+-- генераторов пунктов меню
+data MenuItem =
+        -- | Обычный пункт меню. Основная информацию о нём определяется
+        -- указанным в нём 'GUI.BaseLayer.Depend1.Action.Action'
+        MenuItem {
+              menuItemGroup :: ByteString -- ^ Имя группы 'Action'.
+            , menuItemName  :: ByteString -- ^ Идентификатор в группе 'Action'.
+                                          -- Эти два элемента позволяют ссылаться на определённый 'Action'.
+            , menuItemSubmenu :: V.Vector MenuItem -- ^ Вектор элементов подменю выпадающего каскадно.
+                                                   -- Пустой вектор, если подменю не требуется.
+                 }
+      -- | Вместо пункта меню может задан генератор - функция генерирующая пункты меню,
+      -- например список недавно открываемых файлов или список плагинов.
+      | MenuItemsGenerator (forall m. MonadIO m => m (V.Vector DynMenuItem))
 
+-- | Вектор пунктов меню.
 type MenuItems = V.Vector MenuItem
 
-data DynMenuItem = DynMenuItem { dynMenuCaption :: T.Text
-                               , dynMenuAction :: forall m. MonadIO m => m ()
+-- | Элементы вектора генерируемые генератором пунктов меню.
+-- Генератор создаёт пункты не привязанные к 'Action', Отображаемые только текстовыми строками,
+-- без подпунктов меню.
+data DynMenuItem = DynMenuItem {
+          dynMenuCaption :: T.Text -- ^ Заголовок пункта меню.
+        , dynMenuAction :: forall m. MonadIO m => m ()  -- ^ Функция, вызываемая при выборе пункта меню.
                                }
 
--- no exported. Item of current active menu
+-- | no exported. Item of current active menu
 data Item = Item   { itemText :: T.Text
                    , itemPicture  :: Maybe SDL.Texture
                    , itemEnable :: Bool
                    , itemType :: ItemType
                    }
            | ItemSeparator
+
 -- no exported.
 data ItemType = ActionItem { itemHkTxt :: T.Text
                            , actionItem :: forall m. MonadIO m => m ()
                            }
               | SubmenuItem MenuItems
+
 -- no exported.
 data ItemCoord = ItemCoord { itemY :: Coord, itemH :: Coord}
 
-data PopupMenuWidgetPrev    = PrevHMenu Widget
-                            | PrevPopup Window
-                            | PrevNothing
+-- | no exported. Ссылка на предыдущее меню.
+data PopupMenuWidgetPrev =
+        PrevHMenu Widget -- ^ Предыдущее меню - горизонтальное меню.
+      | PrevPopup Window -- ^ Предыдущее меню - такое же вертикальное меню.
+      | PrevNothing -- ^ Предыдущего меню не было.
 
-data PopupMenuWidgetDef = PopupMenuWidgetDef { popupMenuWidgetItems :: MenuItems
-                                             , popupPrev :: PopupMenuWidgetPrev
+-- | Описание параметров виджета заполняющего окно вертикального меню. Не экспортируется.
+data PopupMenuWidgetDef = PopupMenuWidgetDef {
+          popupMenuWidgetItems :: MenuItems -- ^ Вектор пунктов меню.
+        , popupPrev :: PopupMenuWidgetPrev  -- ^ Ссылка на предыдущее меню.
                                              }
 
+-- | Функция создания виджета в вертикальном меню. Не экспортируется.
 popupMenuWidget :: MonadIO m => PopupMenuWidgetDef -> Widget -> Skin -> m (GuiWidget SimpleWidget)
 popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
     win <- getWidgetWindow parent

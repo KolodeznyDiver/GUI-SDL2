@@ -1,10 +1,23 @@
--- {-# LANGUAGE MultiParamTypeClasses #-}
--- {-# LANGUAGE FlexibleInstances #-}
--- {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
+
+-- |
+-- Module:      GUI.Widget.Splitter
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Сплиттер - невидимый в обыяных условиях виджет вставляемый между другими виджетами в
+-- горизонтальном @hLayout@ или вертикальном @vLayout@ лайауте.
+-- При наведении указателя в область сплиттера вид курсора меняется. При удержании ЛКМ появляется возможность
+-- перемещать позицию сплиттера. Для горизонтального лайаута сплиттер измешняет ширину виджета левее себя,
+-- для вертикального лайаута изменяет высоту виджета выше себя.
+-- Сплиттер сам определяет тип лайаута.
+
 module GUI.Widget.Splitter(
         SplitterData,splitter
         ) where
@@ -21,12 +34,16 @@ import GUI.Widget.Handlers
 pattern SplitterWidth :: Coord
 pattern SplitterWidth = 6
 
+-- | Не экспортируется. Тип перемещения (тип лайаута). Используется в @splitter@.
 data SplitterType = SplitterUnknown | HSplitter | VSplitter
 
+-- | Тип созданного виджета. Обычно используется как  @GuiWidget SplitterData@.
 data SplitterData = SplitterData
 
-
-splitter :: MonadIO m => Widget -> Skin -> m (GuiWidget SplitterData)
+-- | Функция создания сплиттера. Сплиттер не имеет своих специальных параметров.
+splitter :: MonadIO m => Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Skin -> -- ^ Skin.
+                         m (GuiWidget SplitterData)
 splitter parent skin = do
     let noInitedSz = V2 1 1
         detectSplitterType (SDL.Rectangle (P (V2 xd yd)) (V2 wd hd)) -- drivenR

@@ -98,7 +98,7 @@ messageBox gui mbt builder MessageBoxDef{..} answerFn = do
                 , drawTextFontKey = "label"
                 , drawTextAlignment = AlignCenterTop
                 , drawTextText = TS.toText builder }
-    title <- T.pack <$> (liftIO getAppName)
+    title <- T.pack <$> liftIO getAppName
     p <- prepareTextGui gui dtdf
     let btnLst = case mbt of
                     MsgBoxYesNo -> [btYes,btNo]
@@ -110,7 +110,7 @@ messageBox gui mbt builder MessageBoxDef{..} answerFn = do
                     MsgBoxWarningYesNoCancel -> [btYes,btNo,btCancel]
                     MsgBoxErrorYesNoCancel -> [btYes,btNo,btCancel]
                     _ -> [btOk]
-        btnW = winW `div` (length btnLst)
+        btnW = winW `div` length btnLst
         cBtns = length btnLst
         onlyOneBtn = 1 == cBtns
         alignByBtns i = ((i+cBtns-1) `div` cBtns) *cBtns
@@ -159,14 +159,7 @@ messageBox gui mbt builder MessageBoxDef{..} answerFn = do
         btCancel = (ButtonCancel,"button_cancel.png","cancelB")
         btRetry = (ButtonRetry,"button_retry.png", "retryB")
         btSkip = (ButtonSkip,"button_skip.png", "skipB")
-{-
-  where btOk = (ButtonOk,"button_ok.png","Подтвердить")
-        btYes = (ButtonYes,"button_ok.png","Да")
-        btNo = (ButtonNo,"button_cancel.png","Нет")
-        btCancel = (ButtonCancel,"button_cancel.png","Отменить")
-        btRetry = (ButtonRetry,"button_retry.png", "Повторить")
-        btSkip = (ButtonSkip,"button_skip.png", "Пропустить")
--}
+
 -- | Создаёт модальное окон с информационным сообщением, предупреждением или сообщением об ошибке.
 -- Использует @messageBox@, но не требует указания дополнительных параметров и функции обработки завершения.
 -- Приеняется для типов сообщений с одной кнопкой в нижнем ряду.

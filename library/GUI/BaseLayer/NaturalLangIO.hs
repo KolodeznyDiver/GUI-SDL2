@@ -26,12 +26,11 @@ module GUI.BaseLayer.NaturalLangIO(
 
 import Data.Monoid
 import Control.Monad
-import Control.Exception
+import Control.Exception.Safe
 import System.IO
 import System.FilePath
 import System.Directory
 import Data.Char
-import Data.List
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.ByteString.Char8 as B

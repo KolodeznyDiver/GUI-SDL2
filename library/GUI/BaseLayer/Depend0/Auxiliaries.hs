@@ -18,7 +18,7 @@ module GUI.BaseLayer.Depend0.Auxiliaries(
     ) where
 
 import System.Environment (getProgName)
-import Control.Exception
+import Control.Exception.Safe
 import GHC.IO.Encoding
 import System.Exit
 import System.CPUTime
@@ -87,3 +87,6 @@ showErrMsgBox = showErrMsgBoxT . T.pack
 guiCatch :: IO a -> (SomeException -> IO a) -> IO a
 guiCatch f h = f `catches` [Handler (\ e -> throw (e :: ExitCode)),
                             Handler h]
+
+-- guiCatch :: MonadCatch m => m a -> (SomeException -> m a) -> m a
+-- guiCatch = catchAny

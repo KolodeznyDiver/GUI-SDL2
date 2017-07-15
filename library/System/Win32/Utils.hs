@@ -13,15 +13,20 @@
 -- Этот модуль используется при компиляции под ОС MS Windows,
 -- для *nix систем см. "System.X11.Utils".
 
-module System.Win32.Utils(
+module System.Win32.Utils
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
+    (
     hideConsole,withRemoveFromTaskbar,getUILang
-    ) where
+    )
+#endif
+    where
 
+#if defined(mingw32_HOST_OS) || defined(__MINGW32__)
 import Data.Bits
 import Foreign hiding(void)
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Exception
+import Control.Exception.Safe
 import System.Win32 hiding (try)
 import Graphics.Win32.GDI.Types
 import Graphics.Win32.Window
@@ -94,7 +99,9 @@ getUILang = bracket
                 (regCloseKey)
                 ((fmap head) . regEnumKeys)
 
-
+#else
+data SystemUtilsUnused
+#endif
 
 
 

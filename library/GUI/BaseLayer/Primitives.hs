@@ -19,8 +19,7 @@ module GUI.BaseLayer.Primitives(
     ,DrawStrMode(..),drawStrAligned
                      ) where
 
-import Control.Monad.IO.Class (MonadIO,liftIO)
-import GHC.IO.Encoding
+import Control.Monad.IO.Class (MonadIO)
 import Data.StateVar
 import Maybes (whenIsJust)
 import qualified SDL

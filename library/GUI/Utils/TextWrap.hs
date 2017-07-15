@@ -240,7 +240,7 @@ prepareTextGui gui d@DrawTextDef{..} = do
         let h2 = if (prepH > h') && (textAreaMaxHeight > 0) then min prepH textAreaMaxHeight else h'
         return $ PreparedText t d{drawTextRect=SDL.Rectangle p' (V2 w' h2)} fnt
 
--- | Препарировать текст используя текущий виджет (только для получения шрифта и 'Skin').
+-- | Препарировать текст используя текущий виджет (виджет нужен только для получения шрифта и 'Skin').
 prepareText :: MonadIO m => Widget -> DrawTextDef -> m PreparedText
 prepareText widget d = getGuiFromWidget widget >>= (`prepareTextGui` d)
 {-# INLINE prepareText #-}

@@ -23,6 +23,7 @@ defSkin :: Skin
 defSkin = Skin  {
     skinName = "default"
     , windowBkColor = grayColor 255
+    , oddBkColor = rgb 220 255 220
     , windowFgColor = grayColor 0
     , windowDisabledColor = disabledColor
     , bkColor = formBkColor

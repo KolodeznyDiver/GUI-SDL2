@@ -90,7 +90,7 @@ module GUI.BaseLayer.Resource(
 import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Exception
+import Control.Exception.Safe
 import System.FilePath
 import System.Directory
 import System.Environment

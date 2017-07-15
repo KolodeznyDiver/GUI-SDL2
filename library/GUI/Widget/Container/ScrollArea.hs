@@ -3,11 +3,34 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
--- {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
+-- |
+-- Module:      GUI.BaseLayer.RunGUI
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Виджет-контейнер в который можно поместить другой виджет для возможности прокрутки
+-- его отображаемого изображения по вертикали и горизонтали.
+-- Прокрутка scrollbar-ами, кнопками по их углам. По вертикали колесом мыши.
+-- Вложенный виджет может "полагать" что его виртуальная область рисования имеет размеры @getWidgetCanvasRect@
+-- Которую обычно сам и устанавливает, например :
+--
+-- >   onCreate = \widget -> setWidgetCanvasRect widget (SDL.Rectangle zero (V2 500 800)) >>
+-- >                                       notifyParentAboutSize widget zero
+-- > , onResizing = setWidgetRect
+-- > , onDraw= \widget -> do
+-- >               rect <- getWidgetCanvasRect widget
+-- >     -- Здесь рисование в прямоугольнике, возможно большем чем реально отображаемая на экране область.
+--
+-- Левая верхняя точка CanvasRect, обычно в начале задаётся нулевой и в дальнейшем означает смещение
+-- реальной области рисования оносительно виртуальной.
+
 module GUI.Widget.Container.ScrollArea(
     ScrollAreaDef(..),ScrollAreaData,scrollArea
     ) where
@@ -26,6 +49,7 @@ import GUI.Widget.Handlers
 import GUI.Widget.LinearTrackBar
 
 {-
+-- Возможные настроки для scrollArea в будущем.
 data ScrllAreaTag
 type ScrollAreaFlags = Flags ScrllAreaTag
 
@@ -44,12 +68,18 @@ pattern ScrollAreaRBArrAsR        = (Flags 0x0000000000000004) :: ScrollAreaFlag
 pattern ScrollAreaRBArrAsD        = (Flags 0x0000000000000008) :: ScrollAreaFlags
 -}
 
-data ScrollAreaDef = ScrollAreaDef  { scrollAreaItemDef  :: FormItemWidgetDef
-                                    , scrollAreaSize      :: GuiSize
-                                    , scrollAreaFlags     :: WidgetFlags
-                                    , scrollAreaSlidersColor :: Maybe GuiColor
-                                    , scrollAreaArrowsColor :: Maybe GuiColor
-                                    , scrollAreaSteps :: GuiSize
+-- | Параметры настройки @scrollArea@.
+data ScrollAreaDef = ScrollAreaDef {
+      scrollAreaItemDef  :: FormItemWidgetDef  -- ^ Общие настройки для всех виджетов для форм,
+                                               -- в настоящий момент только margin's.
+    , scrollAreaSize      :: GuiSize -- ^ Размер без полей.
+    , scrollAreaFlags     :: WidgetFlags -- ^ Флаги базового виджета.
+    , scrollAreaSlidersColor :: Maybe GuiColor -- ^ Цвета слайдеров правого и нижнего scrollbat-ов,
+                                               -- либо из 'Skin'.
+    , scrollAreaArrowsColor :: Maybe GuiColor -- ^ Цвета треугольнико-стрелок по углам @scrollArea@,
+                                              -- либо из 'Skin'.
+    , scrollAreaSteps :: GuiSize -- ^ На сколько пикселей смещать окно области отрисовки в виртуальном
+                                 -- пространстве при нажатии на кнопки.
                                     }
                                     deriving (Show)
 
@@ -62,18 +92,36 @@ instance Default ScrollAreaDef where
                         , scrollAreaSteps = V2 100 100
                         }
 {-
+-- Возможные настроки для scrollArea в будущем.
 newtype ScrollAreaStruct = ScrollAreaStruct    { scrllArFlags :: ScrollAreaFlags
                                                }
 
 newtype ScrollAreaData = ScrollAreaData { scrllAr :: IORef ScrollAreaStruct }
 -}
 
+-- | Тип созданного scrollArea в настоящий момент не имеет пренастраиваемых параметров.
+-- Размеры и позицию области отображений, размеется можно изменитять по @setWidgetCanvasRect@
+-- для базового виджета.
+-- Обычно используется как  @GuiWidget ScrollAreaData@.
 data ScrollAreaData = ScrollAreaData
 
-data ScrollAreaChilds = Scrolled | HBar | VBar | ArrL | ArrU | ArrRD | TmpScrolled
-                    deriving (Eq, Enum, Show, Bounded)
+-- | Не экспортируемый, внутренний тип дочерних виджетов @scrollArea@.
+-- Соответсвует номерам позиций в векторе дочерних виджетов.
+data ScrollAreaChilds = Scrolled -- ^ Собственно, прокручиваемый виджет.
+                      | HBar -- ^ Горизонтальный scrollbar (внизу).
+                      | VBar -- ^ Вертикальный scrollbar (справа).
+                      | ArrL -- ^ Кнопка "влево", в левом нижнем углу.
+                      | ArrU -- ^ Кнопка "вверх", в правом верхнем углу.
+                      | ArrRD -- ^ Кнопка "вниз или право" в правом нижнем углу.
+                      | TmpScrolled -- ^ Временная позиция прокручиваемого виджета после вставки.
+                                    -- далее перемещается в начало вектора виджетов.
+                      deriving (Eq, Enum, Show, Bounded)
 
-scrollArea :: MonadIO m => ScrollAreaDef -> Widget -> Skin -> m (GuiWidget ScrollAreaData)
+-- | Функция создания виджета-контейнера прокручивамой области.
+scrollArea :: MonadIO m => ScrollAreaDef ->  -- ^ Параметры виджета.
+                           Widget -> -- ^ Будующий предок в дереве виджетов.
+                           Skin -> -- ^ Skin.
+                           m (GuiWidget ScrollAreaData)
 scrollArea ScrollAreaDef{..} parent skin = do
 --    state <- newMonadIORef $ ScrollAreaStruct ScrollAreaNoFlags
         -- getChild = fmap fromJust . getWidgetChild selfWidget . fromEnum
@@ -303,6 +351,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
 
     return self
 
+-- | Реализация вставки виджета в scrollArea.
 instance WidgetComposer (GuiWidget ScrollAreaData) where
    w $+ initF = createWidget (getWidget w) initF
 

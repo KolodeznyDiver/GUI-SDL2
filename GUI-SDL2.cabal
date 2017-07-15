@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           GUI-SDL2
-version:        0.1.6
+version:        0.1.7
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -16,6 +16,11 @@ cabal-version:  >= 1.10
 
 extra-source-files:
     CHANGELOG.md
+    GUI.Resources/check.png
+    GUI.Resources/PTM55F.ttf
+    GUI.Resources/PTN57F.ttf
+    GUI.Resources/rss_circle.png
+    GUI.Resources/sync.png
     LICENSE.md
     package.yaml
     README.md
@@ -24,6 +29,11 @@ extra-source-files:
 source-repository head
   type: git
   location: https://github.com/KolodeznyDiver/GUI-SDL2
+
+flag examples
+  description: Build examples
+  manual: True
+  default: False
 
 library
   hs-source-dirs:
@@ -38,7 +48,7 @@ library
     , template-haskell
     , ghc
     , bytestring
-    , exceptions
+    , safe-exceptions
     , linear
     , StateVar
     , text
@@ -58,6 +68,9 @@ library
   if os(windows)
     build-depends:
         Win32
+  else
+    build-depends:
+        setlocale
   exposed-modules:
       GUI.BaseLayer.Depend0.Auxiliaries
       GUI.BaseLayer.Depend0.BitFlags
@@ -98,7 +111,7 @@ library
       GUI.Widget.Internal.LinearTrackBar
       GUI.Widget.Layout.TH.LinearLayout
       GUI.Widget.Layout.LinearLayout
-      GUI.Widget.Layout.Utils
+      GUI.Widget.Layout.LinearLayoutUtils
       GUI.Widget.TH.LinearTrackBar
       GUI.Widget.Button
       GUI.Widget.Handlers
@@ -124,22 +137,25 @@ library
 executable GUIDemo
   main-is: Main.hs
   hs-source-dirs:
-      executable
-  ghc-options: -Wall -Wname-shadowing -fwarn-tabs -rtsopts -threaded -with-rtsopts=-N
-  build-depends:
-      base
-    , GUI-SDL2
-    , bytestring
-    , exceptions
-    , linear
-    , text
-    , transformers
-    , vector
-    , sdl2
-    , sdl2-ttf
-    , sdl2-image
-    , stm
-    , ghc
-    , data-default
-    , text-show
+      examples
+  if flag(examples)
+    ghc-options: -Wall -Wname-shadowing -fwarn-tabs -rtsopts -threaded -with-rtsopts=-N
+    build-depends:
+        base
+      , GUI-SDL2
+      , bytestring
+      , safe-exceptions
+      , linear
+      , text
+      , transformers
+      , vector
+      , sdl2
+      , sdl2-ttf
+      , sdl2-image
+      , stm
+      , ghc
+      , data-default
+      , text-show
+  else
+    buildable: False
   default-language: Haskell2010

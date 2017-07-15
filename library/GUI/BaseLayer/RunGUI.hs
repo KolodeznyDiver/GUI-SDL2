@@ -20,7 +20,8 @@ import Foreign
 import Data.Monoid
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Map.Strict as Map (empty)
-import Control.Exception
+import Control.Exception.Safe
+import System.Exit
 import Control.Monad
 import System.Directory
 import Data.Char
@@ -28,7 +29,8 @@ import Data.Default
 import Data.Maybe
 import Maybes (whenIsJust)
 import MonadUtils (whenM)
-import TextShow (showb)
+import qualified TextShow as TS
+import           TextShow (showb)
 import qualified SDL
 import qualified SDL.Raw as Raw
 import qualified SDL.Internal.Types
@@ -59,9 +61,10 @@ import GUI.BaseLayer.Focus
 
 -- | Необязательные параметры инициализации GUI.
 data GUIDef = GUIDef {
-      -- | Параметры журналирования
+      -- | Параметры журналирования. См. "GUI.BaseLayer.Depend1.Logging".
       guiLogDef :: GUILogDef
-      -- | Оставлять ли консольное окно видимым (и выводить дублировать ли в него сообщения журанал).
+      -- | Оставлять ли консольное окно видимым и выводить дублировать ли в него сообщения журанала.
+      -- КОнсольное окно скрывается только для Windows.
     , guiConsoleVisible :: Bool
       -- | Явное указание директории данных для программы.
       -- В этой директории по умолчанию создаётся журнал.
@@ -77,7 +80,7 @@ data GUIDef = GUIDef {
 instance Default GUIDef where
     def = GUIDef { guiLogDef = def
                  , guiConsoleVisible = True
-                 , guiDataDirectory = "" -- set default. Not current dur.
+                 , guiDataDirectory = ""
                  , guiNaturalLanguage = ""
                  }
 
@@ -98,17 +101,17 @@ runGUI skin fntLst GUIDef{..} initFn =
                else return guiDataDirectory
     mbLog <- guiLogStart guiLogDef dataDir guiConsoleVisible
     whenIsJust mbLog $ \gLog -> do
-        let langCorr [l0,l1,_,c0,c1] = [toLower l0, toLower l1,'_',toUpper c0, toUpper c1]
-            langCorr _ = "en_US"
+        let langCorr (l0:l1:_:c0:c1:_) = [toLower l0, toLower l1,'_',toUpper c0, toUpper c1]
+            langCorr _ = defLangLocale
         uiLang <- langCorr <$> (if null guiNaturalLanguage then do
                                 m <- try $ getUILang
                                 case m of
                                     Right s -> return s
                                     Left  e -> do
                                         L.logPutLn gLog $ "Can't get system language : "
-                                           <> showb (e :: IOError)
-                                           <> "  Set en_US as default."
-                                        return "en_US"
+                                           <> showb (e :: IOError) <> "  Set " <>
+                                           (TS.fromString defLangLocale) <> " as default."
+                                        return defLangLocale
                         else return guiNaturalLanguage)
         SDL.TTF.withInit $
           bracket_ (IMAGE.initialize [IMAGE.InitJPG,IMAGE.InitPNG]) IMAGE.quit $
@@ -129,14 +132,23 @@ runGUI skin fntLst GUIDef{..} initFn =
                     delAllWindows gui
 --                    putStrLn "freeFinally"
                     guiGetLog gui >>= guiLogStop
+                logFatalException = (`catches` [
+                            Handler (\ e -> case e of
+                                                ExitFailure i -> L.logPutLn gLog $
+                                                  "GUI is failure terminated, return code : "
+                                                                     <> showb i
+                                                _ -> return () -- L.logPutLn gLog "GUI terminated success."
+                                   ),
+                            Handler (guiOnSomeException gui "GUI terminated on unhandled exception") ])
                 mainLoop = do
                     (SDL.Event _ evpl) <- SDL.waitEvent
                     unless (evpl == SDL.QuitEvent)
                         (onEvent gui evpl >> mainLoop)
-            (`finally` freeFinally) $ (`guiCatch` guiOnSomeException gui "runGUI") $ do
+            (`finally` freeFinally) $ logFatalException $ do
                 initFn gui
                 redrawAll gui
                 mainLoop
+ where defLangLocale = "en_US"
 
 -- | Не экспортируемая функция, вызываемяа только из @runGUI@ для обработки одного SDL сообщения из очереди.
 onEvent:: Gui -> SDL.EventPayload -> IO ()

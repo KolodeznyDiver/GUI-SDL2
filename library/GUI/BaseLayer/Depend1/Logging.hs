@@ -20,7 +20,7 @@ module GUI.BaseLayer.Depend1.Logging(
 import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class
-import Control.Exception
+import Control.Exception.Safe
 import Data.IORef
 import Data.Time
 import           System.Directory
@@ -138,8 +138,8 @@ logPutLn GUILog{..} msg' = do
 
 -- | Вывод информации об исключении. Функция должна вызываться из обработчика исключения.
 logOnSomeException :: GUILog -> -- ^ Журнал.
-                      TS.Builder -> -- Строка выводимая перед текстом исключения.
-                      SomeException -> -- Исключение.
+                      TS.Builder -> -- ^ Строка выводимая перед текстом исключения.
+                      SomeException -> -- ^ Исключение.
                       IO ()
 logOnSomeException gLog t e = logPutLn gLog $ t <> " : " <> showb e
 {-# INLINE logOnSomeException #-}

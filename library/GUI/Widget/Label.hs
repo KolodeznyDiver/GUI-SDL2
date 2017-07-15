@@ -3,18 +3,28 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
+-- |
+-- Module:      GUI.Widget.Label
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Надпись на форме. После создания может быть изменён текст и цвет.
+-- Текст может быть многострочным с переносом, см. "GUI.Utils.TextWrap".
+
 module GUI.Widget.Label(
-    -- GUI.Util.TextWrap
+    -- Реэкспорт из "GUI.Util.TextWrap"
     TextWrapMode(..),DrawTextDef(..),PreparedText(..)
-    -- GUI.Widget.Label
-    ,LabelDef(..),LabelData(..),label
+    -- * Типы для label.
+    ,LabelDef(..),LabelData
+    -- * Функция создания текстовой надписи.
+    ,label
     ) where
 
---import System.Exit -- for debug
 import Control.Monad
 import Control.Monad.IO.Class
---import Control.Monad.Trans.Class
---import Maybes (whenIsJust)
 import qualified Data.Text as T
 import Data.Bits
 import Data.IORef
@@ -22,20 +32,24 @@ import Data.Maybe
 import Data.Default
 import qualified SDL
 import SDL.Vect
---import qualified SDL.TTF as TTF
 import GUI
 import GUI.Utils.TextWrap
 import GUI.Widget.Handlers
 
-data LabelDef = LabelDef    { labelFormItemDef  :: FormItemWidgetDef
-                            , labelSize      :: GuiSize
-                            , labelFlags     :: WidgetFlags
-                            , labelAlignment :: Alignment
-                            , labelFontKey :: T.Text
-                            , labelColor :: Maybe GuiColor
-                            , labelBkColor :: Maybe GuiColor
-                            , labelWrapMode :: TextWrapMode
-                            , labelText  :: T.Text
+-- | Параметры создаваемой надписи.
+data LabelDef = LabelDef {
+          labelFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
+                                                 -- в настоящий момент только margin's.
+        , labelSize      :: GuiSize -- ^ Минимальные размеры виджета.
+        , labelFlags     :: WidgetFlags -- ^ Флаги базового виджета.
+        , labelAlignment :: Alignment -- ^ Выравнивание текста в пределах заданной области.
+        , labelFontKey :: T.Text -- ^ Шрифт текста, по умолчанию \"label\"
+                                 -- (весьма желательно добавлять элемент с таким ключом в таблицу шрифтов).
+        , labelColor :: Maybe GuiColor -- ^ Начальный цвет текста или @foregroundColor skin@.
+        , labelBkColor :: Maybe GuiColor -- ^ Цвет фона или @bkColor skin@.
+        , labelWrapMode :: TextWrapMode -- ^ Режим прокрутки текста. По умолчанию без переносов строк и без
+                                        -- увеличения размера виджета.
+        , labelText  :: T.Text -- ^ Отображаемый текст.
                             }
 
 instance Default LabelDef where
@@ -50,10 +64,12 @@ instance Default LabelDef where
                    , labelText = T.empty
                    }
 
+-- | Тип созданного виджета. Обычно используется как  @GuiWidget LabelData@.
 data LabelData = LabelData { labelPreparedText :: IORef PreparedText
                            , labelTextColor :: IORef GuiColor
                            }
 
+-- | label поддерживает возможность получить и изменить свою текстовую строку.
 instance TextProperty (GuiWidget LabelData) where
     setText (GuiWidget widget LabelData{..}) txt = do
         PreparedText{..} <- readMonadIORef labelPreparedText
@@ -64,6 +80,7 @@ instance TextProperty (GuiWidget LabelData) where
     getText (GuiWidget _ LabelData{..}) = (drawTextText . preparedTextDef) <$> readMonadIORef labelPreparedText
 
 
+-- | label поддерживает возможность получить и изменить цвет своего текста.
 instance TextColorProperty (GuiWidget LabelData) where
     setTextColor (GuiWidget widget LabelData{..}) color = do
         oc <- readMonadIORef labelTextColor
@@ -72,7 +89,11 @@ instance TextColorProperty (GuiWidget LabelData) where
             markWidgetForRedraw widget
     getTextColor (GuiWidget _ LabelData{..}) = readMonadIORef labelTextColor
 
-label :: MonadIO m => LabelDef -> Widget -> Skin -> m (GuiWidget LabelData)
+-- | Функция создания текстовой надписи.
+label :: MonadIO m => LabelDef -> -- ^ Параметры виджета.
+                      Widget -> -- ^ Будующий предок в дереве виджетов.
+                      Skin -> -- ^ Skin.
+                      m (GuiWidget LabelData)
 label LabelDef{..} parent skin = do
     p <- prepareText parent DrawTextDef  { drawTextRect = SDL.Rectangle zero $
                                                     sizeReplaceIfNoPositive (V2 100 100) labelSize
@@ -116,4 +137,3 @@ label LabelDef{..} parent skin = do
                 r <- getWidgetCanvasRect widget
                 prepareText widget preparedTextDef{drawTextRect=r} >>= writeMonadIORef prepRf
                                                 }
-

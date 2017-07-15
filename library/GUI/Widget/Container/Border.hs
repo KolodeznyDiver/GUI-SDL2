@@ -12,7 +12,7 @@
 -- Stability:   experimental
 -- Portability: portable
 --
--- @border@ отчасти выполняет рольдекоративного виджета, позволяющего создавать на форме
+-- @border@ отчасти выполняет роль декоративного виджета позволяющего создавать на форме
 -- различные, рамки, полоски, линии, прямоугольники. Возможно, с заголовками.
 --
 -- Однако, border, так же является и контейнером виджетов, т.е в него можно вставить другой виджет,
@@ -36,11 +36,11 @@ import qualified SDL
 import SDL.Vect
 import GUI
 
--- | Отсступ заголовка от края виджета.
+-- | Отступ заголовка от края виджета.
 pattern CaptionPaddingX :: Coord
 pattern CaptionPaddingX = 5
 
--- | Настройка фона
+-- | Настройка фона.
 data BorderBackground = BorderTransparent -- ^ Прозрачный.
                       | BorderBkColorOfSkin -- ^ взять цвет из поля @bkColor@ типа 'Skin'.
                       | BorderBkColor GuiColor -- ^ Свой цвет.
@@ -105,7 +105,10 @@ instance Default BorderDef where
 data BorderData = BorderData {brdbrDataOnlyOneChild :: Bool}
 
 -- | Функция создания бордера.
-border :: MonadIO m => BorderDef -> Widget -> Skin -> m (GuiWidget BorderData)
+border :: MonadIO m => BorderDef ->  -- ^ Параметры виджета.
+                       Widget -> -- ^ Будующий предок в дереве виджетов.
+                       Skin -> -- ^ Skin.
+                       m (GuiWidget BorderData)
 border BorderDef{..} parent skin = do
     let bkgrndColor = case borderBkgrnd of
                         BorderBkColor c -> c

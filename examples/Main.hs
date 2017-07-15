@@ -1,14 +1,42 @@
 {-# LANGUAGE CPP #-}
--- Для просмотра примеров изменять номер и перекомпилировать
-#define EXAMPLE_NUM 0
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
+-- |
+-- Module:      Main
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Набор примеров в одном файле.
+--
+-- Перед просмотром примеров потребуется или скопировать каталог GUI.Resources в
+--    Windows : C:\Users\User\AppData\Roaming\GUIDemo
+--    *nix    : ~/.local/share/GUIDemo
+-- либо задать переменную окружения GUIDEMO_GUIRESOURCES с полным путём к каталогу
+-- GUI.Resources в пакете включая в конце пути и сам GUI.Resources.
+--
+-- Для просмотра примеров изменять номер
+--
+-- > #define EXAMPLE_NUM 0
+--
+-- в этом файле, пересобрать пример и посмотреть что получилось:
+--
+-- > stack build --flag GUI-SDL2:examples --exec GUIDemo
+--
+
+
+#ifndef EXAMPLE_NUM
+#define EXAMPLE_NUM 0
+#endif
+
 module Main where
 
 import Data.Monoid
 import Control.Monad
-import Control.Exception
+import Control.Exception.Safe
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import qualified Data.Text as T
@@ -18,7 +46,7 @@ import qualified Data.Vector as V
 import Data.Bits
 import Data.Maybe
 import Data.Default
-import System.Exit
+-- import System.Exit
 import GHC.Conc
 import qualified SDL
 import SDL.Vect

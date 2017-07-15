@@ -1,6 +1,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
+-- |
+-- Module:      GUI.Widget.TH.LinearTrackBar
+-- Copyright:   (c) 2017 KolodeznyDiver
+-- License:     BSD3
+-- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Stability:   experimental
+-- Portability: portable
+--
+-- Генерация функций линейных трекбаров. Есть два более гибких в настройке :
+-- Горизонтальный hLinearTrackBar и вертикальный vLinearTrackBar, но оба определяются через одну slide (TH)
+-- функцию @mkLinearTrackBarQ@ т.к. имеют идентичную реализацию отличающуюся переменой координат осей.
+-- А так же два полученных из них : горизонтальный hTrackBar и вертикальный vTrackBar, со встроенными функциями отрисовки,
+-- см. "GUI.Widget.LinearTrackBar".
+
 module GUI.Widget.TH.LinearTrackBar(
     mkLinearTrackBarQ
                                    ) where
@@ -19,7 +33,10 @@ import GUI.Widget.Internal.LinearTrackBar
 pattern SliderMinLn :: Coord
 pattern SliderMinLn = 6
 
-mkLinearTrackBarQ :: DirectionVH -> DecsQ
+-- | Slide функция для создания функций горизонтального hLinearTrackBar или вертикального vLinearTrackBar
+-- трекбара в модуле "GUI.Widget.LinearTrackBar".
+mkLinearTrackBarQ :: DirectionVH -- ^ Направление трекбара. Так же определяет первую букву генерируемой функции.
+                     -> DecsQ
 mkLinearTrackBarQ direction = do
     argNameLst <- mapM newName ["initData","parent","skin"]
     mN <- newName "m"
