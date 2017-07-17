@@ -126,10 +126,11 @@ scrollArea ScrollAreaDef{..} parent skin = do
 --    state <- newMonadIORef $ ScrollAreaStruct ScrollAreaNoFlags
         -- getChild = fmap fromJust . getWidgetChild selfWidget . fromEnum
     let initScrllArFns = noChildrenFns scrollAreaSize
-    self@(GuiWidget selfWidget _) <- mkWidget scrollAreaFlags
+    self <- mkWidget scrollAreaFlags
                         (fromMaybe (formItemsMargin skin) $ formItemMargin scrollAreaItemDef)
                         ScrollAreaData parent initScrllArFns
-    -- временно создаём widget скроллируемой области. Она должна быть в начале childs
+    let selfWidget = getWidget self
+    -- временно создаём widget скроллируемой области. Она должна быть в начале childs.
     void $ mkSimpleWidget WidgetMarginNone selfWidget $ noChildrenFns scrollAreaSize
 
     let slidersColor = fromMaybe (GUI.scrollAreaSlidersColor skin) scrollAreaSlidersColor
@@ -158,35 +159,35 @@ scrollArea ScrollAreaDef{..} parent skin = do
         hSetCanvOff :: MonadIO m => Int -> m ()
         hSetCanvOff newV = do
             scrlW <- getScrolledWidget
-            (SDL.Rectangle (P (V2 xC yC)) (V2 wC hC)) <- getWidgetCanvasRect scrlW
+            (SDL.Rectangle (P (V2 xC yC)) szC) <- getWidgetCanvasRect scrlW
             when (newV/=xC) $ do
-                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 newV yC)) (V2 wC hC)
+                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 newV yC)) szC
                 markWidgetForRedraw selfWidget
         hSetCanvOffRelative :: MonadIO m => Int -> m ()
         hSetCanvOffRelative relV = do
             scrlW <- getScrolledWidget
-            (SDL.Rectangle (P (V2 xC yC)) (V2 wC hC)) <- getWidgetCanvasRect scrlW
+            (SDL.Rectangle (P (V2 xC yC)) szC) <- getWidgetCanvasRect scrlW
             vmax <- getMaxValue hBar
             let newV = toBound 0 vmax $ xC + relV
             when (newV/=xC) $ do
-                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 newV yC)) (V2 wC hC)
+                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 newV yC)) szC
                 updateByScrolled
                 markWidgetForRedraw selfWidget
         vSetCanvOff :: MonadIO m => Int -> m ()
         vSetCanvOff newV = do
             scrlW <- getScrolledWidget
-            (SDL.Rectangle (P (V2 xC yC)) (V2 wC hC)) <- getWidgetCanvasRect scrlW
+            (SDL.Rectangle (P (V2 xC yC)) szC) <- getWidgetCanvasRect scrlW
             when (newV/=yC) $ do
-                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 xC newV)) (V2 wC hC)
+                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 xC newV)) szC
                 markWidgetForRedraw selfWidget
         vSetCanvOffRelative :: MonadIO m => Int -> m ()
         vSetCanvOffRelative relV = do
             scrlW <- getScrolledWidget
-            (SDL.Rectangle (P (V2 xC yC)) (V2 wC hC)) <- getWidgetCanvasRect scrlW
+            (SDL.Rectangle (P (V2 xC yC)) szC) <- getWidgetCanvasRect scrlW
             vmax <- getMaxValue vBar
             let newV = toBound 0 vmax $ yC + relV
             when (newV/=yC) $ do
-                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 xC newV)) (V2 wC hC)
+                setWidgetCanvasRect scrlW $ SDL.Rectangle (P (V2 xC newV)) szC
                 updateByScrolled
                 markWidgetForRedraw selfWidget
         getBarsVisible :: MonadIO m => m (Bool,Bool)
@@ -220,6 +221,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
                     widgetOn hBar
                     widgetOn arrL
                 setMaxValue hBar (wC-w)
+                setLinearTrackBarSliderLn hBar $ fromIntegral w / fromIntegral wC
                 setValue hBar xC
             else when hBarVisible $ do
                     widgetOff hBar
@@ -229,6 +231,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
                     widgetOn vBar
                     widgetOn arrU
                 setMaxValue vBar (hC-h)
+                setLinearTrackBarSliderLn vBar $ fromIntegral h / fromIntegral hC
                 setValue vBar yC
             else when vBarVisible $ do
                     widgetOff vBar
@@ -239,7 +242,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
                 updtd <- arrRDSimpleUpdate needHBar needVBar
                 unless updtd $ do ms <- getMouseState arrRD
                                   when (ms == WidgetMouseOut) $ setRowNum arrRD 4
-            else when vBarVisible $
+            else when (hBarVisible || vBarVisible) $
                     widgetOff arrRD
 
         arrangeChild :: MonadIO m => GuiRect -> Int -> Widget -> m ()

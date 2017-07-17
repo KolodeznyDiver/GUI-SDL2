@@ -18,7 +18,6 @@ module GUI.Widget.Layout.LinearLayoutUtils where
 
 import qualified Data.Vector.Unboxed as VU
 import Data.IORef
-import Control.Monad.IO.Class (MonadIO)
 import Data.Default
 import SDL.Vect
 import GUI

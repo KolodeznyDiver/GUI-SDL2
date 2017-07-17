@@ -53,12 +53,14 @@ mkLinearTrackBarQ direction = do
                 dataRf <- newMonadIORef LinearTrackBarStruct  { lnrTrBrMin = linearTrackMinValue
                                                               , lnrTrBrMax = linearTrackMaxValue
                                                               , lnrTrBrVal = linearTrackBarPos
+                                                              , lnrTrBrSliderLn = linearTrackBarSliderLn
                                                               , lnrTrBrOnChanged = \_ -> return ()
                                                               }
                 let getSlideLn LinearTrackBarStruct{..} trackLn = toBound SliderMinLn trackLn (
-                        if (linearTrackBarSliderLn > 0) || (lnrTrBrMin >= lnrTrBrMax)
-                        then linearTrackBarSliderLn
-                        else mulDiv trackLn trackLn (max 1 $ lnrTrBrMax - lnrTrBrMin)     )
+                        round $ lnrTrBrSliderLn * fromIntegral trackLn
+                        {-if linearTrackBarSliderLn > 0 then linearTrackBarSliderLn
+                        else mulDiv trackLn trackLn (max 1 $ lnrTrBrMax - lnrTrBrMin)-}
+                                                                                              )
                     getSlideFromTo l@LinearTrackBarStruct{..} (SDL.Rectangle (P p0) sz) =
                         let track0 = $parallelGetFst p0
                             trackLn = $parallelGetFst sz

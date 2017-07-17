@@ -44,9 +44,9 @@ data LinearTrackBarDef = LinearTrackBarDef {
     , linearTrackMaxValue :: LinearTrackValueType
       -- | Начальное установленное значение. Пока виджет существует, можно изменять через @setValue@.
     , linearTrackBarPos      :: LinearTrackValueType
-      -- | Для hLinearTrackBar,hTrackBar длина слайдера, для vLinearTrackBar,vTrackBar высота в пикселях.
-      -- Если ==0, то подбирается автоматически.
-    , linearTrackBarSliderLn :: Coord
+      -- | Для hLinearTrackBar,hTrackBar длина слайдера делить на длину трекбара,
+      --   для vLinearTrackBar,vTrackBar высота слайдера делить на высоту трекбара.
+    , linearTrackBarSliderLn :: Double
       -- | Функция вызываемая для отрисовки виджета при настройках hLinearTrackBar,vLinearTrackBar.
       -- Для hTrackBar, vTrackBar оставить по умолчанию.
     , linearTrackBarDraw ::
@@ -73,7 +73,7 @@ instance Default LinearTrackBarDef where
                              , linearTrackMinValue = 0
                              , linearTrackMaxValue = 1000
                              , linearTrackBarPos  = 0
-                             , linearTrackBarSliderLn = 0
+                             , linearTrackBarSliderLn = 0.1
                              , linearTrackBarDraw = \ _ _ _ -> return ()
                              , linearTrackBarSliderDraw = \ _ _ _ -> return ()
                              , linearTrackBarRounder  = return
@@ -84,6 +84,7 @@ instance Default LinearTrackBarDef where
 data LinearTrackBarStruct = LinearTrackBarStruct    { lnrTrBrMin :: LinearTrackValueType
                                                     , lnrTrBrMax :: LinearTrackValueType
                                                     , lnrTrBrVal :: LinearTrackValueType
+                                                    , lnrTrBrSliderLn :: Double
                                                     , lnrTrBrOnChanged :: forall m. MonadIO m =>
                                                         LinearTrackValueType -> m ()
                                                     }

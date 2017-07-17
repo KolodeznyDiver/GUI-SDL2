@@ -21,9 +21,10 @@ module GUI.Widget.LinearTrackBar(
     -- GUI.Widget.Internal.LinearTrackBar
     LinearTrackValueType,LinearTrackBarDef(..),LinearTrackBarData
     -- GUI.Widget.LinearTrackBar
-    ,hLinearTrackBar,vLinearTrackBar,hTrackBar,vTrackBar
+    ,hLinearTrackBar,vLinearTrackBar,hTrackBar,vTrackBar,setLinearTrackBarSliderLn
                                    ) where
 
+import Control.Monad
 import Control.Monad.IO.Class
 import GUI
 import GUI.Widget.TH.LinearTrackBar
@@ -59,3 +60,12 @@ vTrackBar :: MonadIO m => LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget Li
 vTrackBar = hvTrackBar vLinearTrackBar
 {-# INLINE vTrackBar #-}
 
+-- | Установить новую длину ползунка в пикселях.
+setLinearTrackBarSliderLn :: MonadIO m => GuiWidget LinearTrackBarData -> Double -> m ()
+setLinearTrackBarSliderLn w v = do
+        let widg   = getWidget w
+            wStruc = getLnrTrBr $ getWidgetData w
+        a@LinearTrackBarStruct{..} <- readMonadIORef wStruc
+        when ( v > 0 && v /= lnrTrBrSliderLn) $ do
+            writeMonadIORef wStruc a{lnrTrBrSliderLn= v}
+            markWidgetForRedraw widg

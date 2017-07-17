@@ -23,11 +23,7 @@ module GUI.Window.MessageBox(
 
 import Control.Monad
 import Control.Monad.IO.Class
-import Maybes (whenIsJust)
 import qualified Data.Text as T
-import Data.Bits
-import Data.IORef
-import Data.Maybe
 import Data.Default
 import qualified TextShow as TS
 import qualified SDL
@@ -35,7 +31,6 @@ import SDL.Vect
 import GUI
 import GUI.BaseLayer.Primitives as P
 import GUI.Utils.TextWrap
-import GUI.Widget.Handlers
 import GUI.Widget.Label
 import GUI.Widget.Container.Border
 import GUI.Widget.Button
