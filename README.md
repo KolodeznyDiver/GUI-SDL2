@@ -26,16 +26,13 @@ Before you get started, you should:
 -   Modify `stack.yaml`, `packages:` section of this package if need (check paths).
 
 ``` sh
-# Build the project.
-stack build
-
-# Run the GUIDemo .
-stack exec GUIDemo
+# Build and run the GUIDemo .
+stack build --flag GUI-SDL2:examples --exec GUIDemo
 ```
 - When you first start **GUIDemo**, you will receive a message about which directory you want 
-  to copy the **GUI.Resources** directory. Copy to the first of the directories specified in the message. 
+  to copy the **GUI.Resources** directory. Copy to the first of the directories specified in this message. 
 
 - Change **EXAMPLE_NUM** in `src\Main.hs` to other numbers **0,1,2...** by selecting different examples to view and 
-  repeat `stack build` and `stack exec GUIDemo`. 
+  repeat `stack build --flag GUI-SDL2:examples --exec GUIDemo`. 
 
 [GUI-SDL2]: https://github.com/KolodeznyDiver/GUI-SDL2
