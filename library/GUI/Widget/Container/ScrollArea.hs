@@ -40,7 +40,7 @@ import Control.Monad.IO.Class
 import Data.Maybe
 import Data.Bits
 import Data.Default
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import qualified SDL
 import SDL.Vect
 import GUI
@@ -296,7 +296,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
     let scrllArFns = initScrllArFns{
         onSizeChangedParentNotify = \widget child _sz -> do
             mbI <- getChildWidgetIx widget child
-            whenIsJust mbI $ \i' -> do
+            whenJust mbI $ \i' -> do
                 i <- if toEnum i' == TmpScrolled then do
                         lastChildReplaceFirst widget
                         fns <- getWidgetFns child

@@ -21,7 +21,7 @@ module GUI.BaseLayer.Primitives(
 
 import Control.Monad.IO.Class (MonadIO)
 import Data.StateVar
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import qualified SDL
 import qualified SDL.Raw as Raw
 import SDL.Vect
@@ -175,7 +175,7 @@ renderStrOpaque renderer fnt color bkColor str =
 -- No exported.
 drawInternal :: MonadIO m => SDL.Renderer -> GuiPoint -> Maybe SDL.Texture -> m ()
 drawInternal renderer pnt mbTexture =
-    whenIsJust mbTexture $ \ t -> do
+    whenJust mbTexture $ \ t -> do
         drawTexture renderer t pnt
         SDL.destroyTexture t
 {-# INLINE drawInternal #-}
@@ -226,6 +226,6 @@ drawStrAligned renderer fnt align color mode rect str = do
             DrawStrFine -> renderStr renderer fnt color str
             DrawStrDraft -> renderStrDraft renderer fnt color str
             DrawStrOpaque bkColor -> renderStrOpaque renderer fnt color bkColor str
-    whenIsJust mbTexture $ \ t -> do
+    whenJust mbTexture $ \ t -> do
         drawTextureAligned renderer t align rect
         SDL.destroyTexture t

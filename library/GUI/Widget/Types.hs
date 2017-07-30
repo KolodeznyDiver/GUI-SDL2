@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PatternSynonyms #-}
 
@@ -20,13 +20,14 @@ module GUI.Widget.Types(
     -- * Обёртки для полиморфных функций.
     ,NoArgAction(..),OneArgAction(..),OneArgPredicate(..)
     -- * Распрстранённые для виджетов динамические \"проперти\".
-    ,Clickable(..),Changeable(..)
+    ,Clickable(..),DoubleClickable(..),Changeable(..)
     ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),RowNumProperty(..)
-    ,MouseStateProperty(..)
+    ,MouseStateProperty(..),OnEnd(..),Verifiable(..),Moveable(..),MarkersPropertyType,MarkersProperty(..)
                         ) where
 
 import Control.Monad.IO.Class
 import qualified Data.Text as T
+import qualified Data.Vector.Unboxed as VU
 import Data.Default
 import SDL.Vect
 import GUI.BaseLayer.Depend0.Types
@@ -63,42 +64,63 @@ newtype OneArgAction a = OneArgAction {oneArgAction :: forall m. MonadIO m => a 
 -- | Некий предикат с одним параметров.
 newtype OneArgPredicate a = OneArgPredicate {oneArgPredicate :: forall m. MonadIO m => a -> m Bool}
 
-class Clickable a where
-    onClick :: forall m. MonadIO m => a -> (forall n. MonadIO n => n ()) -> m ()
-
 -- | Для экземпляров этого класса типов можно назначить действие на щелчёк.
-class Changeable a b where
-    onChanged :: forall m. MonadIO m => a -> (forall n. MonadIO n => b -> n ()) -> m ()
+class Clickable a where
+    onClick :: MonadIO m => a -> (forall n. MonadIO n => n ()) -> m ()
+
+-- | Для экземпляров этого класса типов можно назначить действие на двойной щелчёк.
+class DoubleClickable a where
+    onDoubleClick :: MonadIO m => a -> (forall n. MonadIO n => n ()) -> m ()
+
+-- | Для экземпляров этого класса типов можно назначить действие вызываемое виджетом при изменении
+-- ассоциированного с ним значения.
+class Changeable a b | a -> b where
+    onChanged :: MonadIO m => a -> (forall n. MonadIO n => b -> n ()) -> m ()
 
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение некоего текста.
 class TextProperty a where
-    setText :: forall m. MonadIO m => a -> T.Text -> m ()
-    getText :: forall m. MonadIO m => a -> m T.Text
+    setText :: MonadIO m => a -> T.Text -> m ()
+    getText :: MonadIO m => a -> m T.Text
 
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение некоего цвета.
 class TextColorProperty a where
-    setTextColor :: forall m. MonadIO m => a -> GuiColor -> m ()
-    getTextColor :: forall m. MonadIO m => a -> m GuiColor
+    setTextColor :: MonadIO m => a -> GuiColor -> m ()
+    getTextColor :: MonadIO m => a -> m GuiColor
 
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение некоего диапазона значений.
-class MinMaxValueProperty a b where
-    setMinValue :: forall m. MonadIO m => a -> b -> m ()
-    getMinValue :: forall m. MonadIO m => a -> m b
-    setMaxValue :: forall m. MonadIO m => a -> b -> m ()
-    getMaxValue :: forall m. MonadIO m => a -> m b
+class MinMaxValueProperty a b | a -> b where
+    setMinValue :: MonadIO m => a -> b -> m ()
+    getMinValue :: MonadIO m => a -> m b
+    setMaxValue :: MonadIO m => a -> b -> m ()
+    getMaxValue :: MonadIO m => a -> m b
 
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение некоего значения.
-class ValueProperty a b where
-    setValue :: forall m. MonadIO m => a -> b -> m ()
-    getValue :: forall m. MonadIO m => a -> m b
+class ValueProperty a b | a -> b where
+    setValue :: MonadIO m => a -> b -> m ()
+    getValue :: MonadIO m => a -> m b
 
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение номера некоего ряда.
 class RowNumProperty a where
-    setRowNum :: forall m. MonadIO m => a -> Int -> m ()
-    getRowNum :: forall m. MonadIO m => a -> m Int
+    setRowNum :: MonadIO m => a -> Int -> m ()
+    getRowNum :: MonadIO m => a -> m Int
 
 -- | Для экземпляров этого класса типов можно назначить извлечение состояние мыши.
 class MouseStateProperty a where
-    getMouseState :: forall m. MonadIO m => a -> m WidgetMouseState
+    getMouseState :: MonadIO m => a -> m WidgetMouseState
 
+class OnEnd a b | a -> b where
+    onEnd :: MonadIO m => a -> (forall n. MonadIO n => b -> n ()) -> m ()
 
+class Verifiable a b | a -> b where
+    setVerifier :: MonadIO m => a -> (forall n. MonadIO n => b -> n Bool) -> m ()
+
+class Moveable a b | a -> b where
+    onMove :: MonadIO m => a -> (forall n. MonadIO n => b -> n ()) -> m ()
+
+type MarkersPropertyType = VU.Vector Bool
+
+-- | Для экземпляров этого класса типов можно назначить установку и извлечение
+-- @VU.Vectoor Bool@ - означающего какие элементы виджета маркированы.
+class MarkersProperty a where
+    setMarkers :: MonadIO m => a -> MarkersPropertyType -> m ()
+    getMarkers :: MonadIO m => a -> m MarkersPropertyType

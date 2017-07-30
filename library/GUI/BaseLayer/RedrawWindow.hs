@@ -24,7 +24,7 @@ import Data.Bits
 import Control.Monad.IO.Class
 import qualified Data.Vector as V
 import Control.Monad
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import GUI.BaseLayer.Depend0.Types
 import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend1.Geometry
@@ -125,7 +125,7 @@ redrawWindow rfWin force = do
         target $= Nothing
         SDL.clear renderer
         SDL.copy renderer buf Nothing  Nothing -- $ Just $ winRect
-        whenIsJust mbFg $ \ (buf',rect) ->
+        whenJust mbFg $ \ (buf',rect) ->
             SDL.copy renderer buf' Nothing $ Just (fmap fromIntegral rect)
         SDL.present renderer
 

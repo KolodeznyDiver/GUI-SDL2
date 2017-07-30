@@ -27,8 +27,7 @@ import System.Directory
 import Data.Char
 import Data.Default
 import Data.Maybe
-import Maybes (whenIsJust)
-import MonadUtils (whenM)
+import Control.Monad.Extra (whenJust,whenM)
 import qualified TextShow as TS
 import           TextShow (showb)
 import qualified SDL
@@ -100,7 +99,7 @@ runGUI skin fntLst GUIDef{..} initFn =
                     getXdgDirectory XdgData =<< getAppName
                else return guiDataDirectory
     mbLog <- guiLogStart guiLogDef dataDir guiConsoleVisible
-    whenIsJust mbLog $ \gLog -> do
+    whenJust mbLog $ \gLog -> do
         let langCorr (l0:l1:_:c0:c1:_) = [toLower l0, toLower l1,'_',toUpper c0, toUpper c1]
             langCorr _ = defLangLocale
         uiLang <- langCorr <$> (if null guiNaturalLanguage then do
@@ -253,7 +252,7 @@ onEvent gui evpl = case evpl of
                   )
                       ) ->
         do let sca@ShiftCtrlAlt{..} = getShftCtrlAlt km
-               hkMod = scaToKeyModifier sca
+               hkMod = scaToKeyModifiers sca
             -- key = SDL.unwrapKeycode keycode
            wasHK <- if motion == SDL.Pressed then chkHotKey gui hkMod keycode else return False
 {-           when (motion == SDL.Pressed) $
@@ -278,14 +277,21 @@ onEvent gui evpl = case evpl of
                                 delAllPopupWindows gui
 --                                putStrLn "GUI KeyboardEvent : main menu call"
                                 mmMb <- getWinMainMenu rfWin
-                                whenIsJust mmMb $ \widget -> do
+                                whenJust mmMb $ \widget -> do
                                     fns <- getWidgetFns widget
                                     logOnErr gui
                                       "onEvent.main menu call.onMouseButton" $
                                       onMouseButton fns widget SDL.Pressed SDL.ButtonLeft 1 zero
                     else when waitAlt $ windowFlagsRemove rfWin WindowWaitAlt
-                    mbf <- getFocusedWidget rfWin
-                    whenIsJust mbf $ \widget -> do
+                    next0 <- if (keycode==SDL.KeycodeEscape) && not isAlt && not isShift && not isCtrl then do
+                                closeOnEsc <- allWindowFlags rfWin WindowCloseOnEsc
+                                when closeOnEsc $ whenM (canWinClose rfWin) $
+                                        delWindowByIx gui win
+                                return $ not closeOnEsc
+                             else return True
+                    when next0 $ do
+                      mbf <- getFocusedWidget rfWin
+                      whenJust mbf $ \widget -> do
                         let onOrdinalKey = do
                                 fs <- getWidgetFns widget
 --                                        putStrLn $ concat [ "KeyboardEvent,onOrdinalKey  motion=",
@@ -319,7 +325,7 @@ onEvent gui evpl = case evpl of
         withWindow win $ \rfWin -> do
 --            putStrLn ("TextInputEvent text=" ++ T.unpack text)
             mbf <- getFocusedWidget rfWin
-            whenIsJust mbf $ \widget -> do
+            whenJust mbf $ \widget -> do
                 fs <- getWidgetFns widget
                 logOnErr gui "onEvent.TextInputEvent.onTextInput" $
                     onTextInput fs widget text
@@ -367,7 +373,7 @@ onEvent gui evpl = case evpl of
 --        putStrLn $ concat ["MouseWheelEvent  ", show pos, "    ", show dir]
         withWindow win $ \rfWin -> do
             mbf <- getFocusedWidget rfWin
-            whenIsJust mbf $ \widget -> do
+            whenJust mbf $ \widget -> do
 --                putStrLn "MouseWheelEvent : FocusedWidget found"
                 let findWellControll widg = do
                         found <- allWidgetFlags widg $ WidgetMouseWheelControl .|. WidgetEnable
@@ -403,12 +409,12 @@ onEvent gui evpl = case evpl of
             logOnErr gui "onEvent.widgetMouseLostNotify.onLostMouseFocus" $
                 onLostMouseFocus fs widget
 --        withWindow :: MonadIO m => GuiWindowIx -> (Window -> m ()) -> m ()
-        withWindow win f = getWindowByIx gui win >>= (`whenIsJust` f)
+        withWindow win f = getWindowByIx gui win >>= (`whenJust` f)
         withNoLockedWindow win f = withWindow win $ \ rfWin -> do
             isLocked <- allWindowFlags rfWin WindowLocked
             if isLocked then do
                 g <- readMonadIORef gui
-                whenIsJust (listToMaybe $ guiModalWins g)
+                whenJust (listToMaybe $ guiModalWins g)
                     (`withWindow` (SDL.raiseWindow <=< getSDLWindow))
             else f rfWin
         winMouseLost rfWin = do
@@ -417,7 +423,7 @@ onEvent gui evpl = case evpl of
                                         setWidgetUnderCursor rfWin Nothing
                                         setWinCursorIx rfWin DefCursorIx
                                         mbCW <- getMouseCapturedWidget rfWin
-                                        whenIsJust mbCW $ \ widget -> do
+                                        whenJust mbCW $ \ widget -> do
                                             resetMouseCaptured rfWin
                                             markWidgetForRedraw widget
                                         redrawAll gui
@@ -447,7 +453,7 @@ onEvent gui evpl = case evpl of
                             let nw = fst <$> mbWO
                             when (nw /= ow) $ do
                                 widgetMouseLostNotify ow
-                                whenIsJust mbWO $ \(widget,offset) ->
+                                whenJust mbWO $ \(widget,offset) ->
                                     whenM (isWidgetEnable widget) $ do
                                         fs <- getWidgetFns widget
                                         logOnErr gui "onEvent.onMouseAction.onGainedMouseFocus" $

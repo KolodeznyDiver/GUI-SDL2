@@ -36,12 +36,13 @@ module GUI.BaseLayer.Core(
 
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
+import Data.Bits
 import qualified Data.Text as T
 import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import Data.Default
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import Data.StateVar
 import qualified SDL
 import SDL.Vect
@@ -91,7 +92,7 @@ newWindow' rfGui winTitle winFl winCfg = do
                                    , winSDL = wSDL
                                    , winRenderer = rSDL
                                    , mainWidget = undefined
-                                   , winFlags = winFl
+                                   , winFlags = winFl .|. WindowRedrawFlag
                                    , specStateWidget = WidgetNoSpecState
                                    , widgetUnderCursor = Nothing
                                    , focusedWidget = Nothing
@@ -139,7 +140,7 @@ newWindow rfGui winTitle = newWindow' rfGui winTitle WindowRedrawFlag
 
 -- | Создание модального окна. Не должно быть первым.
 -- Пока окно открыто, другие окна недоступны. При создании второго модального окна они логически
--- располагаются стекомю. Т.е. при закрытии последнего модального предпоследнее становится доступным.
+-- располагаются стеком. Т.е. при закрытии последнего модального предпоследнее становится доступным.
 -- В остальном, см. @newWindow'@.
 newModalWindow':: MonadIO m => Gui -> T.Text -> WindowFlags -> SDL.WindowConfig -> m Window
 newModalWindow' rfGui winTitle winFl winCfg = do
@@ -238,10 +239,10 @@ delWindowByIx gui winIx = do
                 (modalIx:rest) | modalIx == winIx -> do
                     case rest of
                         [] -> mapM_ (`windowFlagsRemove` WindowLocked) $ Map.elems m
-                        (prev:_) -> whenIsJust (Map.lookup prev m) (`windowFlagsRemove` WindowLocked)
+                        (prev:_) -> whenJust (Map.lookup prev m) (`windowFlagsRemove` WindowLocked)
                     return rest
                 x -> return x  -}
-    whenIsJust (Map.lookup winIx m) $ \ rfWin -> do
+    whenJust (Map.lookup winIx m) $ \ rfWin -> do
             delWidget =<< getWindowForegroundWidget rfWin
             delWidget =<< getWindowMainWidget rfWin
             win <- readMonadIORef rfWin
@@ -265,7 +266,7 @@ delWindowByIx gui winIx = do
                                         (modalIx:rest) | modalIx == winIx -> do
                                             case rest of
                                                 [] -> mapM_ (`windowFlagsRemove` WindowLocked) $ Map.elems wins'
-                                                (prev:_) -> whenIsJust (Map.lookup prev wins') (`windowFlagsRemove` WindowLocked)
+                                                (prev:_) -> whenJust (Map.lookup prev wins') (`windowFlagsRemove` WindowLocked)
                                             return rest
                                         x -> return x
                             return (wins', modals)

@@ -41,7 +41,8 @@ mkPopupWindow widget (SDL.Rectangle (P p) sz) = do
     gui <- getWindowGui win
     offset <- getWidgetCoordOffset widget
     absPos <- SDL.getWindowAbsolutePosition =<< getSDLWindow win
-    newWindow' gui T.empty (WindowRedrawFlag .|. WindowCloseOnLostFocuse .|. WindowPopupFlag) $
+    newWindow' gui T.empty
+        (WindowRedrawFlag .|. WindowCloseOnLostFocuse .|. WindowPopupFlag .|. WindowCloseOnEsc) $
         SDL.defaultWindow { SDL.windowInitialSize = P.toSDLV2 sz
                           , SDL.windowBorder = False
                           , SDL.windowPosition = SDL.Absolute $ P $ P.toSDLV2 (p ^+^ offset) ^+^ absPos

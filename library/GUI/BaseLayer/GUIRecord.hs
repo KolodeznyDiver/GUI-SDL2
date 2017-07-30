@@ -41,7 +41,7 @@ import Control.Monad.IO.Class (MonadIO,liftIO)
 import Control.Exception.Safe
 import System.Exit
 import qualified Data.Map.Strict as Map
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import qualified Data.Text as T
 import           Data.ByteString.Char8   (ByteString)
 import qualified TextShow as TS
@@ -111,7 +111,7 @@ getWindowByIx gui ix = (Map.lookup ix . guiWindows) <$> readMonadIORef gui
 
 -- | Выполнить действие для окна по индексу, если такое есть.
 doForWinByIx:: MonadIO m => (Window -> m ()) -> Gui -> GuiWindowIx -> m ()
-doForWinByIx f gui winIx = (`whenIsJust` f) =<< Map.lookup winIx <$> getWindowsMap gui
+doForWinByIx f gui winIx = (`whenJust` f) =<< Map.lookup winIx <$> getWindowsMap gui
 
 -- | Выполнить действие для всех зарегестрированных в GUI окон.
 allWindowsMap_:: MonadIO m => (Window -> m ()) -> Gui -> m ()

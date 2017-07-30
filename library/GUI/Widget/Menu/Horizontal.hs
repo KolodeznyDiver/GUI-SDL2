@@ -191,7 +191,7 @@ horizontalMenu HorizontalMenuDef{..} parent skin = do
                 v <- readMonadIORef items
                 nSel <- readMonadIORef selectedItNum
                 nActive <- readMonadIORef activeItNum
-                let menuBkColor = bkColor skin
+                let menuBkColor = decoreBkColor (formDecore skin)
                 r <- getVisibleRect widget
                 setColor menuBkColor
                 fillRect r

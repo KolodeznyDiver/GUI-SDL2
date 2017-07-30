@@ -33,7 +33,7 @@ import GUI.Widget.Internal.LinearTrackBar
 pattern SliderMinLn :: Coord
 pattern SliderMinLn = 6
 
--- | Slide функция для создания функций горизонтального hLinearTrackBar или вертикального vLinearTrackBar
+-- | Splice функция для создания функций горизонтального hLinearTrackBar или вертикального vLinearTrackBar
 -- трекбара в модуле "GUI.Widget.LinearTrackBar".
 mkLinearTrackBarQ :: DirectionVH -- ^ Направление трекбара. Так же определяет первую букву генерируемой функции.
                      -> DecsQ
@@ -56,51 +56,52 @@ mkLinearTrackBarQ direction = do
                                                               , lnrTrBrSliderLn = linearTrackBarSliderLn
                                                               , lnrTrBrOnChanged = \_ -> return ()
                                                               }
-                let getSlideLn LinearTrackBarStruct{..} trackLn = toBound SliderMinLn trackLn (
-                        round $ lnrTrBrSliderLn * fromIntegral trackLn
+                let getSlideLn l trackLn = toBound SliderMinLn trackLn (
+                        round $ lnrTrBrSliderLn l * fromIntegral trackLn
                         {-if linearTrackBarSliderLn > 0 then linearTrackBarSliderLn
-                        else mulDiv trackLn trackLn (max 1 $ lnrTrBrMax - lnrTrBrMin)-}
+                        else mulDiv trackLn trackLn (max 1 $ lnrTrBrMax l - lnrTrBrMin l)-}
                                                                                               )
-                    getSlideFromTo l@LinearTrackBarStruct{..} (SDL.Rectangle (P p0) sz) =
+                    getSlideFromTo l (SDL.Rectangle (P p0) sz) =
                         let track0 = $parallelGetFst p0
                             trackLn = $parallelGetFst sz
                             track1 = track0 + trackLn
                             slideLn = getSlideLn l trackLn
                             hf = slideLn `div` 2
                             result x = (max 0 $ x - hf, x + hf) in
-                        if lnrTrBrMin >= lnrTrBrMax
+                        if lnrTrBrMin l >= lnrTrBrMax l
                         then {- return $ -} result hf
                         else {- do
                                 let res = -}
                                  result $ toBound (track0 + hf) (track1 - hf) $
-                                        hf + mulDiv (trackLn - slideLn) (lnrTrBrVal-lnrTrBrMin)
-                                               (lnrTrBrMax - lnrTrBrMin)
+                                        hf + mulDiv (trackLn - slideLn)
+                                               (lnrTrBrVal l - lnrTrBrMin l)
+                                               (lnrTrBrMax l - lnrTrBrMin l)
 {-                                liftIO $ putStrLn $ concat ["getSlideFromTo  r=",rectToBriefStr r,
                                     "  track0=", show track0,
                                     "  trackLn=", show trackLn, "  slideLn=", show slideLn,
-                                    "  hf=", show hf, "  lnrTrBrVal=", show lnrTrBrVal,
+                                    "  hf=", show hf, "  lnrTrBrVal=", show $ lnrTrBrVal l,
                                     "  mulDiv args=", show (trackLn - slideLn),",",
-                                    show (lnrTrBrVal-lnrTrBrMin),",",show (lnrTrBrMax - lnrTrBrMin),
-                                    " mulDiv=", show (mulDiv (trackLn - slideLn) (lnrTrBrVal-lnrTrBrMin)
-                                                     (lnrTrBrMax - lnrTrBrMin))]
+                                    show (lnrTrBrVal l -lnrTrBrMin l),",",show (lnrTrBrMax l - lnrTrBrMin l),
+                                    " mulDiv=", show (mulDiv (trackLn - slideLn) (lnrTrBrVal l -lnrTrBrMin l)
+                                                     (lnrTrBrMax l - lnrTrBrMin l))]
                                 return res  -}
-                    getNewValByCoord l@LinearTrackBarStruct{..} (SDL.Rectangle (P p0) sz) coord =
+                    getNewValByCoord l (SDL.Rectangle (P p0) sz) coord =
                         let coord0 =  $parallelGetFst p0
                             trackLn = $parallelGetFst sz
                             sliderLn = getSlideLn l trackLn in
-                        toBound lnrTrBrMin lnrTrBrMax $ lnrTrBrMin + mulDiv
+                        toBound (lnrTrBrMin l) (lnrTrBrMax l) $ lnrTrBrMin l + mulDiv
                               (coord - coord0 - (sliderLn `div` 2))
-                              (lnrTrBrMax - lnrTrBrMin) (max 1 $ trackLn - sliderLn)
-                    getNewValByMouse l@LinearTrackBarStruct{..} (SDL.Rectangle _ sz) deltaCoord oldV =
+                              (lnrTrBrMax l - lnrTrBrMin l) (max 1 $ trackLn - sliderLn)
+                    getNewValByMouse l (SDL.Rectangle _ sz) deltaCoord oldV =
                         let trackLn = $parallelGetFst sz in
-                        toBound lnrTrBrMin lnrTrBrMax $ oldV + mulDiv deltaCoord (lnrTrBrMax - lnrTrBrMin)
-                                                           (max 1 $ trackLn - getSlideLn l trackLn)
-                    setNewVIfChange widget l@LinearTrackBarStruct{..} newV =
-                            when (newV /= lnrTrBrVal) $ do
+                        toBound (lnrTrBrMin l) (lnrTrBrMax l) $
+                            oldV + mulDiv deltaCoord (lnrTrBrMax l - lnrTrBrMin l)
+                                          (max 1 $ trackLn - getSlideLn l trackLn)
+                    setNewVIfChange widget l newV =
+                            when (newV /= lnrTrBrVal l) $ do
                                 writeMonadIORef dataRf l{lnrTrBrVal=newV}
                                 markWidgetForRedraw widget
-                                --oneArgAction
-                                lnrTrBrOnChanged newV
+                                lnrTrBrOnChanged l newV
 
                     setValByMouse widget (P p) = do
                         (oldC,oldV) <- readMonadIORef rfSliderTraceState

@@ -64,15 +64,17 @@ import GUI.Widget.Menu.Horizontal
 import GUI.Widget.Container.Border
 import GUI.Widget.TextEdit
 import GUI.Window.MessageBox
+import GUI.Widget.RollView
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
 
         -- Список предзагруженных шрифтов : ключ, имя файла, размер шрифта, опции
         [GuiFontDef ""            "PTM55F.ttf" 14 def -- по молч., если не найден указанный ключ
-        ,GuiFontDef "label"       "PTN57F.ttf" 15 def
+        ,GuiFontDef "label"       "PTN57F.ttf" 15 def -- label
         ,GuiFontDef "edit"        "PTM55F.ttf" 14 def{ fontHinting = Just TTFHNone
                                                      , fontKerning = Just KerningOff }
+        ,GuiFontDef "roll"        "PTM55F.ttf" 14 def -- rollView
         ,GuiFontDef "small"       "PTN57F.ttf" 13 def
         ,GuiFontDef "menu"        "PTN57F.ttf" 14 def
         ,GuiFontDef "hello world" "PTN57F.ttf" 28 def{fontStyle = Just def { fontBold = True
@@ -352,16 +354,42 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     vL <- win $+ vLayout def -- {layoutAlignment = AlignCenterTop}
     hL0 <- vL $+ hLayout def
     lb <- hL0 $+ label def{labelSize=V2 150 20, labelText="Поле редактирования :"}
-    ed <- hL0 $+ textEdit def{textEditText="qwerty01234567890"}
+    ed <- hL0 $+ textEdit def{textEditText="qwerty012"}
     onChanged ed $ \ t ->
         setText lb t
-    onTextEditAtEnd ed $ \ t ->
+    onEnd ed $ \ _t ->
         setText lb "Enter or lost focuse"
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
     onClick btn $
         allWidgetFlags (getWidget ed) WidgetEnable >>= enableWidget ed . not
 
-    setWidgetFocus $ getWidget ed
+    setFocus ed
+#elif EXAMPLE_NUM == 11
+    let textVector = V.generate 20 $ \i -> TS.toText $ "Элемент номер " <> showb i
+    vL <- win $+ vLayout def
+    lb <- vL $+ label def{labelSize=V2 350 20, labelText="Здесь будет отображаться текущая строка"}
+    roll <- vL $+ rollView def{rollViewSize = V2 350 200
+                              ,rollViewRollFlags = rollViewRollFlags def  .|. MultiSelectRollFlag
+                              } $ RollViewText textVector
+    onMove roll $ \ i ->
+        setText lb $ textVector V.! i
+    onDoubleClick roll $ do
+        i <- getRowNum roll
+        setText lb $ TS.toText $ "Двойной щелчёк на элементе номер " <> showb i
+    btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
+    onClick btn $
+        allWidgetFlags (getWidget roll) WidgetEnable >>= enableWidget roll . not
+
+    setFocus roll
+#elif EXAMPLE_NUM == 12
+    let textVector = V.generate 20 $ \i -> TS.toText $ "Элемент номер " <> showb i
+    vL <- win $+ vLayout def
+    btn <- vL $+ button def{btnSize = V2 200 35, btnText = "Вызов выпадающего списка"}
+    onClick btn $ do
+        let widget = getWidget btn
+        (SDL.Rectangle _ (V2 _ y)) <- getWidgetRect widget
+        popupRollView widget (SDL.Rectangle (P (V2 0 y)) (V2 150 100)) (RollViewText textVector) $ \ i ->
+            say gui MsgBoxOk $ "Выбран элемент номер " <> showb i
 #else
     #error EXAMPLE_NUM is out of range
 #endif
@@ -493,7 +521,7 @@ framesTest :: MonadIO m => Widget -> Skin -> m (GuiWidget SimpleWidget)
 framesTest parent Skin{..} = mkSimpleWidget (WidgetMarginXY 20 10) parent (noChildrenFns $ V2 300 80){
             onDraw= \ widget -> do
                 visibleRect@(SDL.Rectangle p0 _) <- getVisibleRect widget
-                setColor bkColor
+                setColor $ decoreBkColor formDecore
                 fillRect visibleRect
                 let rect0 = SDL.Rectangle (p0 .+^ V2 10 10)  (V2 50 50)
                     ligthColor = grayColor 240

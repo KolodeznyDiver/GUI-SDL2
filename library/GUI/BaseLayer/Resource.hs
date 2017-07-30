@@ -100,8 +100,7 @@ import Data.IORef
 import qualified Data.Text as T
 import qualified Data.ByteString.Char8 as B
 import qualified Data.HashMap.Strict as HM
-import MonadUtils (unlessM)
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust,unlessM)
 import qualified TextShow as TS
 import qualified SDL
 import SDL.Vect
@@ -328,13 +327,13 @@ rmLoadFont r (GuiFontDef abbr pth fntSz opts) = do
 -- корректного отображения виджетов.
 fontTuning :: MonadIO m => TTFFont -> GuiFontOptions -> m ()
 fontTuning fnt GuiFontOptions{..} = do
-    whenIsJust fontKerning $ \ kerning -> do
+    whenJust fontKerning $ \ kerning -> do
         old <- TTF.fontKerningEnabled fnt
         when (old /= kerning) $ TTF.setFontKerning fnt kerning
-    whenIsJust fontHinting $ \ hinting -> do
+    whenJust fontHinting $ \ hinting -> do
         old <- TTF.getFontHinting fnt
         when (old /= hinting) $ TTF.setFontHinting fnt hinting
-    whenIsJust fontStyle $ \ style -> setFontStyleIfNeed fnt style
+    whenJust fontStyle $ \ style -> setFontStyleIfNeed fnt style
 
 -- | Получить курсор из кеша по индексу курсора. См. "GUI.BaseLayer.Depend0.Cursor".
 rmGetCursor:: MonadIO m => ResourceManager -> CursorIx -> m GuiCursor

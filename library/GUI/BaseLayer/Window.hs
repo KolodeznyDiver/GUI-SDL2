@@ -25,7 +25,7 @@ module GUI.BaseLayer.Window(
     ,getWinId'',getWinId',getWinId
     -- * Флаги окна.
     ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
-    ,pattern WindowPopupFlag,pattern WindowLocked
+    ,pattern WindowPopupFlag,pattern WindowLocked,pattern WindowCloseOnEsc
     ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
@@ -57,24 +57,22 @@ pattern WindowRedrawFlag :: WindowFlags
 pattern WindowCloseOnLostFocuse :: WindowFlags
 pattern WindowWaitAlt :: WindowFlags
 pattern WindowPopupFlag :: WindowFlags
-
 pattern WindowHaveKeyboardFocus :: WindowFlags
 pattern WindowHaveMouseFocus :: WindowFlags
 pattern WindowClickable :: WindowFlags
 pattern WindowLocked :: WindowFlags
---pattern WindowModal :: WindowFlags
+pattern WindowCloseOnEsc :: WindowFlags
                                       --  5432109876543210
 pattern WindowNoFlags        =    Flags 0x0000000000000000
 pattern WindowRedrawFlag =        Flags 0x0000000000000001
 pattern WindowCloseOnLostFocuse = Flags 0x0000000000000002
 pattern WindowWaitAlt =           Flags 0x0000000000000004
 pattern WindowPopupFlag =         Flags 0x0000000000000008
-
 pattern WindowHaveKeyboardFocus = Flags 0x0000000000000010
 pattern WindowHaveMouseFocus =    Flags 0x0000000000000020
 pattern WindowClickable =         Flags 0x0000000000000040
 pattern WindowLocked =            Flags 0x0000000000000080
---pattern WindowModal =             Flags 0x0000000000000100
+pattern WindowCloseOnEsc =        Flags 0x0000000000000100
 
 -- | Получить SDL тип окна из окна GUI.
 getSDLWindow:: MonadIO m => Window -> m SDL.Window

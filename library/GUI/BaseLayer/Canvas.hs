@@ -171,17 +171,17 @@ drawLine p0 p1 =  do { c <- ask; lift $ SDL.drawLine (canvasRenderer c) (toSDLPo
 drawLines :: MonadIO m => V.Vector GuiPoint -> Canvas m ()
 drawLines v = do{ c <- ask; lift $ SDL.drawLines (canvasRenderer c) $ V.map (toSDLPoint c) v}
 
--- | Нарисовать не закрашенный прямоугольник.
+-- | Нарисовать незакрашенный прямоугольник.
 drawRect :: MonadIO m => GuiRect -> Canvas m ()
 drawRect r = do{ c <- ask; lift $ SDL.drawRect (canvasRenderer c) $ Just $ toSDLRect c r}
 {-# INLINE drawRect #-}
 
--- | Нарисовать несколько не закрашенных прямоугольников.
+-- | Нарисовать несколько незакрашенных прямоугольников.
 drawRects :: MonadIO m => V.Vector GuiRect -> Canvas m ()
 drawRects v = do{ c <- ask; lift $ SDL.drawRects (canvasRenderer c) $ V.map (toSDLRect c) v}
 {-# INLINE drawRects #-}
 
--- | Нарисовать не закрашенный прямоугольник.
+-- | Нарисовать незакрашенный прямоугольник.
 fillRect :: MonadIO m => GuiRect -> Canvas m ()
 fillRect r = do{ c <- ask; lift $ SDL.fillRect (canvasRenderer c) $ Just $ toSDLRect c r}
 {-# INLINE fillRect #-}

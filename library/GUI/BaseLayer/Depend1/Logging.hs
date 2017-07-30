@@ -30,8 +30,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TIO
 import qualified TextShow as TS
 import           TextShow (showb)
-import Maybes (whenIsJust)
-import MonadUtils (unlessM)
+import Control.Monad.Extra (whenJust,unlessM)
 import Data.Default
 import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend0.Auxiliaries
@@ -101,7 +100,7 @@ guiLogStart GUILogDef{..} dataDirectory outToConsole =
 -- | Функция должна быть вызвана для завершения логирования при завершении приложения.
 guiLogStop :: GUILog -> IO ()
 guiLogStop GUILog{..} =
-    whenIsJust logGUILog' $ \GUILog'{..} -> do
+    whenJust logGUILog' $ \GUILog'{..} -> do
       unlessM (readMonadIORef logWriteFail) $
         hFlush logHandle
       hClose logHandle
@@ -116,7 +115,7 @@ logPutLn GUILog{..} msg' = do
               TS.fromLazyText (if TL.null t || (TL.last t /= '\n') then t else TL.tail t)
     when logOutToConsole $
         liftIO $ TIO.putStrLn $ TS.toLazyText msg
-    whenIsJust logGUILog' $ \GUILog'{..} ->
+    whenJust logGUILog' $ \GUILog'{..} ->
       unlessM (readMonadIORef logWriteFail) $ do
         let addT frmt = ((<> msg) . TS.fromString .
                             formatTime defaultTimeLocale frmt . utcToLocalTime logTZ)

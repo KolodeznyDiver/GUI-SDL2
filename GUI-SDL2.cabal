@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           GUI-SDL2
-version:        0.1.8
+version:        0.1.9
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -38,7 +38,7 @@ flag examples
 library
   hs-source-dirs:
       library
-  ghc-options: -Wall -Wname-shadowing -fwarn-tabs
+  ghc-options: -Wall -Wname-shadowing -fwarn-tabs -Werror
   extra-libraries:
       SDL2
       SDL2_ttf
@@ -46,7 +46,7 @@ library
   build-depends:
       base
     , template-haskell
-    , ghc
+    , extra
     , bytestring
     , safe-exceptions
     , linear
@@ -54,6 +54,7 @@ library
     , text
     , transformers
     , vector
+    , primitive
     , containers
     , unordered-containers
     , data-default
@@ -118,6 +119,7 @@ library
       GUI.Widget.Menu.Horizontal
       GUI.Widget.Label
       GUI.Widget.LinearTrackBar
+      GUI.Widget.RollView
       GUI.Widget.Splitter
       GUI.Widget.TextEdit
       GUI.Widget.TH
@@ -125,6 +127,7 @@ library
       GUI.Window.MessageBox
       GUI.Window.PopupMenu
       GUI
+      Data.Container.DirectAccess
       Data.Vector.Utils
       System.Utils
   other-modules:
@@ -139,7 +142,7 @@ executable GUIDemo
   hs-source-dirs:
       examples
   if flag(examples)
-    ghc-options: -Wall -Wname-shadowing -fwarn-tabs -rtsopts -threaded -with-rtsopts=-N
+    ghc-options: -Wall -Wname-shadowing -fwarn-tabs -Wno-unused-imports -Werror -rtsopts -threaded -with-rtsopts=-N
     build-depends:
         base
       , GUI-SDL2
@@ -153,7 +156,7 @@ executable GUIDemo
       , sdl2-ttf
       , sdl2-image
       , stm
-      , ghc
+      , extra
       , data-default
       , text-show
   else

@@ -143,7 +143,7 @@ splitter parent skin = do
                 setColor decoreFgColor
                 fillRect $ shrinkRect' 2 r
             else do
-                setColor $ bkColor skin
+                setColor $ decoreBkColor (formDecore skin)
                 fillRect r
 --            liftIO $ putStrLn $ concat ["label.onDraw getVisibleRect=", rectToBriefStr r]
                             }

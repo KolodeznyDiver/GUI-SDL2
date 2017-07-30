@@ -42,7 +42,7 @@ import qualified Data.Vector.Mutable as VM
 import Data.Ix
 import Data.Bits
 import System.FilePath
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import qualified SDL
 import SDL.Vect
 import SDL.Internal.Numbered (FromNumber(..))
@@ -334,26 +334,26 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                                 SDL.KeycodeRight | Item{itemType=(SubmenuItem subMenu)}
                                                         <- items V.! o -> doSubmenu widget o subMenu
                                 SDL.KeycodeLeft   -> returnToPrevPopup
-                                SDL.KeycodeEscape -> returnToPrevPopup
+--                                SDL.KeycodeEscape -> returnToPrevPopup
                                 _ -> return ())
         ,onDraw= \widget -> do
                 nSel <- readMonadIORef selectedItNum
                 r@(SDL.Rectangle _ (V2 fullW _)) <- getVisibleRect widget
                 draw3DFrame (brdr3DLightColor $ popupMnuBorderColors skin)
                             (brdr3DDarkColor  $ popupMnuBorderColors skin)
-                            (popupMnuBkColor skin) BorderThickness r
+                            (decoreBkColor (popupMnuDecore skin)) BorderThickness r
                 (`V.imapM_` items) $ \ i t -> do
                     let ItemCoord{..}= itemsCoord V.! i
-                        bkClr = (if i==nSel then popupMnuInColor else popupMnuBkColor) skin
+                        bkClr = (if i==nSel then popupMnuInColor else decoreBkColor . popupMnuDecore) skin
                         yCenter = itemY + itemH `div` 2
                     when (i==nSel) $ do
                         setColor $ popupMnuInColor skin
                         fillRect (SDL.Rectangle (P(V2 BorderThickness itemY)) (V2 (fullW - 2*BorderThickness) itemH))
                     case t of
                         Item{..} -> do
-                            let (tColor,hkColor) | itemEnable = (popupMnuFgColor skin,popupMnuHotKeyColor skin)
-                                                 | otherwise = (popupMnuDisabledColor skin,popupMnuDisabledColor skin)
-                            whenIsJust itemPicture $ \ texture -> do
+                            let (tColor,hkColor) | itemEnable = (decoreFgColor (popupMnuDecore skin),popupMnuHotKeyColor skin)
+                                                 | otherwise = (popupMnuDisabledFgColor skin,popupMnuDisabledFgColor skin)
+                            whenJust itemPicture $ \ texture -> do
                                 let texturePos = P (V2 (BorderThickness + PictPaddingX) (itemY + PictPaddingY))
                                 if itemEnable then drawTexture texture texturePos
                                 else withTransparentTexture 40 texture $ drawTexture texture texturePos

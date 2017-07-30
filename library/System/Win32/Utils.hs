@@ -30,7 +30,7 @@ import Control.Exception.Safe
 import System.Win32 hiding (try)
 import Graphics.Win32.GDI.Types
 import Graphics.Win32.Window
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 
 #if defined(i386_HOST_ARCH)
 #   define WINDOWS_CCONV stdcall
@@ -88,7 +88,7 @@ withRemoveFromTaskbar title f = do
     r <- f
     liftIO $ do
         mbW <- findWindowByName title
-        whenIsJust mbW $ \ w ->
+        whenJust mbW $ \ w ->
             void $ c_SetWindowLongPtr w GWLP_HWNDPARENT $ castPtr wParent
     return r
 

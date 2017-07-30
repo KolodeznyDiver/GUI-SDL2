@@ -22,13 +22,15 @@ disabledColor :: GuiColor; disabledColor = grayColor 128
 defSkin :: Skin
 defSkin = Skin  {
     skinName = "default"
-    , windowBkColor = grayColor 255
+    , windowDecore = DecoreState { decoreBkColor  = grayColor 255
+                                 , decoreFgColor = grayColor 0
+                                 }
     , oddBkColor = rgb 220 255 220
-    , windowFgColor = grayColor 0
-    , windowDisabledColor = disabledColor
-    , bkColor = formBkColor
+    , windowDisabledFgColor = disabledColor
+    , formDecore = DecoreState { decoreBkColor  = formBkColor
+                               , decoreFgColor = grayColor 0
+                               }
     , borderColor = grayColor 0
-    , foregroundColor = grayColor 0
     , selectedDecore = DecoreState { decoreBkColor = rgb 0 64 255
                                    , decoreFgColor = grayColor 255
                                    }
@@ -58,7 +60,7 @@ defSkin = Skin  {
                                         }
                      , btnDecoreBorder = BtnBorderRound (grayColor 64)
                      }
-    , disabledFgColor = disabledColor
+    , formDisabledFgColor = disabledColor
     , scrollBarWidth = 15
     , scrollBarColor  = rgb 0 255 255
     , arrowBtns =
@@ -138,11 +140,12 @@ defSkin = Skin  {
     , splitterActive = DecoreState { decoreBkColor = grayColor 0
                                    , decoreFgColor = grayColor 255
                                    }
-    , popupMnuBkColor  = rgb 128 0 64
+    , popupMnuDecore = DecoreState { decoreBkColor = rgb 128 0 64
+                                   , decoreFgColor = rgb 255 255 255
+                                   }
     , popupMnuInColor  = rgb 64 0 128
-    , popupMnuFgColor  = rgb 255 255 255
     , popupMnuHotKeyColor  = rgb 0 255 0
     , popupMnuSeparatorColor  = rgb 255 255 0
-    , popupMnuDisabledColor = disabledColor
+    , popupMnuDisabledFgColor = disabledColor
     , popupMnuBorderColors = Border3DColors (rgb 255 255 0) (rgb 64 0 32)
     }

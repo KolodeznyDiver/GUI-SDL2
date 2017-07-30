@@ -15,10 +15,11 @@
 
 module GUI.BaseLayer.Depend0.Keyboard(
     ShiftCtrlAlt(..),getShftCtrlAlt,isEnterKey,showbKeycode,KeyModifiers(..),KeyWithModifiers(..)
-    ,scaToKeyModifier
+    ,scaToKeyModifiers,getActualShiftCtrlAlt,getActualKeyModifiers
     ) where
 
 import Data.Monoid
+import Control.Monad.IO.Class
 import GHC.Generics (Generic)
 import Data.Data (Data)
 import Data.Typeable
@@ -80,7 +81,7 @@ showbKeycode k
                                      else showbLitChar c
                         | otherwise -> showbHex key
 
--- | Состояние клавиш Shift, Ctrl и Alt для горячих клавиш. Ещё большее упрощение, чем 'ShiftCtrlAlt',
+-- | Состояние клавиш Shift, Ctrl и Alt. Ещё большее упрощение, чем 'ShiftCtrlAlt',
 -- однако, в разных случаях удобно пользоваться тем или другим типом.
 data KeyModifiers = KeyNoModifiers
                     | KeyCtrl
@@ -115,13 +116,22 @@ instance Show KeyWithModifiers where
 -}
 
 -- | Преобразование из типа 'ShiftCtrlAlt' в 'KeyModifiers'.
-scaToKeyModifier :: ShiftCtrlAlt -> KeyModifiers
-scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl= True, isAlt= False  } = KeyCtrl
-scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt= False } = KeyShift
-scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl=  False, isAlt=  True} = KeyAlt
-scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl=  True, isAlt=  False} = KeyCtrlShift
-scaToKeyModifier ShiftCtrlAlt{isShift= False, isCtrl=  True, isAlt=  True} = KeyCtrlAlt
-scaToKeyModifier ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt=  True} = KeyShiftAlt
-scaToKeyModifier _ = KeyNoModifiers
-{-# INLINEABLE scaToKeyModifier #-}
+scaToKeyModifiers :: ShiftCtrlAlt -> KeyModifiers
+scaToKeyModifiers ShiftCtrlAlt{isShift= False, isCtrl= True, isAlt= False  } = KeyCtrl
+scaToKeyModifiers ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt= False } = KeyShift
+scaToKeyModifiers ShiftCtrlAlt{isShift= False, isCtrl=  False, isAlt=  True} = KeyAlt
+scaToKeyModifiers ShiftCtrlAlt{isShift= True, isCtrl=  True, isAlt=  False} = KeyCtrlShift
+scaToKeyModifiers ShiftCtrlAlt{isShift= False, isCtrl=  True, isAlt=  True} = KeyCtrlAlt
+scaToKeyModifiers ShiftCtrlAlt{isShift= True, isCtrl= False, isAlt=  True} = KeyShiftAlt
+scaToKeyModifiers _ = KeyNoModifiers
+{-# INLINEABLE scaToKeyModifiers #-}
 
+-- | Текущее состояние клавиш Shift, Ctrl и Alt.
+getActualShiftCtrlAlt :: MonadIO m => m ShiftCtrlAlt
+getActualShiftCtrlAlt = getShftCtrlAlt <$> SDL.getModState
+{-# INLINEABLE getActualShiftCtrlAlt #-}
+
+-- | Текущее состояние клавиш Shift, Ctrl и Alt.
+getActualKeyModifiers :: MonadIO m => m KeyModifiers
+getActualKeyModifiers = scaToKeyModifiers <$> getActualShiftCtrlAlt
+{-# INLINEABLE getActualKeyModifiers #-}

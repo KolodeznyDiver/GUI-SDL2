@@ -1,5 +1,4 @@
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -26,7 +25,7 @@ import Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.IntMap.Strict as IntMap
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import qualified SDL
 import qualified SDL.Raw as Raw
 import GUI.BaseLayer.Depend0.Pipe
@@ -119,7 +118,7 @@ instance Storable a => GuiPipe (V.Vector a) a where
 userMsgHandler :: MonadIO m => Gui -> Int32 -> Ptr () -> Ptr () -> m ()
 userMsgHandler gui code p0 p1 = do
     intMap <- (hndlrs . guiPipes) <$> readMonadIORef gui
-    whenIsJust (IntMap.lookup (fromIntegral code) intMap) $ \h -> do
+    whenJust (IntMap.lookup (fromIntegral code) intMap) $ \h -> do
         logOnErr gui "userMsgHandler" $ usrMsgHandler h p0 p1
         redrawAll gui
 

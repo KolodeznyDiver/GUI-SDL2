@@ -22,8 +22,6 @@ module GUI.Widget.TextEdit(
     TextEditDef(..),TextEditData
     -- * Функция создания виджета для редактирования текста.
     ,textEdit
-    -- * Функции установки обработчиков событий специфичных для виджета.
-    ,onTextEditAtEnd,setTextEditVerifier
     ) where
 
 import Control.Monad
@@ -36,12 +34,11 @@ import Data.Bits
 import Data.Char
 import Data.IORef
 import Data.Maybe
-import MonadUtils (whenM)
+import Control.Monad.Extra (whenJust,whenM)
+import Data.Default
 import qualified SDL
 import SDL.Vect
 import qualified SDL.TTF as TTF
-import Maybes (whenIsJust)
-import Data.Default
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Widget.Handlers
@@ -90,22 +87,18 @@ instance Changeable (GuiWidget TextEditData) T.Text where
     onChanged w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdOnChanged= a})
 
 -- | Установка функции-обработчика вызываемого когда поле редактирования теряет фокус или нажат Enter.
-onTextEditAtEnd :: forall m. MonadIO m => GuiWidget TextEditData ->
-                            (forall n. MonadIO n => T.Text -> n ()) -> m ()
-onTextEditAtEnd w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdAtEnd= a})
-{-# INLINE onTextEditAtEnd #-}
+instance OnEnd (GuiWidget TextEditData) T.Text where
+    onEnd w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdAtEnd= a})
 
 -- | Установка предиката-верификатора. Он вызывается при любой ПОПЫТКЕ изменения текста.
 -- если предикат вернёт False, текст не будет изменён.
-setTextEditVerifier :: forall m. MonadIO m => GuiWidget TextEditData ->
-                            (forall n. MonadIO n => T.Text -> n Bool) -> m ()
-setTextEditVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdVerif= a})
-{-# INLINE setTextEditVerifier #-}
+instance Verifiable (GuiWidget TextEditData) T.Text where
+    setVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdVerif= a})
+
 {-
 setTextEditCharVerifier :: forall m. MonadIO m => GuiWidget TextEditData ->
                             (forall n. MonadIO n => Char -> n Bool) -> m ()
 setTextEditCharVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdCharVerif= a})
-{-# INLINE setTextEditCharVerifier #-}
 -}
 
 -- | Установка и извлечение редактируемого текста.
@@ -287,7 +280,7 @@ textEdit TextEditDef{..} parent skin = do
         stopThrd :: MonadIO m => m ()
         stopThrd = do
             mb <- readMonadIORef mbThreadId
-            whenIsJust mb $ \tId -> do
+            whenJust mb $ \tId -> do
                 liftIO $ killThread tId
                 writeMonadIORef mbThreadId Nothing
 
@@ -378,7 +371,7 @@ textEdit TextEditDef{..} parent skin = do
         ,onDraw= \widget -> do
                 fl <- getWidgetFlags widget
                 r@(SDL.Rectangle p0 (V2 fullW fullH)) <- getVisibleRect widget
-                drawRoundFrame (bkColor skin) (borderColor skin) (windowBkColor skin) r
+                drawRoundFrame (decoreBkColor (formDecore skin)) (borderColor skin) (decoreBkColor (windowDecore skin)) r
                 txt <- txtEdText <$> readMonadIORef d
                 let p1 = p0 .+^ V2 PaddingX PaddingY
                 s@TextEditState{..} <- readMonadIORef state
@@ -387,18 +380,19 @@ textEdit TextEditDef{..} parent skin = do
                         txt' = T.drop txtEdOff txt
                         rightOver = T.length txt' > chrsVisible
                         txt1 = T.take chrsVisible txt'
-                        drawUnselected = drawTextOpaque fnt (windowFgColor skin) (windowBkColor skin)
+                        drawUnselected = drawTextOpaque fnt (decoreFgColor (windowDecore skin))
+                                                            (decoreBkColor (windowDecore skin))
                         drawSemiBorder x = do
                             let outSpan = 5
                                 lineLn = 3
-                            setColor (windowBkColor skin)
+                            setColor (decoreBkColor (windowDecore skin))
                             drawLine (P (V2 x outSpan)) (P (V2 x (outSpan + lineLn)))
                             drawLine (P (V2 x (fullH - outSpan))) (P (V2 x (fullH - outSpan - lineLn -1)))
                     if txtEdSel < 0 then do
                         drawUnselected p1 txt1
                         blinNow <- readMonadIORef blink
                         when blinNow $ do
-                            setColor (windowFgColor skin)
+                            setColor (decoreFgColor (windowDecore skin))
                             let x = PaddingX + widthSum txtEdOff txtEdPos txtEdWidths
                             drawLine (P (V2 x 3)) (P (V2 x (fullH - 4)))
                     else do
@@ -419,7 +413,7 @@ textEdit TextEditDef{..} parent skin = do
                     when rightOver $ drawSemiBorder (fullW - 1)
                 else let chrsVisible = calcCharsVisible txtEdWidths 0
                          txt1 = T.take chrsVisible txt
-                         colorF = if (fl .&. WidgetEnable) == WidgetEnable then windowFgColor
-                                  else windowDisabledColor
-                     in drawTextOpaque fnt (colorF skin) (windowBkColor skin) p1 txt1
+                         colorF = if (fl .&. WidgetEnable) == WidgetEnable then decoreFgColor . windowDecore
+                                  else windowDisabledFgColor
+                     in drawTextOpaque fnt (colorF skin) (decoreBkColor (windowDecore skin)) p1 txt1
                                      }

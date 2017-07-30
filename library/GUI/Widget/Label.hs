@@ -45,8 +45,8 @@ data LabelDef = LabelDef {
         , labelAlignment :: Alignment -- ^ Выравнивание текста в пределах заданной области.
         , labelFontKey :: T.Text -- ^ Шрифт текста, по умолчанию \"label\"
                                  -- (весьма желательно добавлять элемент с таким ключом в таблицу шрифтов).
-        , labelColor :: Maybe GuiColor -- ^ Начальный цвет текста или @foregroundColor skin@.
-        , labelBkColor :: Maybe GuiColor -- ^ Цвет фона или @bkColor skin@.
+        , labelColor :: Maybe GuiColor -- ^ Начальный цвет текста или @decoreFgColor (formDecore skin)@.
+        , labelBkColor :: Maybe GuiColor -- ^ Цвет фона или @decoreBkColor (formDecore skin)@.
         , labelWrapMode :: TextWrapMode -- ^ Режим прокрутки текста. По умолчанию без переносов строк и без
                                         -- увеличения размера виджета.
         , labelText  :: T.Text -- ^ Отображаемый текст.
@@ -105,8 +105,8 @@ label LabelDef{..} parent skin = do
     let insideSz = unP $ getRectRB $ drawTextRect $ preparedTextDef p
 --    dbgCnt <- newMonadIORef (0::Int)
     prepRf <- newMonadIORef p
-    colorRf <- newMonadIORef $ fromMaybe (foregroundColor skin) labelColor
-    let bkgrndColor = fromMaybe (bkColor skin) labelBkColor
+    colorRf <- newMonadIORef $ fromMaybe (decoreFgColor (formDecore skin)) labelColor
+    let bkgrndColor = fromMaybe (decoreBkColor (formDecore skin)) labelBkColor
         bkTxtColor = textWrapModeToMbBkColor labelWrapMode skin bkgrndColor
         fns = noChildrenFns $ sizeRestoreNegative labelSize insideSz
     mkWidget labelFlags
@@ -114,7 +114,7 @@ label LabelDef{..} parent skin = do
             (LabelData prepRf colorRf) parent fns{
         onDraw= \widget -> do
             ena <- allWidgetFlags widget WidgetEnable
-            c <- if ena then readMonadIORef colorRf else return $ disabledFgColor skin
+            c <- if ena then readMonadIORef colorRf else return $ formDisabledFgColor skin
             r <- getVisibleRect widget
 --            liftIO $ putStrLn $ concat ["label.onDraw getVisibleRect=", rectToBriefStr r]
             setColor bkgrndColor

@@ -30,7 +30,7 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Data.Bits
 import Data.Maybe
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import Data.Default
 import qualified SDL
 import SDL.Vect
@@ -42,7 +42,7 @@ pattern CaptionPaddingX = 5
 
 -- | Настройка фона.
 data BorderBackground = BorderTransparent -- ^ Прозрачный.
-                      | BorderBkColorOfSkin -- ^ взять цвет из поля @bkColor@ типа 'Skin'.
+                      | BorderBkColorOfSkin -- ^ взять цвет из @decoreBkColor (formDecore skin)@.
                       | BorderBkColor GuiColor -- ^ Свой цвет.
                       deriving Eq
 
@@ -112,7 +112,7 @@ border :: MonadIO m => BorderDef ->  -- ^ Параметры виджета.
 border BorderDef{..} parent skin = do
     let bkgrndColor = case borderBkgrnd of
                         BorderBkColor c -> c
-                        _ -> bkColor skin
+                        _ -> decoreBkColor (formDecore skin)
         frgrndColor = fromMaybe (borderColor skin) borderFgColor
         isTransp = borderBkgrnd==BorderTransparent
         fns = overlapsChildrenFns borderSize
@@ -144,7 +144,7 @@ border BorderDef{..} parent skin = do
                 setColor frgrndColor
                 drawLine (P p0) (P p1)
 --            liftIO $ putStrLn $ concat ["label.onDraw getVisibleRect=", rectToBriefStr r]
-            whenIsJust mbFnt $ \fnt ->
+            whenJust mbFnt $ \fnt ->
                 let bkClr = case borderType of
                                 Border3D{..} -> DrawStrOpaque (lightClr border3DLightColor)
                                 _ | isTransp -> DrawStrFine

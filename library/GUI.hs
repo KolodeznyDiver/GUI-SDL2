@@ -18,7 +18,8 @@
 -- требуется импортировать ещё и модули кокретных виджетов.
 
 module GUI(
-     module GUI.BaseLayer.Depend0.Types
+     module GUI.BaseLayer.Depend0.BitFlags
+    ,module GUI.BaseLayer.Depend0.Types
     ,module GUI.BaseLayer.Depend0.Auxiliaries
     ,module GUI.BaseLayer.Depend0.Cursor
     ,module GUI.BaseLayer.Depend0.Keyboard
@@ -43,6 +44,7 @@ module GUI(
     ,module GUI.Widget.Types
   ) where
 
+import GUI.BaseLayer.Depend0.BitFlags
 import GUI.BaseLayer.Depend0.Types (
         Coord,GuiSize,GuiCoordOffset,GuiPoint,GuiRect
         ,ColorComponent,GuiTransparency,GuiColor,GuiCurDrawColor
@@ -116,8 +118,8 @@ import GUI.BaseLayer.Window (
         ,setWinOnCloseConfirm
         -- * Флаги окна.
         ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
-        ,pattern WindowPopupFlag,pattern WindowLocked
-        ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
+        ,pattern WindowPopupFlag,pattern WindowLocked,pattern WindowHaveKeyboardFocus,pattern WindowHaveMouseFocus
+        ,pattern WindowClickable,pattern WindowCloseOnEsc
         ,getWindowFlags,windowFlagsAddRemove,windowFlagsAdd
         ,windowFlagsRemove,allWindowFlags,anyWindowFlags
         -- * Логирование и обработка ошибок.
@@ -183,5 +185,6 @@ import GUI.BaseLayer.GUIRecord (
                                    )
 import GUI.BaseLayer.SpecStateWidget (
     setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured,resetMouseCapturedWidget)
-import GUI.BaseLayer.Focus (clearFocusInWindow,clearWidgetFocus,setWidgetFocus)
+import GUI.BaseLayer.Focus (clearFocusInWindow,clearWidgetFocus,clearFocus
+                           ,setWidgetFocus,setFocus)
 import GUI.Widget.Types

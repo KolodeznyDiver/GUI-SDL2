@@ -59,24 +59,21 @@ data ButtonDecore = ButtonDecore {
                     deriving (Show, Read, Data, Eq, Ord, Generic, Typeable)
 
 -- | Собственно, описание оформления GUI.
-data Skin = Skin {
+data Skin = Skin { -- decoreBkColor (popupMnuDecore
     skinName :: String -- ^ Имя скина.
-  , windowBkColor :: GuiColor -- ^ Цвет фона основоного окна (не окон форм, диалогов или меню) окон ввода
-                              -- текста, отображения списков.
+  , windowDecore :: DecoreState -- ^ Цвета основоного окна (не окон форм, диалогов или меню) окон ввода
+                                -- текста, отображения списков.
+  , windowDisabledFgColor :: GuiColor -- ^ Цвет переднего плана основоного окна (не окон форм, диалогов)
+                                      -- и окон ввода текста в состоянии __disabled__.
   , oddBkColor :: GuiColor -- ^ Цвет фона нечётных (считая с нуля) элементов отображения списков списков.
-  , windowFgColor :: GuiColor -- ^ Цвет переднего плана основоного окна (не окон форм, диалогов)
-                              -- и окон ввода текста.
-  , windowDisabledColor :: GuiColor -- ^ Цвет переднего плана основоного окна (не окон форм, диалогов)
-                                    -- и окон ввода текста в состоянии __disabled__.
-  , bkColor :: GuiColor -- ^ Цвет фона форм, диалоговых окон.
+  , formDecore :: DecoreState -- ^ Цвета форм, диалоговых окон.
   , borderColor :: GuiColor -- ^ Цвет рамок элементов на форме
-  , foregroundColor :: GuiColor -- ^ Цвет текста и других элементов переднего плана формы, диалога.
   , selectedDecore :: DecoreState -- ^ Цвета выделенной области (например, выделенного фрагмента текста).
   , brdr3DColors :: Border3DColors -- ^ Цвета "3D"-рамок, которые не изменяют цвет в зависимости от состояния.
   , formItemsMargin  :: WidgetMargin -- ^ Поля рамок элементов формы по умолчанию
   , formTextLineSpacing :: Double -- ^ Междустрочное расстояние для текстов элементов формы.
   , formItemsButtons :: ButtonDecore -- ^ Оформление кнопок
-  , disabledFgColor  :: GuiColor -- ^ Цвет Цвет переднего плана (текста) элементов формы
+  , formDisabledFgColor  :: GuiColor -- ^ Цвет Цвет переднего плана (текста) элементов формы
                                  -- находящихся в состоянии __disabled__.
   , scrollBarWidth  :: Coord -- ^ Ширины скроллбаров.
   , arrowBtns  :: ButtonDecore -- ^ Оформление кнопок со стрелками (не в составе scrollbar-а)
@@ -92,13 +89,12 @@ data Skin = Skin {
   , scrollAreaArrowsColor :: GuiColor -- ^ Цвет кнопок-стрелок в @GUI.Widget.Container.ScrollArea.scrollArea@.
   , splitterActive :: DecoreState -- ^ Цвета активного splitter-а (при его перемещении, когда
                                   -- кнопка мыши нажата.
-  , popupMnuBkColor  :: GuiColor -- ^ Цвет фона выпадающего меню.
+  , popupMnuDecore  :: DecoreState -- ^ Цвета выпадающего меню.
   , popupMnuInColor  :: GuiColor -- ^ Цвет фона элемента под указателем мыши выпадающего меню.
-  , popupMnuFgColor  :: GuiColor -- ^ Цвет переднего плана выпадающего меню.
   , popupMnuHotKeyColor  :: GuiColor -- ^ Цвет текстового обозначения горячих клавиш на выпадающем меню.
   , popupMnuSeparatorColor  :: GuiColor -- ^ Цвет сепаратора (горизонтальной линии - разделителя)
                                         --  выпадающего меню.
-  , popupMnuDisabledColor  :: GuiColor -- ^ Цвет переднего плана недоступного пункта выпадающего меню.
+  , popupMnuDisabledFgColor  :: GuiColor -- ^ Цвет переднего плана недоступного пункта выпадающего меню.
   , popupMnuBorderColors :: Border3DColors -- ^ Цвета рамки выпадающего меню.
   }
   deriving (Show, Read, Data, Eq, Ord, Generic, Typeable)

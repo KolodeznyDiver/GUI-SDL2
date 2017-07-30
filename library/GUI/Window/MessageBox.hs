@@ -111,7 +111,7 @@ messageBox gui mbt builder MessageBoxDef{..} answerFn = do
         alignByBtns i = ((i+cBtns-1) `div` cBtns) *cBtns
         winW = alignByBtns $ PaddingX*3+BigPictSz+MsgAreaWidth
         txtH = getHeightOfPreparedWrapText $ preparedText p
-    win <- newModalWindow gui title SDL.defaultWindow{
+    win <- newModalWindow' gui title WindowCloseOnEsc SDL.defaultWindow{
             SDL.windowInitialSize =
                 P.toSDLV2 $ V2 winW (PaddingY*2 + DivisorHeight + BtnAreaHeight + max BigPictSz txtH)
             }
@@ -144,7 +144,7 @@ messageBox gui mbt builder MessageBoxDef{..} answerFn = do
                              , btnSize = V2 btnW BtnAreaHeight, btnPicture = ButtonLeftPicture pict
                              , btnText = txt}
         when ( (btCode == messageBoxInitFocusedBtn) || onlyOneBtn ) $
-            setWidgetFocus $ getWidget b
+            setFocus b
         onClick b $ do
             setWinRetcode win $ WindowRetcode (fromEnum btCode)
             delWindow win

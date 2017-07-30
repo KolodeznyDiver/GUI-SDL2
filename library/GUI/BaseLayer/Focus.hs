@@ -14,14 +14,13 @@
 -- Так же, у виджета устанавливается флаг @WidgetFocused@, проверяя который он может изменить вид своего отображения.
 
 module GUI.BaseLayer.Focus(
-        clearFocusInWindow,clearWidgetFocus,setWidgetFocus
-
+    clearFocusInWindow,clearWidgetFocus,clearFocus,setWidgetFocus,setFocus
     ) where
 
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
 import Data.Bits
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Widget
@@ -42,7 +41,7 @@ clearWidgetFocusInternal widget = do
 clearFocusInWindow :: MonadIO m => Window -> m ()
 clearFocusInWindow rfWin = do
     win <- readMonadIORef rfWin
-    whenIsJust (focusedWidget win) $ \ widget -> do
+    whenJust (focusedWidget win) $ \ widget -> do
         writeMonadIORef rfWin win{focusedWidget=Nothing}
         clearWidgetFocusInternal widget
 
@@ -54,6 +53,14 @@ clearWidgetFocus widget = do
     focused <- allWidgetFlags widget WidgetFocused
     when focused (clearFocusInWindow =<< getWidgetWindow widget)
 {-# INLINE clearWidgetFocus #-}
+
+-- | Сбросить фокус для указанного виджета если он был в фокусе.
+-- Ни один виджет в окне ни будет в фокусе.
+-- Виджету теряющему фокус посылается @onLostKeyboardFocus@.
+clearFocus :: MonadIO m => GuiWidget a -> m ()
+clearFocus = clearWidgetFocus . getWidget
+{-# INLINE clearFocus #-}
+
 
 -- | Установить фокус для указанного виджета. Виджет должен быть видим - 'WidgetVisible',
 -- разрешёе 'WidgetEnable', и предназначен для приёма фокуса - 'WidgetFocusable'.
@@ -72,7 +79,7 @@ setWidgetFocus widget = do
 --        liftIO $ putStrLn "setWidgetFocus  pass"
         let rfWin = windowOfWidget widg
         win <- readMonadIORef rfWin
-        whenIsJust (focusedWidget win) $ \ widget' -> -- do
+        whenJust (focusedWidget win) $ \ widget' -> -- do
 {-            sDbgR <- widgetCoordsToStr widget'
             dbgFsd <- allWidgetFlags widget' WidgetFocused
             liftIO $ putStrLn $ concat ["setWidgetFocus : remove previous  ",sDbgR,
@@ -84,3 +91,12 @@ setWidgetFocus widget = do
         logOnErrInWidget widget "setWidgetFocus.onGainedKeyboardFocus" $
             onGainedKeyboardFocus (widgetFns widg) widget
 
+
+-- | Установить фокус для указанного виджета. Виджет должен быть видим - 'WidgetVisible',
+-- разрешёе 'WidgetEnable', и предназначен для приёма фокуса - 'WidgetFocusable'.
+-- Если другой вилдет был в фокусе, то с него снимается фокус.
+-- Виджету теряющему фокус посылается @onLostKeyboardFocus@, после этого Виджету получающему
+-- фокус посылается @onGainedKeyboardFocus@.
+setFocus :: MonadIO m => GuiWidget a -> m ()
+setFocus = setWidgetFocus . getWidget
+{-# INLINE setFocus #-}

@@ -22,7 +22,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import Data.Maybe
 import Data.Char
 import qualified SDL
@@ -32,7 +32,7 @@ import GUI.Widget.TH
 import GUI.Widget.Handlers
 import GUI.Widget.Layout.LinearLayoutUtils
 
--- | Slide функция для создания функций горизонтального hLayout или вертикального vLayout
+-- | Splice функция для создания функций горизонтального hLayout или вертикального vLayout
 -- лайаута в модуле "GUI.Widget.Layout.LinearLayout".
 mkLinearLayoutQ :: DirectionVH -> -- ^ Направление лайаута. Так же определяет первую букву генерируемой функции.
                    DecsQ
@@ -45,7 +45,7 @@ mkLinearLayoutQ direction = do
             do
                 rfSpaces <- newMonadIORef VU.empty
                 let LayoutDef{..} = $layoutDef
-                    color = fromMaybe (bkColor $skin) layoutColor
+                    color = fromMaybe (decoreBkColor (formDecore $skin)) layoutColor
                     arrangeChildren widget = do
                         (SDL.Rectangle p0 sz) <- getWidgetCanvasRect widget
                         szS <- readMonadIORef rfSpaces
@@ -83,7 +83,7 @@ mkLinearLayoutQ direction = do
                         when (isNothing mbI) $ liftIO $ putStrLn $ concat
                             ["Layout ", dirL, ".onSizeChangedParentNotify  : mbI==Nothing  sz=",show sz]
 #endif
-                        whenIsJust mbI $ \i -> do
+                        whenJust mbI $ \i -> do
                             spaces <- readMonadIORef rfSpaces
 #ifdef DEBUG_OUT
                             sDbgWidg <- widgetCoordsToStr widget

@@ -49,7 +49,7 @@ import Data.IORef
 import Data.Maybe
 import qualified SDL
 import SDL.Vect
-import Maybes (whenIsJust)
+import Control.Monad.Extra (whenJust)
 import Data.Default
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
@@ -278,7 +278,7 @@ buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
         triangleW = round $ fromIntegral btTriangleWidth * (0.6 :: Double)
         (btDecore,externalColor) = case btTriangleType of
                                      ButtonWithTriangleScrollBar -> (scrollBarArrow skin,scrollBarColor skin)
-                                     ButtonWithTriangleInForm -> (formItemsButtons skin,bkColor skin)
+                                     ButtonWithTriangleInForm -> (formItemsButtons skin,decoreBkColor (formDecore skin))
                                      ButtonWithTriangleUser{..} -> (btTriangleDecore,btTriangleExternalColor)
         draw1 x state = do
             let r=SDL.Rectangle (P (V2 x 0)) btTriangleSize
@@ -420,11 +420,11 @@ button ButtonDef{..} parent skin = do
 --                drawRoundFrame  (decoreBrdrColor d) (decoreBkColor d) r
 --                liftIO $ putStrLn $ concat ["button.onDraw ", rectToBriefStr r]
                 if btnUseBorder then
-                     drawButtonFrame d btnDecoreBorder (bkColor skin) r
+                     drawButtonFrame d btnDecoreBorder (decoreBkColor (formDecore skin)) r
                 else setColor (decoreBkColor d) >> fillRect r
                 drawPreparedText prep (decoreFgColor d)
                     (textWrapModeToMbBkColor btnTextWrapMode skin $ decoreBkColor d)
-                whenIsJust mbPict $ \(texture,texturePos) ->
+                whenJust mbPict $ \(texture,texturePos) ->
                     if ena then drawTexture texture texturePos
                     else withTransparentTexture 40 texture $ drawTexture texture texturePos
 --                when ((fl .&. WidgetFocused) /= WidgetNoFlags) $
