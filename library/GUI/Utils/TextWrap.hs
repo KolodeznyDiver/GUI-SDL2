@@ -31,7 +31,7 @@ import Data.Maybe
 import Data.Default
 import qualified SDL
 import SDL.Vect
-import SDL.TTF.FFI (TTFFont)
+import SDL.Font (Font)
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Utils.Wrap
@@ -60,7 +60,7 @@ prepareWrapText :: MonadIO m =>
     -- | Черезстрочное расстояние.
     Double ->
     -- | Шрифт.
-    TTFFont ->
+    Font ->
     -- | Исходный текст.
     T.Text ->
     m PreparedWrapText
@@ -69,9 +69,9 @@ prepareWrapText align r@(SDL.Rectangle (P (V2 x0 _)) (V2 width _)) lineSpacing f
         cWords = V.length wrds in
     if cWords == 0 then return $ PreparedWrapText V.empty VU.empty x0 0
     else do
-        szS <- VU.generateM cWords ((\s -> if head s =='\n' then return $ V2 maxBound 0 else P.strSize fnt s).
-                    T.unpack . (wrds V.!) )
-        (V2 spaceWidth spaceHeight) <- P.strSize fnt " "
+        szS <- VU.generateM cWords ((\s -> if T.head s =='\n' then return $ V2 maxBound 0 else P.textSize fnt s).
+                    (wrds V.!) )
+        (V2 spaceWidth spaceHeight) <- P.textSize fnt $ T.singleton ' '
 --        liftIO $ putStrLn $ concat ["textSplitPrepare  width=", show width, "   szS=",show szS]
         let vv' = rowWrapping (getHAlign align) width spaceWidth szS
             deltaLine maxH = ceiling (lineSpacing * fromIntegral maxH)
@@ -140,7 +140,7 @@ drawSplitPreparedText :: MonadIO m =>
     -- | Поготовленный для вывода текст
     PreparedWrapText ->
     -- | Шрифт, который должен быть тем же что и использовался при создании 'PreparedWrapText'
-    TTFFont ->
+    Font ->
     -- | Цвет текста.
     GuiColor ->
     -- | Или цвет фона для более быстрой отрисовки, или Nothing - для медленной отрисовки по прозрачному фону.
@@ -211,7 +211,7 @@ data PreparedText = PreparedText    {
     -- | (Кроме поля @drawTextRect@, которое может быть расширено, см. 'TextWrapMode'.)
     , preparedTextDef :: DrawTextDef
     -- | Шрифт
-    , preparedTextFont :: TTFFont
+    , preparedTextFont :: Font
                                     }
                                     deriving (Show)
 
@@ -224,7 +224,7 @@ prepareTextGui gui d@DrawTextDef{..} = do
     let (SDL.Rectangle p' (V2 w' h')) = drawTextRect
     case drawTextWrap of
       TextNoWrap{..} -> do
-        txSz@(V2 txW txH) <- P.strSize fnt $ T.unpack drawTextText
+        txSz@(V2 txW txH) <- P.textSize fnt $ drawTextText
         let (SDL.Rectangle p0@(P (V2 x _)) _) = rectAlign drawTextAlignment txSz drawTextRect
             extendedW = if txW > w' then min txW $ max textAreaMaxWidth w' else w'
             r = SDL.Rectangle p' (V2 extendedW (max txH h'))

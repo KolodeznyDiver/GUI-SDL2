@@ -129,7 +129,7 @@ import GUI.BaseLayer.Window (
 import GUI.BaseLayer.Pipe (
         GuiPipeId,GuiPipeProducer,GuiPipe(newGuiPipe,replaceGuiPipeHandler,sendToGuiPipe)
         ,getPipeIdFromProducer,delGuiPipe )
-import GUI.BaseLayer.Resource (ResourceManager,GuiFontStyle(..),GuiFontOptions(..),GuiFontDef(..)
+import GUI.BaseLayer.Resource (ResourceManager,GuiFontOptions(..),GuiFontDef(..)
         ,rmGetFont,rmLoadFont,rmGetCursor,rmAddCursor,rmGetB)
 import GUI.BaseLayer.Canvas
 import GUI.BaseLayer.Core (

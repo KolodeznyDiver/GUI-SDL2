@@ -46,8 +46,8 @@ import Data.IORef
 import qualified TextShow as TS
 import qualified SDL
 import SDL.Vect
-import qualified SDL.TTF as TTF
-import SDL.TTF.FFI (TTFFont)
+import qualified SDL.Font as FNT
+import SDL.Font (Font)
 import Control.Monad.Extra (whenJust)
 import Data.Default
 import GUI
@@ -407,7 +407,7 @@ rollView RollViewDef{..} a parent skin = do
 
 -- | Подготовленные данные для отрисовки в  @rollView@  упорядоченного контейнера
 --   с элементами поддерживающими 'TextShow'.
-newtype RollViewTSPrepare = RollViewTSPrepare TTFFont
+newtype RollViewTSPrepare = RollViewTSPrepare Font
 
 -- | Обёртка для использования с @rollView@ упорядоченного контейнера с элементами поддерживающими 'TextShow'.
 newtype RollViewTS c v = RollViewTS c
@@ -416,15 +416,15 @@ newtype RollViewTS c v = RollViewTS c
 newtype RollViewText c = RollViewText c
 
 -- | Вспомогательная функция для создания @instance ... RollViewable@ с только текстовым отображением элементов.
-rollViewPrepareTextOnly :: MonadIO m => Canvas m (Coord,TTFFont)
+rollViewPrepareTextOnly :: MonadIO m => Canvas m (Coord,Font)
 rollViewPrepareTextOnly = do
     fnt <- getFont "roll"
-    fntHeight <- TTF.getFontHeight fnt
+    fntHeight <- FNT.lineSkip fnt -- FNT.height fnt
     return (fntHeight + 2 * PaddingY,fnt)
 
 -- | Вспомогательная функция для создания @instance ... RollViewable@ с отображением элементов одной строкой.
 rollViewDrawItemTextOnly :: (MonadIO m, DAROContainer c v, TS.TextShow v) =>
-                        TTFFont -> -- ^ Шрифт.
+                        Font -> -- ^ Шрифт.
                         GuiRect -> -- ^ Координаты области для рисования.
                         DecoreState -> -- ^ Цвета фона и переднего плана.
                         c -> -- ^ Контейнер с данными.

@@ -80,7 +80,7 @@ module GUI.BaseLayer.Resource(
     -- * Функции относящиеся к графическим файлам.
     ,rmGetSurfaceFromCache,rmGetSurface,rmAddSurface
     -- * Типы и функции относящиеся к графическим файлам.
-    ,GuiFontStyle(..),GuiFontOptions(..),GuiFontDef(..),rmGetFont,rmLoadFont,fontTuning
+    ,GuiFontOptions(..),GuiFontDef(..),rmGetFont,rmLoadFont,fontTuning
     -- * Функции относящиеся к курсорам.
     ,rmGetCursor,rmSetCursor,rmAddCursor
     -- * Функции подстановки натурального языка
@@ -104,13 +104,12 @@ import Control.Monad.Extra (whenJust,unlessM)
 import qualified TextShow as TS
 import qualified SDL
 import SDL.Vect
-import qualified SDL.TTF as TTF
-import SDL.TTF.FFI (TTFFont)
+import qualified SDL.Font as FNT
+import SDL.Font (Font)
 import qualified SDL.Image as IMAGE
 import GUI.BaseLayer.Depend0.Types
 import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend0.Cursor
-import GUI.BaseLayer.Depend0.TTF (GuiFontStyle(..),setFontStyleIfNeed)
 import GUI.BaseLayer.Depend0.Auxiliaries
 import GUI.BaseLayer.Depend1.Logging
 import GUI.BaseLayer.Depend1.Resource
@@ -138,9 +137,11 @@ initResourceManager skinName fntLst dataDirectory uiLang gLog = do
     appName <- liftIO getAppName
     -- for ex. set GUIDEMO_GUIRESOURCES=c:\...\GUI.Resources
     let envParamName = map toUpper appName ++ EnvResourceDirectoryPathSuffix
-        dirMsg dir = "Directory " <> TS.fromString dir <> " is not found."
+        dirMsg dir = "Directory " <> TS.fromString dir <> " is not found.\n"
         guiTerminated msg = do
-            logPutLn gLog $ msg <> "\n\nGUI terminated."
+            logPutLn gLog msg
+            liftIO $ showErrMsgBoxB msg
+            logPutLn gLog "\nGUI terminated."
             liftIO exitFailure
     mbP <- liftIO $ lookupEnv envParamName
 --    liftIO $ putStrLn $ "mbP=" ++ show mbP
@@ -192,7 +193,7 @@ destroyResourceManager r = do
 --    mapM_ SDL.destroySurface =<< readMonadIORef (surfaces r)
     mapM_ SDL.freeSurface =<< readMonadIORef (surfaces r)
     mapM_ freeCursor =<< readMonadIORef (userCursors r)
-    mapM_ (TTF.closeFont . fnt) =<< readMonadIORef (fonts r)
+    mapM_ (FNT.free . fnt) =<< readMonadIORef (fonts r)
     freeCursorSet (systemCursorSet r)
 
 -- no exported
@@ -287,7 +288,7 @@ rmAddSurface r abbr surface = do
         >>= writeMonadIORef (surfaces r)
 
 -- | Запросить шрифт из кеша по ключу.
-rmGetFont:: MonadIO m => ResourceManager -> T.Text -> m TTFFont
+rmGetFont:: MonadIO m => ResourceManager -> T.Text -> m Font
 rmGetFont r abbr = do
     fc <- readMonadIORef $ fonts r
     case HM.lookup abbr fc of
@@ -299,13 +300,13 @@ rmGetFont r abbr = do
 
 -- | Загрузить шрифт, настроить как задано и сохранить в кеше.
 -- Предпочтительно загружать все шрифты при запуске приложения указывая их в списке @initResourceManager@.
-rmLoadFont:: MonadIO m => ResourceManager -> GuiFontDef -> m TTFFont
+rmLoadFont:: MonadIO m => ResourceManager -> GuiFontDef -> m Font
 rmLoadFont r (GuiFontDef abbr pth fntSz opts) = do
     fc <- readMonadIORef $ fonts r
     e  <- case HM.lookup abbr fc of
                 Just oldFnt | fntPath oldFnt == pth && fntPtSz oldFnt == fntSz && fntOpts oldFnt == opts
                                     -> return $ Left (fnt oldFnt)
-                Just oldFnt -> TTF.closeFont (fnt oldFnt) >> return (Right (HM.delete abbr fc))
+                Just oldFnt -> FNT.free (fnt oldFnt) >> return (Right (HM.delete abbr fc))
                 _ -> return $ Right fc
     case e of
         Left f -> return f
@@ -318,22 +319,25 @@ rmLoadFont r (GuiFontDef abbr pth fntSz opts) = do
  where load path = do
 --                liftIO $ putStrLn $ "rmLoadFont.load path=" ++ path
                 unlessM (doesFileExist path) $ error $ "Font file " ++ path ++ " does not exist"
-                FontCollectionItem pth fntSz opts <$> TTF.openFont path fntSz
+                FontCollectionItem pth fntSz opts <$> FNT.load path fntSz
 
 -- | Перенастройка параметров кешируемого шрифта.
 -- Вы должны знать что вы делаете. Потребуется обновление виджетов использующих этот шрифт.
 -- Во многих виджетах размеры и внутреннии координаты рассчитываются только при создании виджета
 -- и могут зависеть от размеров шрифта. Т.е. эта операция может быть небезопасной в смысле
 -- корректного отображения виджетов.
-fontTuning :: MonadIO m => TTFFont -> GuiFontOptions -> m ()
+fontTuning :: MonadIO m => Font -> GuiFontOptions -> m ()
 fontTuning fnt GuiFontOptions{..} = do
     whenJust fontKerning $ \ kerning -> do
-        old <- TTF.fontKerningEnabled fnt
-        when (old /= kerning) $ TTF.setFontKerning fnt kerning
+        old <- FNT.getKerning fnt
+        when (old /= kerning) $ FNT.setKerning fnt kerning
     whenJust fontHinting $ \ hinting -> do
-        old <- TTF.getFontHinting fnt
-        when (old /= hinting) $ TTF.setFontHinting fnt hinting
-    whenJust fontStyle $ \ style -> setFontStyleIfNeed fnt style
+        old <- FNT.getHinting fnt
+        when (old /= hinting) $ FNT.setHinting fnt hinting
+    whenJust fontStyle $ \ style -> do
+        old <- FNT.getStyle fnt
+        when (old /= style) $ FNT.setStyle fnt style
+--    setFontStyleIfNeed fnt style
 
 -- | Получить курсор из кеша по индексу курсора. См. "GUI.BaseLayer.Depend0.Cursor".
 rmGetCursor:: MonadIO m => ResourceManager -> CursorIx -> m GuiCursor

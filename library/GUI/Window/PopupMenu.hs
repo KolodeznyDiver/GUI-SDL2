@@ -198,7 +198,7 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
     fnt <- runProxyCanvas parent $ getFont "menu"
     let addSeparator = (`V.snoc` ItemSeparator)
         dynItemMaker (w,h,v) DynMenuItem{..} = do
-            (V2 tW tH) <- P.strSize fnt $ T.unpack dynMenuCaption
+            (V2 tW tH) <- P.textSize fnt dynMenuCaption
             return (max w tW, max h tH, v `V.snoc` Item dynMenuCaption Nothing True
                                                         (ActionItem T.empty dynMenuAction))
         itemMaker r@(pictPresent,mainW,maxH,v,curGroup) MenuItem{..} = do
@@ -213,7 +213,7 @@ popupMenuWidget PopupMenuWidgetDef{..} parent skin = do
                                 Just <$> runProxyCanvas parent
                                         (getTexture $ getMenuPictWithDirectory actionPicture)
                            else return Nothing
-                    (V2 tW tH) <- P.strSize fnt $ T.unpack $ T.append actionText hkTxt
+                    (V2 tW tH) <- P.textSize fnt $ T.append actionText hkTxt
                     let w | isSubmenu = tW + InterTextPaddingX + ArrowW
                           | T.null hkTxt = tW
                           | otherwise = tW + InterTextPaddingX

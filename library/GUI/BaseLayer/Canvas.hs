@@ -37,8 +37,6 @@ module GUI.BaseLayer.Canvas(
     ,getFont,DrawStrMode(..)
     -- ** Строки 'T.Text'
     ,getTextSize,renderText,renderTextDraft,renderTextOpaque,drawText,drawTextDraft,drawTextOpaque,drawTextAligned
-    -- ** Строки 'String'
-    ,getStrSize,renderStr,renderStrDraft,renderStrOpaque,drawStr,drawStrDraft,drawStrOpaque,drawStrAligned
     -- * Специализированные функции рисования
     ,drawRoundBorder,drawRoundFrame,draw3DBorder,draw3DFrame,drawDotBorder,Orientation(..),drawArrowTriangle,drawArrow
                      ) where
@@ -50,7 +48,7 @@ import qualified SDL.Raw as Raw
 import SDL.Internal.Types
 import SDL.Vect
 import Data.StateVar
-import SDL.TTF.FFI (TTFFont)
+import SDL.Font
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Vector.Storable as V
@@ -62,7 +60,6 @@ import GUI.BaseLayer.Depend1.Geometry
 import qualified GUI.BaseLayer.Primitives as P
 import           GUI.BaseLayer.Primitives (DrawStrMode(..))
 import GUI.BaseLayer.Canvas.Types
--- import GUI.BaseLayer.Types
 import GUI.BaseLayer.Resource
 
 -- | Создание 'Canvas' и вызова функции выполняющийся в её контексте.
@@ -358,144 +355,80 @@ withTransparentTexture transparency texture f = do
 
 -- | Получить шрифт из кеша по ключу. Исключение если таблица шрифтов пуста.
 -- См. "GUI.BaseLayer.Resource".
-getFont:: MonadIO m => T.Text -> Canvas m TTFFont
+getFont:: MonadIO m => T.Text -> Canvas m Font
 getFont k = do { rm <- asks canvasRM; lift $ rmGetFont rm k}
 {-# INLINE getFont #-}
 
 ------------------------------------------------------------------------------------------------------
 
 -- | Возвращает размер который будет занимать на экране заданная строка выведенная заданным шрифтом.
-getStrSize :: MonadIO m => TTFFont -> String -> Canvas m (V2 Coord)
-getStrSize fnt = lift . P.strSize fnt
-{-# INLINE getStrSize #-}
-
--- | Создание текстуры из строки с заданным шрифтом и цветом.
--- Качественно, с полутонами, но медленно.
-renderStr:: MonadIO m => TTFFont -> GuiColor -> String -> Canvas m (Maybe SDL.Texture)
-renderStr fnt color str = do { renderer <- asks canvasRenderer; lift $ P.renderStr renderer fnt color str}
-{-# INLINE renderStr #-}
-
--- | Создание текстуры из строки с заданным шрифтом и цветом.
--- Без полутонов, но быстро.
-renderStrDraft:: MonadIO m => TTFFont -> GuiColor -> String -> Canvas m (Maybe SDL.Texture)
-renderStrDraft fnt color str = do { renderer <- asks canvasRenderer; lift $ P.renderStrDraft renderer fnt color str}
-{-# INLINE renderStrDraft #-}
-
--- | Создание текстуры из строки с заданным шрифтом и цветом.
--- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
-renderStrOpaque:: MonadIO m => TTFFont -> -- ^ Шрифт.
-                               GuiColor -> -- ^ Цвет текста.
-                               GuiColor -> -- ^ Цвет фона.
-                               String -> -- ^ Выводимая строка.
-                               Canvas m (Maybe SDL.Texture)
-renderStrOpaque fnt color bkColor str = do
-    renderer <- asks canvasRenderer
-    lift $ P.renderStrOpaque renderer fnt color bkColor str
-{-# INLINE renderStrOpaque #-}
-
--- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
--- Качественно, с полутонами, но медленно.
-drawStr :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> String -> Canvas m ()
-drawStr fnt color pnt str = do{ c <- ask; lift $ P.drawStr (canvasRenderer c) fnt color (toCanvasPoint c pnt) str}
-{-# INLINE drawStr #-}
-
--- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
--- Без полутонов, но быстро.
-drawStrDraft :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> String -> Canvas m ()
-drawStrDraft fnt color pnt str = do
-    c <- ask
-    lift $ P.drawStrDraft (canvasRenderer c) fnt color (toCanvasPoint c pnt) str
-{-# INLINE drawStrDraft #-}
-
--- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
--- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
-drawStrOpaque :: MonadIO m => TTFFont -> -- ^ Шрифт.
-                              GuiColor -> -- ^ Цвет текста.
-                              GuiColor -> -- ^ Цвет фона.
-                              GuiPoint -> -- ^ Позиция вывода.
-                              String -> -- ^ Выводимая строка.
-                              Canvas m ()
-drawStrOpaque fnt color bkColor pnt str = do
-    c <- ask
-    lift $ P.drawStrOpaque (canvasRenderer c) fnt color bkColor (toCanvasPoint c pnt) str
-{-# INLINE drawStrOpaque #-}
-
--- | Отрисовка строки с заданным шрифтом и цветом,
---  с заданным выравниванием в пределах заданного прямоугольника и с заданным режимом отрисовки.
-drawStrAligned :: MonadIO m => TTFFont -> -- ^ Шрифт.
-                               Alignment -> -- ^ Режим выравнивания.
-                               GuiColor -> -- ^ Цвет текста.
-                               DrawStrMode -> -- ^ Режим отрисовки.
-                               GuiRect -> -- ^ Прясоугольная область для вывода с учётом выравнивания.
-                               String -> -- ^ Выводимая строка.
-                               Canvas m ()
-drawStrAligned fnt align color mode rect str = do
-    c <- ask
-    lift $  P.drawStrAligned (canvasRenderer c) fnt align color mode (toCanvasRect c rect) str
-{-# INLINE drawStrAligned #-}
-
-------------------------------------------------------------------------------------------------------
-
--- | Возвращает размер который будет занимать на экране заданная строка выведенная заданным шрифтом.
-getTextSize :: MonadIO m => TTFFont -> T.Text -> Canvas m (V2 Coord)
-getTextSize fnt = getStrSize fnt . T.unpack
+getTextSize :: MonadIO m => Font -> T.Text -> Canvas m (V2 Coord)
+getTextSize fnt = lift . P.textSize fnt
 {-# INLINE getTextSize #-}
 
 -- | Создание текстуры из строки с заданным шрифтом и цветом.
 -- Качественно, с полутонами, но медленно.
-renderText:: MonadIO m => TTFFont -> GuiColor -> T.Text -> Canvas m (Maybe SDL.Texture)
-renderText fnt color = renderStr fnt color . T.unpack
+renderText:: MonadIO m => Font -> GuiColor -> T.Text -> Canvas m (Maybe SDL.Texture)
+renderText fnt color txt = do { renderer <- asks canvasRenderer; lift $ P.renderText renderer fnt color txt}
 {-# INLINE renderText #-}
 
 -- | Создание текстуры из строки с заданным шрифтом и цветом.
 -- Без полутонов, но быстро.
-renderTextDraft:: MonadIO m => TTFFont -> GuiColor -> T.Text -> Canvas m (Maybe SDL.Texture)
-renderTextDraft fnt color = renderStrDraft fnt color . T.unpack
+renderTextDraft:: MonadIO m => Font -> GuiColor -> T.Text -> Canvas m (Maybe SDL.Texture)
+renderTextDraft fnt color txt = do { renderer <- asks canvasRenderer; lift $ P.renderTextDraft renderer fnt color txt}
 {-# INLINE renderTextDraft #-}
 
 -- | Создание текстуры из строки с заданным шрифтом и цветом.
 -- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
-renderTextOpaque:: MonadIO m => TTFFont -> -- ^ Шрифт.
+renderTextOpaque:: MonadIO m => Font -> -- ^ Шрифт.
                                 GuiColor -> -- ^ Цвет текста.
                                 GuiColor -> -- ^ Цвет фона.
                                 T.Text -> -- ^ Выводимая строка.
                                 Canvas m (Maybe SDL.Texture)
-renderTextOpaque fnt color bkColor = renderStrOpaque fnt color bkColor . T.unpack
+renderTextOpaque fnt color bkColor txt = do
+    renderer <- asks canvasRenderer
+    lift $ P.renderTextOpaque renderer fnt color bkColor txt
 {-# INLINE renderTextOpaque #-}
 
 -- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
 -- Качественно, с полутонами, но медленно.
-drawText :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> T.Text -> Canvas m ()
-drawText fnt color pnt = drawStr fnt color pnt . T.unpack
+drawText :: MonadIO m => Font -> GuiColor -> GuiPoint -> T.Text -> Canvas m ()
+drawText fnt color pnt txt = do{ c <- ask; lift $ P.drawText (canvasRenderer c) fnt color (toCanvasPoint c pnt) txt}
 {-# INLINE drawText #-}
 
 -- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
 -- Без полутонов, но быстро.
-drawTextDraft :: MonadIO m => TTFFont -> GuiColor -> GuiPoint -> T.Text -> Canvas m ()
-drawTextDraft fnt color pnt = drawStrDraft fnt color pnt . T.unpack
+drawTextDraft :: MonadIO m => Font -> GuiColor -> GuiPoint -> T.Text -> Canvas m ()
+drawTextDraft fnt color pnt txt =  do
+    c <- ask
+    lift $ P.drawTextDraft (canvasRenderer c) fnt color (toCanvasPoint c pnt) txt
 {-# INLINE drawTextDraft #-}
 
 -- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
 -- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
-drawTextOpaque :: MonadIO m => TTFFont -> -- ^ Шрифт.
+drawTextOpaque :: MonadIO m => Font -> -- ^ Шрифт.
                                GuiColor -> -- ^ Цвет текста.
                                GuiColor -> -- ^ Цвет фона.
                                GuiPoint -> -- ^ Позиция вывода.
                                T.Text -> -- ^ Выводимая строка.
                                Canvas m ()
-drawTextOpaque fnt color bkColor pnt = drawStrOpaque fnt color bkColor pnt . T.unpack
+drawTextOpaque fnt color bkColor pnt txt = do
+    c <- ask
+    lift $ P.drawTextOpaque (canvasRenderer c) fnt color bkColor (toCanvasPoint c pnt) txt
 {-# INLINE drawTextOpaque #-}
 
 -- | Отрисовка строки с заданным шрифтом и цветом,
 --  с заданным выравниванием в пределах заданного прямоугольника и с заданным режимом отрисовки.
-drawTextAligned :: MonadIO m => TTFFont -> -- ^ Шрифт.
+drawTextAligned :: MonadIO m => Font -> -- ^ Шрифт.
                                 Alignment -> -- ^ Режим выравнивания.
                                 GuiColor -> -- ^ Цвет текста.
                                 DrawStrMode -> -- ^ Режим отрисовки.
                                 GuiRect -> -- ^ Прясоугольная область для вывода с учётом выравнивания.
                                 T.Text -> -- ^ Выводимая строка.
                                 Canvas m ()
-drawTextAligned fnt align color mode rect = drawStrAligned fnt align color mode rect . T.unpack
+drawTextAligned fnt align color mode rect txt = do
+    c <- ask
+    lift $  P.drawStrAligned (canvasRenderer c) fnt align color mode (toCanvasRect c rect) txt
 {-# INLINE drawTextAligned #-}
 ------------------------------------------------------------------------------------------------------
 

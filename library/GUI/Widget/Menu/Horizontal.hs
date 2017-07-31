@@ -114,7 +114,7 @@ horizontalMenu HorizontalMenuDef{..} parent skin = do
     fnt <- runProxyCanvas parent $ getFont "menu"
     let recalc guiSt = do
             let visibleItems = V.filter (isVisibleActionState . fromActionMask guiSt . hmenuMask) hmenuItems
-            vSz <- V.forM visibleItems (P.strSize fnt . T.unpack . hmenuText)
+            vSz <- V.forM visibleItems (P.textSize fnt . hmenuText)
             writeMonadIORef items $ V.create $ do
                     v <- VM.new $ V.length visibleItems
                     V.ifoldM'_ (\x i (HMenuItem{..},V2 w _) ->

@@ -22,10 +22,8 @@ import qualified Data.Text as T
 import Data.IORef
 import Data.Default
 import qualified SDL
-import SDL.TTF.FFI (TTFFont)
-import SDL.TTF.Types
+import qualified SDL.Font as FNT
 import GUI.BaseLayer.Depend0.Cursor
-import GUI.BaseLayer.Depend0.TTF (GuiFontStyle(..))
 
 -- | Тип элемента коллеции. Тип введён для упрощения замены значений на ссылки, если это потребуется.
 type CachedItem a = a
@@ -42,9 +40,9 @@ type NaturalStringCollection = HM.HashMap ByteString T.Text
 
 -- | Дополнительные параметры шрифта используемые в 'GuiFontDef'
 data GuiFontOptions = GuiFontOptions {
-      fontKerning :: Maybe KerningStatus -- ^ Настроить кернинг шрифта или оставить по умолчанию.
-    , fontHinting :: Maybe TTFHinting -- ^ Настроить хинтинг шрифта или оставить по умолчанию.
-    , fontStyle   :: Maybe GuiFontStyle -- ^ Настроить стили шрифта или оставить по умолчанию.
+      fontKerning :: Maybe FNT.Kerning -- ^ Настроить кернинг шрифта или оставить по умолчанию.
+    , fontHinting :: Maybe FNT.Hinting -- ^ Настроить хинтинг шрифта или оставить по умолчанию.
+    , fontStyle   :: Maybe [FNT.Style] -- ^ Настроить стили шрифта или оставить по умолчанию.
                                      }
                                  deriving ( Eq, Show )
 
@@ -68,7 +66,7 @@ data FontCollectionItem = FontCollectionItem {
       fntPath      :: String -- ^ Имя файла шрифта из 'GuiFontDef'.
     , fntPtSz      :: Int -- ^ Размер шрифта в пунктах из 'GuiFontDef'.
     , fntOpts      :: GuiFontOptions -- ^ Дополнительные параметры шрифта из 'GuiFontDef'.
-    , fnt          :: TTFFont -- ^ Загруженный и настроенный шрифт.
+    , fnt          :: FNT.Font -- ^ Загруженный и настроенный шрифт.
                                              }
 
 -- | Тип коллеции кешируемых шрифтов.

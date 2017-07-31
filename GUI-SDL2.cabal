@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           GUI-SDL2
-version:        0.1.9
+version:        0.1.10
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -79,7 +79,6 @@ library
       GUI.BaseLayer.Depend0.Keyboard
       GUI.BaseLayer.Depend0.Pipe
       GUI.BaseLayer.Depend0.Ref
-      GUI.BaseLayer.Depend0.TTF
       GUI.BaseLayer.Depend0.Types
       GUI.BaseLayer.Depend1.Action
       GUI.BaseLayer.Depend1.Color

@@ -34,7 +34,7 @@ import qualified SDL
 import qualified SDL.Raw as Raw
 import qualified SDL.Internal.Types
 import SDL.Vect
-import qualified SDL.TTF
+import qualified SDL.Font as FNT
 import qualified SDL.Image as IMAGE
 import GUI.BaseLayer.Depend0.Types
 import GUI.BaseLayer.Depend0.Auxiliaries
@@ -103,16 +103,16 @@ runGUI skin fntLst GUIDef{..} initFn =
         let langCorr (l0:l1:_:c0:c1:_) = [toLower l0, toLower l1,'_',toUpper c0, toUpper c1]
             langCorr _ = defLangLocale
         uiLang <- langCorr <$> (if null guiNaturalLanguage then do
-                                m <- try $ getUILang
+                                m <- try getUILang
                                 case m of
                                     Right s -> return s
                                     Left  e -> do
                                         L.logPutLn gLog $ "Can't get system language : "
                                            <> showb (e :: IOError) <> "  Set " <>
-                                           (TS.fromString defLangLocale) <> " as default."
+                                           TS.fromString defLangLocale <> " as default."
                                         return defLangLocale
                         else return guiNaturalLanguage)
-        SDL.TTF.withInit $
+        bracket_ FNT.initialize FNT.quit $
           bracket_ (IMAGE.initialize [IMAGE.InitJPG,IMAGE.InitPNG]) IMAGE.quit $
           bracket (initResourceManager (skinName skin) fntLst dataDir uiLang gLog) destroyResourceManager $ \rm -> do
             usrEvCode <- Raw.registerEvents 1

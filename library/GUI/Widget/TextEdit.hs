@@ -38,7 +38,7 @@ import Control.Monad.Extra (whenJust,whenM)
 import Data.Default
 import qualified SDL
 import SDL.Vect
-import qualified SDL.TTF as TTF
+import qualified SDL.Font as FNT
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Widget.Handlers
@@ -131,7 +131,7 @@ textEdit :: MonadIO m => TextEditDef -> -- ^ Параметры виджета.
                          m (GuiWidget TextEditData)
 textEdit TextEditDef{..} parent skin = do
     fnt <- runProxyCanvas parent $ getFont "edit"
-    fntHeight <- TTF.getFontHeight fnt
+    fntHeight <- FNT.lineSkip fnt -- FNT.height fnt
 
     let allSz = V2 textEditWidth (fntHeight + 2*PaddingY)
         fns = noChildrenFns allSz
@@ -173,7 +173,7 @@ textEdit TextEditDef{..} parent skin = do
                                                         }
 
     let mkCharWidth :: MonadIO m => Char -> m Coord
-        mkCharWidth = fmap xV2 . P.strSize fnt . pure
+        mkCharWidth = fmap xV2 . P.textSize fnt . T.singleton
 
         mkWidthsVector :: MonadIO m => T.Text -> m (VU.Vector Coord)
         mkWidthsVector = fmap VU.fromList . mapM mkCharWidth . T.unpack

@@ -20,9 +20,9 @@
 --
 -- Для просмотра примеров изменять номер
 --
--- > #define EXAMPLE_NUM 0
+-- > #define EXAMPLE_NUM
 --
--- в этом файле, пересобрать пример и посмотреть что получилось:
+-- в этом файле, пересобрать пример, и посмотреть что получилось:
 --
 -- > stack build --flag GUI-SDL2:examples --exec GUIDemo
 --
@@ -46,11 +46,10 @@ import qualified Data.Vector as V
 import Data.Bits
 import Data.Maybe
 import Data.Default
--- import System.Exit
 import GHC.Conc
 import qualified SDL
 import SDL.Vect
-import SDL.TTF.Types
+import qualified SDL.Font as FNT
 import GUI
 import GUI.Skin.DefaultSkin
 import GUI.Widget.Handlers
@@ -72,14 +71,12 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         -- Список предзагруженных шрифтов : ключ, имя файла, размер шрифта, опции
         [GuiFontDef ""            "PTM55F.ttf" 14 def -- по молч., если не найден указанный ключ
         ,GuiFontDef "label"       "PTN57F.ttf" 15 def -- label
-        ,GuiFontDef "edit"        "PTM55F.ttf" 14 def{ fontHinting = Just TTFHNone
-                                                     , fontKerning = Just KerningOff }
+        ,GuiFontDef "edit"        "PTM55F.ttf" 14 def{ fontHinting = Just FNT.None
+                                                     , fontKerning = Just False }
         ,GuiFontDef "roll"        "PTM55F.ttf" 14 def -- rollView
         ,GuiFontDef "small"       "PTN57F.ttf" 13 def
         ,GuiFontDef "menu"        "PTN57F.ttf" 14 def
-        ,GuiFontDef "hello world" "PTN57F.ttf" 28 def{fontStyle = Just def { fontBold = True
-                                                                           , fontItalic = True
-                                                                           , fontUnderline = True}}
+        ,GuiFontDef "hello world" "PTN57F.ttf" 28 def{fontStyle = Just [FNT.Bold, FNT.Italic, FNT.Underline]}
         ]
 
                     -- Windows : C:\Users\User\AppData\Roaming\GUIDemo\GUIDemo.log
@@ -382,6 +379,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
 
     setFocus roll
 #elif EXAMPLE_NUM == 12
+    -- Потом здесь будет пример с dropDownRoll (dropDownList)
     let textVector = V.generate 20 $ \i -> TS.toText $ "Элемент номер " <> showb i
     vL <- win $+ vLayout def
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "Вызов выпадающего списка"}
@@ -422,7 +420,7 @@ exampleTextGrid parent _ = mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFo
                 txtColor = V4 0 0 100 0
                 txtFill r y =
                     let txtRow c x = when (x < w) $ do
-                                drawStr fnt txtColor (P (V2 x y)) $ concat [show x,",",show y]
+                                drawText fnt txtColor (P (V2 x y)) $ concat [show x,",",show y]
                                 txtRow (succ c) (x+dx)
                     in when (y < h) $ do
                         txtRow (0::Int) l
@@ -459,7 +457,7 @@ mouseChkWidget margin parent _ = do
                     drawLine (p .-^ V2 0 crossSz) (p .+^ V2 0 crossSz)
                     return $ show v
                 _ -> return "No mouse"
-            drawStr fnt (grayColor 255) (P (V2 5 5)) s
+            drawText fnt (grayColor 255) (P (V2 5 5)) s
                                                             }
 #endif
 
@@ -475,7 +473,7 @@ exampleWidgetHelloWorld parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent 
                 setColor $ V4 255 0 0 0
                 drawRect $ shrinkRect' 5 visibleRect
                 fnt <- getFont ""
-                drawStrAligned fnt AlignCenter (V4 255 255 255 0) DrawStrFine visibleRect "Привет, мир!"
+                drawTextAligned fnt AlignCenter (V4 255 255 255 0) DrawStrFine visibleRect "Привет, мир!"
                         }
 
 -- отображение картинки, возможно с прозрачными областями
@@ -502,7 +500,7 @@ blendModeTest parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent (noChildre
             -- withBlendMode SDL.BlendAdditive $ testDraw 70 -- линиц нет
             -- withBlendMode SDL.BlendMod $ testDraw 100 -- линии обычные
             fnt <- getFont ""
-            tRed <- fromJust <$> renderStr fnt (V4 255 0 0 100) "Тест"
+            tRed <- fromJust <$> renderText fnt (V4 255 0 0 100) "Тест"
             tPic <- getTexture "questmark.bmp"
             drawTexture tRed $ P (V2 70 10)
             drawTexture tPic $ P (V2 110 10)

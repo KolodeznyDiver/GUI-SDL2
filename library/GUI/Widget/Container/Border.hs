@@ -149,8 +149,8 @@ border BorderDef{..} parent skin = do
                                 Border3D{..} -> DrawStrOpaque (lightClr border3DLightColor)
                                 _ | isTransp -> DrawStrFine
                                   | otherwise -> DrawStrOpaque bkgrndColor
-                in drawStrAligned fnt (hvAlignToAlignment borderCaptionAlignment VTop) frgrndColor bkClr
-                    (shrinkRect (V2 CaptionPaddingX 0) r) $ T.unpack $ T.cons ' ' $ T.snoc borderCaption ' '
+                in drawTextAligned fnt (hvAlignToAlignment borderCaptionAlignment VTop) frgrndColor bkClr
+                    (shrinkRect (V2 CaptionPaddingX 0) r) $ T.cons ' ' $ T.snoc borderCaption ' '
         ,onSizeChangedParentNotify= \widget child newSz ->
             if borderSizeByChild then do
                 widgetResizingIfChanged child $ SDL.Rectangle zero newSz

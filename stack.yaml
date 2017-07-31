@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-8.23
+resolver: lts-8.24
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -36,9 +36,18 @@ resolver: lts-8.23
 # non-dependency (i.e. a user package), and its test suites and benchmarks
 # will not be run. This is useful for tweaking upstream packages.
 packages:
-- '../sdl2-master'
-- '../sdl2-ttf-master'
-- '../sdl2-image-master'
+#- '../sdl2'
+#- '../sdl2-ttf'
+#- '../sdl2-image'
+- location:
+    git: https://github.com/haskell-game/sdl2
+    commit: 50fd095dcfdf64a8d43f2ac001da06b2665cec00
+- location:
+    git: https://github.com/haskell-game/sdl2-ttf
+    commit: d98b475813e5d58aa0408ccf4f8cf4ea114db982
+- location:
+    git: https://github.com/tauli/sdl2-image
+    commit: 8a42872666afc64e4a548041eb093dce4ad56455
 - '.'
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
