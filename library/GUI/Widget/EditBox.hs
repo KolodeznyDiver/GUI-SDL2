@@ -7,7 +7,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiWayIf #-}
 -- |
--- Module:      GUI.Widget.TextEdit
+-- Module:      GUI.Widget.EditBox
 -- Copyright:   (c) 2017 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
@@ -17,11 +17,11 @@
 -- Поле для редактирования текста.
 -- Использует шрифт \"edit\" из таблицы шрифтов менеджера ресурсов.
 
-module GUI.Widget.TextEdit(
+module GUI.Widget.EditBox(
     -- * Типы поля для редактирования текста.
-    TextEditDef(..),TextEditData
+    EditBoxDef(..),EditBoxData
     -- * Функция создания виджета для редактирования текста.
-    ,textEdit
+    ,editBox
     ) where
 
 import Control.Monad
@@ -49,66 +49,66 @@ pattern PaddingY :: Coord
 pattern PaddingY = 3
 
 -- | Начальные настройки виджета для редактирования текста.
-data TextEditDef = TextEditDef {
-          textEditFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
+data EditBoxDef = EditBoxDef {
+          editBoxFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
                                                     -- в настоящий момент только margin's.
-        , textEditWidth   :: Coord -- ^ Ширина поля редактирования. Высота определяется размером шрифта
+        , editBoxWidth   :: Coord -- ^ Ширина поля редактирования. Высота определяется размером шрифта
                                    -- и внутренними полями фиксированного размера.
-        , textEditFlags   :: WidgetFlags -- ^ Флаги базового виджета.
-        , textEditText    :: T.Text -- ^ Исходный текст.
-        , textEditMaxChar :: Int -- ^ максимально допустимое число символов.
-        , textEditCharFilter :: Char -> Bool -- ^ функция-фильтр допустимых для ввода символов.
+        , editBoxFlags   :: WidgetFlags -- ^ Флаги базового виджета.
+        , editBoxText    :: T.Text -- ^ Исходный текст.
+        , editBoxMaxChar :: Int -- ^ максимально допустимое число символов.
+        , editBoxCharFilter :: Char -> Bool -- ^ функция-фильтр допустимых для ввода символов.
                                              -- по умолчанию недопустимы пробельные символы кроме пробела.
                                }
 
-instance Default TextEditDef where
-    def = TextEditDef { textEditFormItemDef = def
-                      , textEditWidth = 100
-                      , textEditFlags = WidgetVisible .|. WidgetEnable .|. WidgetFocusable .|. WidgetTabbed
-                      , textEditText = T.empty
-                      , textEditMaxChar = 100
-                      , textEditCharFilter = \c -> not (isSpace c) || c == ' '
-                      }
+instance Default EditBoxDef where
+    def = EditBoxDef { editBoxFormItemDef = def
+                     , editBoxWidth = 100
+                     , editBoxFlags = WidgetVisible .|. WidgetEnable .|. WidgetFocusable .|. WidgetTabbed
+                     , editBoxText = T.empty
+                     , editBoxMaxChar = 100
+                     , editBoxCharFilter = \c -> not (isSpace c) || c == ' '
+                     }
 
--- | Не экспортируемый тип записи. Хранится по ссылке в 'TextEditData'.
-data TextEditStruct = TextEditStruct    { txtEdText :: T.Text
-                                        , txtEdOnChanged :: forall m. MonadIO m => T.Text -> m ()
-                                        , txtEdAtEnd :: forall m. MonadIO m => T.Text -> m ()
-                                        , txtEdVerif :: forall m. MonadIO m => T.Text -> m Bool
---                                        , txtEdCharVerif :: forall m. MonadIO m => Char -> m Bool
-                                        , txtEdSetText :: forall m. MonadIO m => T.Text -> m Bool
-                                        }
+-- | Не экспортируемый тип записи. Хранится по ссылке в 'EditBoxData'.
+data EditBoxStruct = EditBoxStruct    { edBxText :: T.Text
+                                      , edBxOnChanged :: forall m. MonadIO m => T.Text -> m ()
+                                      , edBxAtEnd :: forall m. MonadIO m => T.Text -> m ()
+                                      , edBxVerif :: forall m. MonadIO m => T.Text -> m Bool
+--                                        , edBxCharVerif :: forall m. MonadIO m => Char -> m Bool
+                                      , edBxSetText :: forall m. MonadIO m => T.Text -> m Bool
+                                      }
 
--- | Тип созданного виджета. Обычно используется как  @GuiWidget TextEditData@.
-newtype TextEditData = TextEditData { getTxtEd :: IORef TextEditStruct }
+-- | Тип созданного виджета. Обычно используется как  @GuiWidget EditBoxData@.
+newtype EditBoxData = EditBoxData { getTxtEd :: IORef EditBoxStruct }
 
 -- | Установка функции-обработчика на изменение текста.
-instance Changeable (GuiWidget TextEditData) T.Text where
-    onChanged w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdOnChanged= a})
+instance Changeable (GuiWidget EditBoxData) T.Text where
+    onChanged w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxOnChanged= a})
 
 -- | Установка функции-обработчика вызываемого когда поле редактирования теряет фокус или нажат Enter.
-instance OnEnd (GuiWidget TextEditData) T.Text where
-    onEnd w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdAtEnd= a})
+instance OnEnd (GuiWidget EditBoxData) T.Text where
+    onEnd w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxAtEnd= a})
 
 -- | Установка предиката-верификатора. Он вызывается при любой ПОПЫТКЕ изменения текста.
 -- если предикат вернёт False, текст не будет изменён.
-instance Verifiable (GuiWidget TextEditData) T.Text where
-    setVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdVerif= a})
+instance Verifiable (GuiWidget EditBoxData) T.Text where
+    setVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxVerif= a})
 
 {-
-setTextEditCharVerifier :: forall m. MonadIO m => GuiWidget TextEditData ->
+setEditBoxCharVerifier :: forall m. MonadIO m => GuiWidget EditBoxData ->
                             (forall n. MonadIO n => Char -> n Bool) -> m ()
-setTextEditCharVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{txtEdCharVerif= a})
+setEditBoxCharVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxCharVerif= a})
 -}
 
 -- | Установка и извлечение редактируемого текста.
-instance TextProperty (GuiWidget TextEditData) where
-    setText (GuiWidget widget TextEditData{..}) txt = do
-        TextEditStruct{..} <- readMonadIORef getTxtEd
-        when (txt /= txtEdText) $
-            whenM (txtEdSetText txt) $
+instance TextProperty (GuiWidget EditBoxData) where
+    setText (GuiWidget widget EditBoxData{..}) txt = do
+        EditBoxStruct{..} <- readMonadIORef getTxtEd
+        when (txt /= edBxText) $
+            whenM (edBxSetText txt) $
                 markWidgetForRedraw widget
-    getText (GuiWidget _ TextEditData{..}) = txtEdText <$> readMonadIORef getTxtEd
+    getText (GuiWidget _ EditBoxData{..}) = edBxText <$> readMonadIORef getTxtEd
 
 
 -- no export
@@ -117,25 +117,25 @@ widthSum from to | from < to = VU.sum . VU.slice from (to - from)
                  | otherwise = const 0
 {-# INLINE widthSum #-}
 
--- internal for textEdit
-data TextEditState = TextEditState      { txtEdPos :: Int -- Caret pos. or start selection
-                                        , txtEdSel :: Int -- stop selection or -1
-                                        , txtEdOff :: Int -- view area offset in Chars
-                                        , txtEdWidths :: VU.Vector Coord
-                                        }
+-- internal for editBox
+data EditBoxState = EditBoxState      { edBxPos :: Int -- Caret pos. or start selection
+                                      , edBxSel :: Int -- stop selection or -1
+                                      , edBxOff :: Int -- view area offset in Chars
+                                      , edBxWidths :: VU.Vector Coord
+                                      }
 
 -- | Функция создания виджета для редактирования текста.
-textEdit :: MonadIO m => TextEditDef -> -- ^ Параметры виджета.
+editBox :: MonadIO m => EditBoxDef -> -- ^ Параметры виджета.
                          Widget -> -- ^ Будующий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
-                         m (GuiWidget TextEditData)
-textEdit TextEditDef{..} parent skin = do
+                         m (GuiWidget EditBoxData)
+editBox EditBoxDef{..} parent skin = do
     fnt <- runProxyCanvas parent $ getFont "edit"
     fntHeight <- FNT.lineSkip fnt -- FNT.height fnt
 
-    let allSz = V2 textEditWidth (fntHeight + 2*PaddingY)
+    let allSz = V2 editBoxWidth (fntHeight + 2*PaddingY)
         fns = noChildrenFns allSz
-        txtAreaW = textEditWidth - 2*PaddingY
+        txtAreaW = editBoxWidth - 2*PaddingY
 
         calcMinOff :: VU.Vector Coord -> Coord -> Int -> Int
         calcMinOff v = go
@@ -144,32 +144,32 @@ textEdit TextEditDef{..} parent skin = do
                                 r' = r - v VU.! i'
                            in if r' <= 0 then i else go r' i'
 
-        adjustOffset :: TextEditState -> TextEditState
-        adjustOffset s@TextEditState{..}
-            | (txtEdPos < txtEdOff) || ((txtEdPos == txtEdOff) && (txtEdOff > 0)) =
-                            s{txtEdOff= calcMinOff txtEdWidths (txtAreaW `div` 3) txtEdPos}
-            | widthSum txtEdOff txtEdPos txtEdWidths >= txtAreaW = s{txtEdOff =
-                let i = calcMinOff txtEdWidths txtAreaW $ VU.length txtEdWidths in
-                if i < txtEdPos then i
-                else calcMinOff txtEdWidths (txtAreaW - txtAreaW `div` 3) txtEdPos }
+        adjustOffset :: EditBoxState -> EditBoxState
+        adjustOffset s@EditBoxState{..}
+            | (edBxPos < edBxOff) || ((edBxPos == edBxOff) && (edBxOff > 0)) =
+                            s{edBxOff= calcMinOff edBxWidths (txtAreaW `div` 3) edBxPos}
+            | widthSum edBxOff edBxPos edBxWidths >= txtAreaW = s{edBxOff =
+                let i = calcMinOff edBxWidths txtAreaW $ VU.length edBxWidths in
+                if i < edBxPos then i
+                else calcMinOff edBxWidths (txtAreaW - txtAreaW `div` 3) edBxPos }
             | otherwise = s
 
-{- s{txtEdOff = min (min (calcMinOff txtEdWidths txtAreaW $ VU.length txtEdWidths) txtEdPos) $
-                               until (\off -> widthSum off txtEdPos txtEdWidths < txtAreaW) (DeltaOffset +) txtEdOff}
+{- s{edBxOff = min (min (calcMinOff edBxWidths txtAreaW $ VU.length edBxWidths) edBxPos) $
+                               until (\off -> widthSum off edBxPos edBxWidths < txtAreaW) (DeltaOffset +) edBxOff}
 -}
 
     mbThreadId <- newMonadIORef Nothing
-    d <- newMonadIORef TextEditStruct   { txtEdText = T.empty
-                                        , txtEdOnChanged = \_ -> return ()
-                                        , txtEdAtEnd = \_ -> return ()
-                                        , txtEdVerif = \_ -> return True
---                                        , txtEdCharVerif = \_ -> return True
-                                        , txtEdSetText = \_ -> return True -- tmp. set to onSetText below
+    d <- newMonadIORef EditBoxStruct   { edBxText = T.empty
+                                        , edBxOnChanged = \_ -> return ()
+                                        , edBxAtEnd = \_ -> return ()
+                                        , edBxVerif = \_ -> return True
+--                                        , edBxCharVerif = \_ -> return True
+                                        , edBxSetText = \_ -> return True -- tmp. set to onSetText below
                                         }
-    state <- newMonadIORef $ adjustOffset TextEditState { txtEdPos = 0
-                                                        , txtEdSel = -1
-                                                        , txtEdOff = 0
-                                                        , txtEdWidths = VU.empty
+    state <- newMonadIORef $ adjustOffset EditBoxState { edBxPos = 0
+                                                        , edBxSel = -1
+                                                        , edBxOff = 0
+                                                        , edBxWidths = VU.empty
                                                         }
 
     let mkCharWidth :: MonadIO m => Char -> m Coord
@@ -181,33 +181,33 @@ textEdit TextEditDef{..} parent skin = do
         posSelArrange' pos sel | (sel < 0) || (pos < sel) = (pos,sel)
                                |  otherwise = (sel,pos)
 
-        posSelArrange TextEditState{..} = posSelArrange' txtEdPos txtEdSel
+        posSelArrange EditBoxState{..} = posSelArrange' edBxPos edBxSel
 
         onSetText :: MonadIO m => T.Text -> m Bool
-        onSetText txt = do -- set into txtEdSetText
+        onSetText txt = do -- set into edBxSetText
             s <- readMonadIORef state
             textUpdate' s txt 0 (-1)
 
-        textUpdate' :: MonadIO m => TextEditState -> T.Text -> Int -> Int -> m Bool
-        textUpdate' s@TextEditState{..} ins from to' = do
-            t@TextEditStruct{..} <- readMonadIORef d
-            let oldLn = T.length txtEdText
+        textUpdate' :: MonadIO m => EditBoxState -> T.Text -> Int -> Int -> m Bool
+        textUpdate' s@EditBoxState{..} ins from to' = do
+            t@EditBoxStruct{..} <- readMonadIORef d
+            let oldLn = T.length edBxText
                 to | to' < 0 = oldLn
                    | otherwise = to'
-                maxInsert = textEditMaxChar - oldLn + to - from
-                txt = T.take maxInsert $ T.filter textEditCharFilter ins
+                maxInsert = editBoxMaxChar - oldLn + to - from
+                txt = T.take maxInsert $ T.filter editBoxCharFilter ins
             if T.null ins || not (T.null txt) then
-                let txt2 = T.concat [T.take from txtEdText, txt,  T.drop to txtEdText] in
-                if txt2 /= txtEdText then do
-                    verified <- txtEdVerif txt2
+                let txt2 = T.concat [T.take from edBxText, txt,  T.drop to edBxText] in
+                if txt2 /= edBxText then do
+                    verified <- edBxVerif txt2
                     if verified then do
-                        writeMonadIORef d t{txtEdText=txt2}
+                        writeMonadIORef d t{edBxText=txt2}
                         insV <- mkWidthsVector txt
-                        let v = txtEdWidths
+                        let v = edBxWidths
                         writeMonadIORef state $ adjustOffset s{
-                            txtEdWidths= VU.concat [VU.slice 0 from v,insV,VU.slice to (VU.length v - to) v]
-                            ,txtEdPos = from + T.length txt, txtEdSel= -1}
-                        txtEdOnChanged txt2
+                            edBxWidths= VU.concat [VU.slice 0 from v,insV,VU.slice to (VU.length v - to) v]
+                            ,edBxPos = from + T.length txt, edBxSel= -1}
+                        edBxOnChanged txt2
                         return True
                     else return False
                 else return False
@@ -215,7 +215,7 @@ textEdit TextEditDef{..} parent skin = do
 
         textUpdate :: MonadIO m => T.Text -> m Bool
         textUpdate ins = do
-            s@TextEditState{..} <- readMonadIORef state
+            s@EditBoxState{..} <- readMonadIORef state
             let (pos,sel) = posSelArrange s
                 to | sel < 0 = pos
                    | otherwise = sel
@@ -229,35 +229,35 @@ textEdit TextEditDef{..} parent skin = do
                                  in go 0 off - off
 
         -- Coord from left of text area.
-        coord2ix :: TextEditState -> Coord -> Int
-        coord2ix TextEditState{..} x
+        coord2ix :: EditBoxState -> Coord -> Int
+        coord2ix EditBoxState{..} x
             | x<=0 || x>=txtAreaW = -1
-            | otherwise = let maxI = VU.length txtEdWidths
+            | otherwise = let maxI = VU.length edBxWidths
                               go r i | i == maxI = i
-                                     | otherwise = let r' = r + txtEdWidths VU.! i
+                                     | otherwise = let r' = r + edBxWidths VU.! i
                                                    in if r' >= x then i else go r' $ i + 1
-                              n = go (-3) txtEdOff
-                          in {- if n == txtEdPos then -1 else -} n
+                              n = go (-3) edBxOff
+                          in {- if n == edBxPos then -1 else -} n
 
-        doMove :: MonadIO m => Widget -> (TextEditState -> (Int,Int)) -> m ()
+        doMove :: MonadIO m => Widget -> (EditBoxState -> (Int,Int)) -> m ()
         doMove widget f = do
             s <- readMonadIORef state
             let (pos,sel) = f s
-            when (pos /= txtEdPos s || sel /= txtEdSel s) $ do
-                writeMonadIORef state $ adjustOffset s{txtEdPos=pos, txtEdSel=sel}
+            when (pos /= edBxPos s || sel /= edBxSel s) $ do
+                writeMonadIORef state $ adjustOffset s{edBxPos=pos, edBxSel=sel}
                 markWidgetForRedraw widget
 
-        doMouse :: MonadIO m => Widget -> Coord -> (Int -> TextEditState -> (Int,Int)) -> m ()
+        doMouse :: MonadIO m => Widget -> Coord -> (Int -> EditBoxState -> (Int,Int)) -> m ()
         doMouse widget x f = do
-            s@TextEditState{..} <- readMonadIORef state
+            s@EditBoxState{..} <- readMonadIORef state
             let pos = coord2ix s $ x - PaddingX
             --when (pos>=0) $
             doMove widget $ f pos
 
-        copyToClipboard :: MonadIO m => m (TextEditState,Int,Int)
-        copyToClipboard = do s@TextEditState{..} <- readMonadIORef state
-                             if txtEdSel>=0 then do
-                                t <- txtEdText <$> readMonadIORef d
+        copyToClipboard :: MonadIO m => m (EditBoxState,Int,Int)
+        copyToClipboard = do s@EditBoxState{..} <- readMonadIORef state
+                             if edBxSel>=0 then do
+                                t <- edBxText <$> readMonadIORef d
                                 let (from,to) = posSelArrange s
                                 SDL.setClipboardText $ T.take (to - from) $ T.drop from t
                                 return (s,from,to)
@@ -274,8 +274,8 @@ textEdit TextEditDef{..} parent skin = do
                                             markWidgetForRedraw widget
         atEnd :: MonadIO m => m ()
         atEnd = do
-            TextEditStruct{..} <- readMonadIORef d
-            txtEdAtEnd txtEdText
+            EditBoxStruct{..} <- readMonadIORef d
+            edBxAtEnd edBxText
 
         stopThrd :: MonadIO m => m ()
         stopThrd = do
@@ -285,14 +285,14 @@ textEdit TextEditDef{..} parent skin = do
                 writeMonadIORef mbThreadId Nothing
 
     blink <- newMonadIORef True
-    modifyMonadIORef' d $ \s -> s{txtEdSetText= onSetText}
+    modifyMonadIORef' d $ \s -> s{edBxSetText= onSetText}
     win <- getWidgetWindow parent
     gui <- getWindowGui win
     blikPipe <- newGuiPipe gui $ \ _ (_ :: V.Vector Int) -> return ()
-    void $ onSetText textEditText
-    mkWidget textEditFlags
-            (fromMaybe (formItemsMargin skin) $ formItemMargin textEditFormItemDef)
-            (TextEditData d) parent fns{
+    void $ onSetText editBoxText
+    mkWidget editBoxFlags
+            (fromMaybe (formItemsMargin skin) $ formItemMargin editBoxFormItemDef)
+            (EditBoxData d) parent fns{
         onCreate = \widget -> do
             onCreate fns widget
             replaceGuiPipeHandler gui blikPipe $ \ _ (_ :: V.Vector Int) -> do
@@ -309,46 +309,46 @@ textEdit TextEditDef{..} parent skin = do
 
         ,onMouseMotion = \widget btnsLst (P (V2 x _)) _relMv ->
             when (SDL.ButtonLeft `elem` btnsLst) $
-                doMouse widget x $ \pos TextEditState{..} ->
-                    let sel = if txtEdSel<0 then txtEdPos else txtEdSel in
+                doMouse widget x $ \pos EditBoxState{..} ->
+                    let sel = if edBxSel<0 then edBxPos else edBxSel in
                     if | pos >= 0 -> (pos,sel)
                        | x < PaddingX -> (0,sel)
-                       | x > (PaddingX + txtAreaW) -> (VU.length txtEdWidths,sel)
-                       | otherwise -> (txtEdPos,txtEdSel)
+                       | x > (PaddingX + txtAreaW) -> (VU.length edBxWidths,sel)
+                       | otherwise -> (edBxPos,edBxSel)
 
         ,onMouseButton = \widget motion mouseButton _clicks (P (V2 x _)) ->
             when ((motion==SDL.Pressed) && (mouseButton == SDL.ButtonLeft)) $ do
                 setWidgetFocus widget
-                doMouse widget x $ \pos TextEditState{..} ->
-                    if pos>=0 then (pos,-1) else (txtEdPos,txtEdSel)
+                doMouse widget x $ \pos EditBoxState{..} ->
+                    if pos>=0 then (pos,-1) else (edBxPos,edBxSel)
         ,onKeyboard = \widget motion _repeated keycode km -> when (motion==SDL.Pressed) $ do
---            liftIO $ putStrLn $ concat ["textEdit.onKeyboard "]
+--            liftIO $ putStrLn $ concat ["editBox.onKeyboard "]
             let shiftCtrlAlt@ShiftCtrlAlt{isShift=isS,isCtrl=isC,isAlt=isA} = getShftCtrlAlt km
             if isEnterKey keycode && shiftCtrlAlt == ShiftCtrlAlt False False False then do
                 n <- findNextTabbedWidget widget
                 if n /= widget then setWidgetFocus n else atEnd
             else case keycode of
-                    SDL.KeycodeA | not isS && isC && not isA -> doMove widget $ \ TextEditState{..} ->
-                        let ln = VU.length txtEdWidths in
-                        if ln>0 then (0,VU.length txtEdWidths) else (0,-1)
+                    SDL.KeycodeA | not isS && isC && not isA -> doMove widget $ \ EditBoxState{..} ->
+                        let ln = VU.length edBxWidths in
+                        if ln>0 then (0,VU.length edBxWidths) else (0,-1)
 
-                    SDL.KeycodeHome | not isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
+                    SDL.KeycodeHome | not isS && not isC && not isA -> doMove widget $ \ EditBoxState{..} ->
                         (0,-1)
-                    SDL.KeycodeEnd | not isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
-                        (VU.length txtEdWidths,-1)
-                    SDL.KeycodeLeft | not isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
-                        (max 0 $ txtEdPos - 1,-1)
-                    SDL.KeycodeRight | not isS && not isC && not isA  -> doMove widget $ \ TextEditState{..} ->
-                        (min (VU.length txtEdWidths) $ txtEdPos + 1,-1)
+                    SDL.KeycodeEnd | not isS && not isC && not isA -> doMove widget $ \ EditBoxState{..} ->
+                        (VU.length edBxWidths,-1)
+                    SDL.KeycodeLeft | not isS && not isC && not isA -> doMove widget $ \ EditBoxState{..} ->
+                        (max 0 $ edBxPos - 1,-1)
+                    SDL.KeycodeRight | not isS && not isC && not isA  -> doMove widget $ \ EditBoxState{..} ->
+                        (min (VU.length edBxWidths) $ edBxPos + 1,-1)
 
-                    SDL.KeycodeHome | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
-                        (0,if txtEdSel<0 then txtEdPos else txtEdSel)
-                    SDL.KeycodeEnd | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
-                        (VU.length txtEdWidths,if txtEdSel<0 then txtEdPos else txtEdSel)
-                    SDL.KeycodeLeft | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
-                        (max 0 $ txtEdPos - 1,if txtEdSel<0 then txtEdPos else txtEdSel)
-                    SDL.KeycodeRight | isS && not isC && not isA -> doMove widget $ \ TextEditState{..} ->
-                        (min (VU.length txtEdWidths) $ txtEdPos + 1,if txtEdSel<0 then txtEdPos else txtEdSel)
+                    SDL.KeycodeHome | isS && not isC && not isA -> doMove widget $ \ EditBoxState{..} ->
+                        (0,if edBxSel<0 then edBxPos else edBxSel)
+                    SDL.KeycodeEnd | isS && not isC && not isA -> doMove widget $ \ EditBoxState{..} ->
+                        (VU.length edBxWidths,if edBxSel<0 then edBxPos else edBxSel)
+                    SDL.KeycodeLeft | isS && not isC && not isA -> doMove widget $ \ EditBoxState{..} ->
+                        (max 0 $ edBxPos - 1,if edBxSel<0 then edBxPos else edBxSel)
+                    SDL.KeycodeRight | isS && not isC && not isA -> doMove widget $ \ EditBoxState{..} ->
+                        (min (VU.length edBxWidths) $ edBxPos + 1,if edBxSel<0 then edBxPos else edBxSel)
 
                     SDL.KeycodeC | not isS && isC && not isA -> void copyToClipboard
                     SDL.KeycodeInsert | not isS && isC && not isA -> void copyToClipboard
@@ -357,14 +357,14 @@ textEdit TextEditDef{..} parent skin = do
                     SDL.KeycodeV | not isS && isC && not isA -> pasteFromClipboard widget
                     SDL.KeycodeInsert | isS && not isC && not isA -> pasteFromClipboard widget
                     SDL.KeycodeDelete | not isA -> do
---                        liftIO $ putStrLn "textEdit.KeycodeDelete"
-                        s@TextEditState{..} <- readMonadIORef state
-                        when (txtEdPos /= VU.length txtEdWidths) $
-                            whenM (textUpdate' s T.empty txtEdPos (txtEdPos+1)) $
+--                        liftIO $ putStrLn "editBox.KeycodeDelete"
+                        s@EditBoxState{..} <- readMonadIORef state
+                        when (edBxPos /= VU.length edBxWidths) $
+                            whenM (textUpdate' s T.empty edBxPos (edBxPos+1)) $
                                 markWidgetForRedraw widget
                     SDL.KeycodeBackspace | not isA -> do
-                        s@TextEditState{..} <- readMonadIORef state
-                        when (txtEdPos>0) $ whenM (textUpdate' s T.empty (txtEdPos-1) txtEdPos) $
+                        s@EditBoxState{..} <- readMonadIORef state
+                        when (edBxPos>0) $ whenM (textUpdate' s T.empty (edBxPos-1) edBxPos) $
                             markWidgetForRedraw widget
                     _ -> return ()
         ,onTextInput = \widget txt -> whenM (textUpdate txt) $ markWidgetForRedraw widget
@@ -372,12 +372,12 @@ textEdit TextEditDef{..} parent skin = do
                 fl <- getWidgetFlags widget
                 r@(SDL.Rectangle p0 (V2 fullW fullH)) <- getVisibleRect widget
                 drawRoundFrame (decoreBkColor (formDecore skin)) (borderColor skin) (decoreBkColor (windowDecore skin)) r
-                txt <- txtEdText <$> readMonadIORef d
+                txt <- edBxText <$> readMonadIORef d
                 let p1 = p0 .+^ V2 PaddingX PaddingY
-                s@TextEditState{..} <- readMonadIORef state
+                s@EditBoxState{..} <- readMonadIORef state
                 if (fl .&. (WidgetEnable .|. WidgetFocused)) == (WidgetEnable .|. WidgetFocused) then do
-                    let chrsVisible = calcCharsVisible txtEdWidths txtEdOff
-                        txt' = T.drop txtEdOff txt
+                    let chrsVisible = calcCharsVisible edBxWidths edBxOff
+                        txt' = T.drop edBxOff txt
                         rightOver = T.length txt' > chrsVisible
                         txt1 = T.take chrsVisible txt'
                         drawUnselected = drawTextOpaque fnt (decoreFgColor (windowDecore skin))
@@ -388,30 +388,30 @@ textEdit TextEditDef{..} parent skin = do
                             setColor (decoreBkColor (windowDecore skin))
                             drawLine (P (V2 x outSpan)) (P (V2 x (outSpan + lineLn)))
                             drawLine (P (V2 x (fullH - outSpan))) (P (V2 x (fullH - outSpan - lineLn -1)))
-                    if txtEdSel < 0 then do
+                    if edBxSel < 0 then do
                         drawUnselected p1 txt1
                         blinNow <- readMonadIORef blink
                         when blinNow $ do
                             setColor (decoreFgColor (windowDecore skin))
-                            let x = PaddingX + widthSum txtEdOff txtEdPos txtEdWidths
+                            let x = PaddingX + widthSum edBxOff edBxPos edBxWidths
                             drawLine (P (V2 x 3)) (P (V2 x (fullH - 4)))
                     else do
                         let (selL,selR) = posSelArrange s
-                            visibleSelL = max txtEdOff selL
-                            visibleSelR = max txtEdOff selR
-                            l = visibleSelL - txtEdOff
+                            visibleSelL = max edBxOff selL
+                            visibleSelR = max edBxOff selR
+                            l = visibleSelL - edBxOff
                             m = visibleSelR - visibleSelL
                             (txtL,txtRest) = T.splitAt l txt1
                             (txtSel,txtR) = T.splitAt m txtRest
-                            p2 = p1 .+^ V2 (widthSum txtEdOff visibleSelL txtEdWidths) 0
-                            p3 = p2 .+^ V2 (widthSum visibleSelL visibleSelR txtEdWidths) 0
+                            p2 = p1 .+^ V2 (widthSum edBxOff visibleSelL edBxWidths) 0
+                            p3 = p2 .+^ V2 (widthSum visibleSelL visibleSelR edBxWidths) 0
                         drawUnselected p1 txtL
                         drawTextOpaque fnt (decoreFgColor $ selectedDecore skin)
                             (decoreBkColor $ selectedDecore skin) p2 txtSel
                         drawUnselected p3 txtR
-                    when (txtEdOff>0) $ drawSemiBorder 0
+                    when (edBxOff>0) $ drawSemiBorder 0
                     when rightOver $ drawSemiBorder (fullW - 1)
-                else let chrsVisible = calcCharsVisible txtEdWidths 0
+                else let chrsVisible = calcCharsVisible edBxWidths 0
                          txt1 = T.take chrsVisible txt
                          colorF = if (fl .&. WidgetEnable) == WidgetEnable then decoreFgColor . windowDecore
                                   else windowDisabledFgColor

@@ -8,7 +8,7 @@ category: GUI SDL2
 license: BSD3
 maintainer: Kolodezny Diver
 github: KolodeznyDiver/GUI-SDL2
-version: '0.1.10'
+version: '0.1.11'
 extra-source-files:
 - CHANGELOG.md
 - LICENSE.md
@@ -105,9 +105,9 @@ library:
   - GUI.Widget.Menu.Horizontal
   - GUI.Widget.Label
   - GUI.Widget.LinearTrackBar
-  - GUI.Widget.RollView
+  - GUI.Widget.ListView
   - GUI.Widget.Splitter
-  - GUI.Widget.TextEdit
+  - GUI.Widget.EditBox
   - GUI.Widget.TH
   - GUI.Widget.Types
   - GUI.Window.MessageBox

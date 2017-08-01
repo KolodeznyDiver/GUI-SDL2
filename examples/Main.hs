@@ -61,9 +61,9 @@ import GUI.Widget.Container.ScrollArea
 import GUI.Widget.Splitter
 import GUI.Widget.Menu.Horizontal
 import GUI.Widget.Container.Border
-import GUI.Widget.TextEdit
+import GUI.Widget.EditBox
 import GUI.Window.MessageBox
-import GUI.Widget.RollView
+import GUI.Widget.ListView
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -73,7 +73,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         ,GuiFontDef "label"       "PTN57F.ttf" 15 def -- label
         ,GuiFontDef "edit"        "PTM55F.ttf" 14 def{ fontHinting = Just FNT.None
                                                      , fontKerning = Just False }
-        ,GuiFontDef "roll"        "PTM55F.ttf" 14 def -- rollView
+        ,GuiFontDef "list"        "PTM55F.ttf" 14 def -- listView
         ,GuiFontDef "small"       "PTN57F.ttf" 13 def
         ,GuiFontDef "menu"        "PTN57F.ttf" 14 def
         ,GuiFontDef "hello world" "PTN57F.ttf" 28 def{fontStyle = Just [FNT.Bold, FNT.Italic, FNT.Underline]}
@@ -351,7 +351,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     vL <- win $+ vLayout def -- {layoutAlignment = AlignCenterTop}
     hL0 <- vL $+ hLayout def
     lb <- hL0 $+ label def{labelSize=V2 150 20, labelText="Поле редактирования :"}
-    ed <- hL0 $+ textEdit def{textEditText="qwerty012"}
+    ed <- hL0 $+ editBox def{editBoxText="qwerty012"}
     onChanged ed $ \ t ->
         setText lb t
     onEnd ed $ \ _t ->
@@ -365,19 +365,19 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     let textVector = V.generate 20 $ \i -> TS.toText $ "Элемент номер " <> showb i
     vL <- win $+ vLayout def
     lb <- vL $+ label def{labelSize=V2 350 20, labelText="Здесь будет отображаться текущая строка"}
-    roll <- vL $+ rollView def{rollViewSize = V2 350 200
-                              ,rollViewRollFlags = rollViewRollFlags def  .|. MultiSelectRollFlag
-                              } $ RollViewText textVector
-    onMove roll $ \ i ->
+    lstView <- vL $+ listView def{listViewSize = V2 350 200
+                                 ,listViewListViewFlags = listViewListViewFlags def  .|. MultiSelectListViewFlag
+                                 } $ ListViewText textVector
+    onMove lstView $ \ i ->
         setText lb $ textVector V.! i
-    onDoubleClick roll $ do
-        i <- getRowNum roll
+    onDoubleClick lstView $ do
+        i <- getRowNum lstView
         setText lb $ TS.toText $ "Двойной щелчёк на элементе номер " <> showb i
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
     onClick btn $
-        allWidgetFlags (getWidget roll) WidgetEnable >>= enableWidget roll . not
+        allWidgetFlags (getWidget lstView) WidgetEnable >>= enableWidget lstView . not
 
-    setFocus roll
+    setFocus lstView
 #elif EXAMPLE_NUM == 12
     -- Потом здесь будет пример с dropDownRoll (dropDownList)
     let textVector = V.generate 20 $ \i -> TS.toText $ "Элемент номер " <> showb i
@@ -386,7 +386,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     onClick btn $ do
         let widget = getWidget btn
         (SDL.Rectangle _ (V2 _ y)) <- getWidgetRect widget
-        popupRollView widget (SDL.Rectangle (P (V2 0 y)) (V2 150 100)) (RollViewText textVector) $ \ i ->
+        popupListView widget (SDL.Rectangle (P (V2 0 y)) (V2 150 100)) (ListViewText textVector) $ \ i ->
             say gui MsgBoxOk $ "Выбран элемент номер " <> showb i
 #else
     #error EXAMPLE_NUM is out of range

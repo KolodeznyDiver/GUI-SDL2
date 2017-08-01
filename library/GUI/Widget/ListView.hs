@@ -9,7 +9,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE BangPatterns #-}
 -- |
--- Module:      GUI.Widget.RollView
+-- Module:      GUI.Widget.ListView
 -- Copyright:   (c) 2017 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
@@ -19,21 +19,22 @@
 -- Виджет отображения списка с произвольной отрисовкой, а так же вспомогательные типы и функции
 -- конкретизирующие способ отрисовки.
 
-module GUI.Widget.RollView(
-    -- * Флаги rollView
-    RollOpts,RollFlags,pattern RollNoFlags, pattern MultiSelectRollFlag,pattern UseOddColorRollFlag
-    ,pattern DrawItemPrepareRollFlag,pattern EnterAsClickRollFlag,pattern MouseTrackingRollFlag
-    -- * Типы и классы rollView
-    ,RollViewDef(..),RollViewable(..),RollViewData
+module GUI.Widget.ListView(
+    -- * Флаги listView
+    ListFlagTag,ListViewFlags,pattern ListViewNoFlags, pattern MultiSelectListViewFlag
+    ,pattern UseOddColorListViewFlag
+    ,pattern DrawItemPrepareListViewFlag,pattern EnterAsClickListViewFlag,pattern MouseTrackingListViewFlag
+    -- * Типы и классы listView
+    ,ListViewDef(..),ListViewable(..),ListViewData
     -- * Виджет отображения списка с произвольной отрисовкой.
-    ,rollView
+    ,listView
     -- * Отображение упорядоченного контейнера с элементами поддерживающими 'TextShow'.
-    ,RollViewTSPrepare,RollViewTS(..),RollViewText(..)
-    -- * Вспомогательные функции для создания @instance ... RollViewable@ с только текстовым отображением элементов.
+    ,ListViewTSPrepare,ListViewTS(..),ListViewText(..)
+    -- * Вспомогательные функции для создания @instance ... ListViewable@ с только текстовым отображением элементов.
     --   Могут пторебоваться только для создания своего варианта отображения контейнера текстом.
-    ,rollViewPrepareTextOnly,rollViewDrawItemTextOnly
-    -- * Выпадающее окно с @rollView@.
-    ,popupRollView
+    ,listViewPrepareTextOnly,listViewDrawItemTextOnly
+    -- * Выпадающее окно с @listView@.
+    ,popupListView
     ) where
 
 import Control.Monad
@@ -58,25 +59,25 @@ import Data.Vector.Utils (modifySlice)
 import GUI.BaseLayer.PopupWindow
 
 -- | Тэг для битовых флагов настройки виджетов списков
-data RollOpts
+data ListFlagTag
 
 -- | Тип для битовых флагов состояния виджета
-type RollFlags = Flags RollOpts
+type ListViewFlags = Flags ListFlagTag
 
-pattern RollNoFlags :: RollFlags
-pattern MultiSelectRollFlag :: RollFlags
-pattern UseOddColorRollFlag :: RollFlags
-pattern DrawItemPrepareRollFlag :: RollFlags
-pattern EnterAsClickRollFlag :: RollFlags
-pattern MouseTrackingRollFlag :: RollFlags
+pattern ListViewNoFlags :: ListViewFlags
+pattern MultiSelectListViewFlag :: ListViewFlags
+pattern UseOddColorListViewFlag :: ListViewFlags
+pattern DrawItemPrepareListViewFlag :: ListViewFlags
+pattern EnterAsClickListViewFlag :: ListViewFlags
+pattern MouseTrackingListViewFlag :: ListViewFlags
 
                                     --  5432109876543210
-pattern RollNoFlags          = (Flags 0x0000000000000000) :: RollFlags
-pattern MultiSelectRollFlag  = (Flags 0x0000000000000001) :: RollFlags
-pattern UseOddColorRollFlag  = (Flags 0x0000000000000002) :: RollFlags
-pattern DrawItemPrepareRollFlag = (Flags 0x0000000000000004) :: RollFlags
-pattern EnterAsClickRollFlag = (Flags 0x0000000000000008) :: RollFlags
-pattern MouseTrackingRollFlag = (Flags 0x0000000000000010) :: RollFlags
+pattern ListViewNoFlags          = (Flags 0x0000000000000000) :: ListViewFlags
+pattern MultiSelectListViewFlag  = (Flags 0x0000000000000001) :: ListViewFlags
+pattern UseOddColorListViewFlag  = (Flags 0x0000000000000002) :: ListViewFlags
+pattern DrawItemPrepareListViewFlag = (Flags 0x0000000000000004) :: ListViewFlags
+pattern EnterAsClickListViewFlag = (Flags 0x0000000000000008) :: ListViewFlags
+pattern MouseTrackingListViewFlag = (Flags 0x0000000000000010) :: ListViewFlags
 
 pattern PaddingX :: Coord
 pattern PaddingX = 5
@@ -84,158 +85,158 @@ pattern PaddingY :: Coord
 pattern PaddingY = 3
 
 -- | Начальные настройки виджета списка с пользовательской отрисовкой элементов
-data RollViewDef = RollViewDef {
-          rollViewFormItemDef :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
+data ListViewDef = ListViewDef {
+          listViewFormItemDef :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
                                                    -- в настоящий момент только margin's.
-        , rollViewSize       :: GuiSize -- ^ Размер без полей.
-        , rollViewFlags      :: WidgetFlags -- ^ Флаги базового виджета.
-        , rollViewRollFlags  :: RollFlags -- ^ Флаги виджета списка.
-        , rollViewRowNum     :: Coord -- ^ Начальный текущий номер ряда (номер элемента).
+        , listViewSize       :: GuiSize -- ^ Размер без полей.
+        , listViewFlags      :: WidgetFlags -- ^ Флаги базового виджета.
+        , listViewListViewFlags  :: ListViewFlags -- ^ Флаги виджета списка.
+        , listViewRowNum     :: Coord -- ^ Начальный текущий номер ряда (номер элемента).
                                }
 
 
-instance Default RollViewDef where
-    def = RollViewDef { rollViewFormItemDef = def
-                      , rollViewSize = zero
-                      , rollViewFlags = WidgetVisible .|. WidgetEnable .|. WidgetFocusable .|. WidgetTabbed
-                      , rollViewRollFlags = UseOddColorRollFlag .|. DrawItemPrepareRollFlag
-                      , rollViewRowNum = 0
+instance Default ListViewDef where
+    def = ListViewDef { listViewFormItemDef = def
+                      , listViewSize = zero
+                      , listViewFlags = WidgetVisible .|. WidgetEnable .|. WidgetFocusable .|. WidgetTabbed
+                      , listViewListViewFlags = UseOddColorListViewFlag .|. DrawItemPrepareListViewFlag
+                      , listViewRowNum = 0
                       }
 
--- | Задаёт rollView с произвольной отрисовкой элементов.
-class RollViewable a p | a -> p where
-    -- | Вызывается при создании @rollView@ используя @runProxyCanvas@.
-    rollViewPrepare :: MonadIO m =>
+-- | Задаёт listView с произвольной отрисовкой элементов.
+class ListViewable a p | a -> p where
+    -- | Вызывается при создании @listView@ используя @runProxyCanvas@.
+    listViewPrepare :: MonadIO m =>
                        Skin ->
-                       RollFlags ->
+                       ListViewFlags ->
                        a -> -- ^ Отображаемые данные (могут изменться во время существования Widget-а.
                        Canvas m (Coord,p) -- ^ Высота строки и подготовленные данные для отрисовки.
     -- | Вызывается для отрисовки каждого элемента (строки).
-    rollViewDrawItem :: MonadIO m =>
-                        Widget -> -- ^ @rollView@.
+    listViewDrawItem :: MonadIO m =>
+                        Widget -> -- ^ @listView@.
                         Skin ->
-                        RollFlags ->
+                        ListViewFlags ->
                         GuiRect -> -- ^ Координаты области для рисования.
                         DecoreState -> -- ^ Цвета фона и переднего плана.
                         Bool -> -- ^ WidgetEnable ?
                         Bool -> -- ^ WidgetFocused ?
                         Bool -> -- ^ Элемент маркированный.
                         Bool -> -- ^ Текущий ли это элемент.
-                        p -> -- ^ Данные для отрисовки сформированные в @rollViewPrepare@.
+                        p -> -- ^ Данные для отрисовки сформированные в @listViewPrepare@.
                         a -> -- ^ Отображаемые данные.
                         Int -> -- ^ Номер элемента.
                         Canvas m ()
     -- | Возвращает текущее число элементов.
-    rollViewGetCount :: MonadIO m =>
-                        Widget -> -- ^ @rollView@.
+    listViewGetCount :: MonadIO m =>
+                        Widget -> -- ^ @listView@.
                         a -> -- ^ Отображаемые данные.
                         m Int
 
--- | Не экспортируемый тип записи. Хранится по ссылке в 'RollViewData'.
-data RollViewHandlers = RollViewHandlers    { rllVwOnMove :: forall m. MonadIO m => Int -> m ()
-                                            , rllVwOnClk :: forall m. MonadIO m => m ()
-                                            , rllVwOnDblClk :: forall m. MonadIO m => m ()
+-- | Не экспортируемый тип записи. Хранится по ссылке в 'ListViewData'.
+data ListViewHandlers = ListViewHandlers    { lstVwOnMove :: forall m. MonadIO m => Int -> m ()
+                                            , lstVwOnClk :: forall m. MonadIO m => m ()
+                                            , lstVwOnDblClk :: forall m. MonadIO m => m ()
                                             }
 
--- | Не экспортируемый тип записи. Хранится по ссылке в 'RollViewData'.
-data RollViewState = RollViewState { rllVwCur :: Int
-                                   , rllVwMarkers :: VUM.IOVector Bool
+-- | Не экспортируемый тип записи. Хранится по ссылке в 'ListViewData'.
+data ListViewState = ListViewState { lstVwCur :: Int
+                                   , lstVwMarkers :: VUM.IOVector Bool
                                    }
 
 
--- | Тип созданного виджета. Обычно используется как  @GuiWidget RollViewData@.
-data RollViewData a = RollViewData { rllVwDat :: a
-                                   , rllVwHndlrs :: IORef RollViewHandlers
-                                   , rllVw :: IORef RollViewState
+-- | Тип созданного виджета. Обычно используется как  @GuiWidget ListViewData@.
+data ListViewData a = ListViewData { lstVwDat :: a
+                                   , lstVwHndlrs :: IORef ListViewHandlers
+                                   , lstVw :: IORef ListViewState
                                    }
 
 -- | Установка и извлечение номера текущего ряда.
-instance RowNumProperty (GuiWidget (RollViewData a)) where
+instance RowNumProperty (GuiWidget (ListViewData a)) where
     setRowNum w v = do
         let widget = getWidget w
-            RollViewData{..} = getWidgetData w
-        RollViewState{..} <- readMonadIORef rllVw
-        when ( (v /= rllVwCur) && (v>=0) && (v < VUM.length rllVwMarkers)) $ do
-            writeMonadIORef rllVw $ RollViewState v rllVwMarkers
+            ListViewData{..} = getWidgetData w
+        ListViewState{..} <- readMonadIORef lstVw
+        when ( (v /= lstVwCur) && (v>=0) && (v < VUM.length lstVwMarkers)) $ do
+            writeMonadIORef lstVw $ ListViewState v lstVwMarkers
             markWidgetForRedraw widget
-    getRowNum w = rllVwCur <$> readMonadIORef (rllVw $ getWidgetData w)
+    getRowNum w = lstVwCur <$> readMonadIORef (lstVw $ getWidgetData w)
 
 -- | Установка функции-обработчика события изменение текущей позиции (номера ряда).
-instance Moveable (GuiWidget (RollViewData a)) Int where
-    onMove w a = modifyMonadIORef' (rllVwHndlrs $ getWidgetData w) (\d -> d{rllVwOnMove= a})
+instance Moveable (GuiWidget (ListViewData a)) Int where
+    onMove w a = modifyMonadIORef' (lstVwHndlrs $ getWidgetData w) (\d -> d{lstVwOnMove= a})
 
 -- | Установка функции-обработчика одинарного щелчка.
-instance Clickable (GuiWidget (RollViewData a)) where
-    onClick w a = modifyMonadIORef' (rllVwHndlrs $ getWidgetData w) (\d -> d{rllVwOnClk= a})
+instance Clickable (GuiWidget (ListViewData a)) where
+    onClick w a = modifyMonadIORef' (lstVwHndlrs $ getWidgetData w) (\d -> d{lstVwOnClk= a})
 
 -- | Установка функции-обработчика двойного щелчка.
-instance DoubleClickable (GuiWidget (RollViewData a)) where
-    onDoubleClick w a = modifyMonadIORef' (rllVwHndlrs $ getWidgetData w) (\d -> d{rllVwOnDblClk= a})
+instance DoubleClickable (GuiWidget (ListViewData a)) where
+    onDoubleClick w a = modifyMonadIORef' (lstVwHndlrs $ getWidgetData w) (\d -> d{lstVwOnDblClk= a})
 
 -- | Установка и извлечение @VU.Vectoor Bool@ - означающего какие элементы (ряды) маркированы.
--- Для установки значений маркеров вектор должен быть той же длины что и вектор в 'RollViewData'.
-instance MarkersProperty (GuiWidget (RollViewData a)) where
+-- Для установки значений маркеров вектор должен быть той же длины что и вектор в 'ListViewData'.
+instance MarkersProperty (GuiWidget (ListViewData a)) where
     setMarkers w n = do
-        v <- rllVwMarkers <$> readMonadIORef (rllVw $ getWidgetData w)
+        v <- lstVwMarkers <$> readMonadIORef (lstVw $ getWidgetData w)
         when (VUM.length v == VU.length n) $ do
             liftIO $ VU.imapM_ (VUM.write v) n
             markWidgetForRedraw $ getWidget w
     getMarkers w = do
-        v <- rllVwMarkers <$> readMonadIORef (rllVw $ getWidgetData w)
+        v <- lstVwMarkers <$> readMonadIORef (lstVw $ getWidgetData w)
         liftIO $ VU.generateM (VUM.length v) (VUM.read v)
 
 -- | Функция создания виджета списка.
-rollView :: (MonadIO m, RollViewable a b) =>
-                         RollViewDef -> -- ^ Параметры виджета.
+listView :: (MonadIO m, ListViewable a b) =>
+                         ListViewDef -> -- ^ Параметры виджета.
                          a -> -- ^ Исходные отображаемые данные.
                          Widget -> -- ^ Будующий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
-                         m (GuiWidget (RollViewData a))
-rollView RollViewDef{..} a parent skin = do
-    (itemH,p) <- runProxyCanvas parent $ rollViewPrepare skin rollViewRollFlags a
-    rfH <- newMonadIORef $ RollViewHandlers (\_ -> return ()) (return ()) (return ())
-    rfSt <- newMonadIORef =<< (RollViewState rollViewRowNum <$> liftIO (VUM.new 0))
-    scrll <- scrollArea def{ scrollAreaItemDef = rollViewFormItemDef
-                           , scrollAreaSize = rollViewSize }
+                         m (GuiWidget (ListViewData a))
+listView ListViewDef{..} a parent skin = do
+    (itemH,p) <- runProxyCanvas parent $ listViewPrepare skin listViewListViewFlags a
+    rfH <- newMonadIORef $ ListViewHandlers (\_ -> return ()) (return ()) (return ())
+    rfSt <- newMonadIORef =<< (ListViewState listViewRowNum <$> liftIO (VUM.new 0))
+    scrll <- scrollArea def{ scrollAreaItemDef = listViewFormItemDef
+                           , scrollAreaSize = listViewSize }
                         parent skin
-    let fns = noChildrenFns rollViewSize
-        (V2 width heigth) = rollViewSize
-        isMultiSelect = (rollViewRollFlags .&. MultiSelectRollFlag) /= RollNoFlags
+    let fns = noChildrenFns listViewSize
+        (V2 width heigth) = listViewSize
+        isMultiSelect = (listViewListViewFlags .&. MultiSelectListViewFlag) /= ListViewNoFlags
         toRange cnt = toBound 0 (cnt-1)
         doOnMove old new = when (old /= new)
-                             (readMonadIORef rfH >>= ( ( $ new) . rllVwOnMove))
+                             (readMonadIORef rfH >>= ( ( $ new) . lstVwOnMove))
 
-        cntUpdt :: MonadIO m => Widget -> m (RollViewState,Int)
+        cntUpdt :: MonadIO m => Widget -> m (ListViewState,Int)
         cntUpdt widget = do
-            RollViewState{..} <- readMonadIORef rfSt
-            newCnt <- rollViewGetCount widget a
-            let iCur = toRange newCnt rllVwCur
-                cnt = VUM.length rllVwMarkers
-                ret s = do  let r = RollViewState iCur s
+            ListViewState{..} <- readMonadIORef rfSt
+            newCnt <- listViewGetCount widget a
+            let iCur = toRange newCnt lstVwCur
+                cnt = VUM.length lstVwMarkers
+                ret s = do  let r = ListViewState iCur s
                             writeMonadIORef rfSt r
                             return (r,newCnt)
-            r <- if | newCnt < cnt -> ret $ VUM.take newCnt rllVwMarkers
+            r <- if | newCnt < cnt -> ret $ VUM.take newCnt lstVwMarkers
                     | newCnt > cnt -> do
                         let dlt = newCnt - cnt
-                        s <- liftIO $ VUM.unsafeGrow rllVwMarkers dlt
+                        s <- liftIO $ VUM.unsafeGrow lstVwMarkers dlt
                         liftIO $ VUM.set (VUM.unsafeSlice cnt dlt s) False
                         ret s
-                    | otherwise -> return (RollViewState iCur rllVwMarkers,newCnt)
-            doOnMove rllVwCur iCur
+                    | otherwise -> return (ListViewState iCur lstVwMarkers,newCnt)
+            doOnMove lstVwCur iCur
             return r
         getCoords :: MonadIO m => Widget -> m (GuiSize,GuiRect)
         getCoords widget = do
             (SDL.Rectangle _ widgSz) <- getWidgetRect widget
             cr <- getWidgetCanvasRect widget
             return (widgSz,cr)
-        updt :: MonadIO m => Widget -> m (RollViewState,Int,GuiSize,GuiRect)
+        updt :: MonadIO m => Widget -> m (ListViewState,Int,GuiSize,GuiRect)
         updt widget = do
-            (rollViewState,cnt) <- cntUpdt widget
+            (listViewState,cnt) <- cntUpdt widget
             (widgSz@(V2 _ widgH),cr) <- getCoords widget
             let cr' = recalcCanvasRect cnt widgH cr
             when (cr /= cr')
                 (setWidgetCanvasRect widget cr' >> scrollNotify widget)
-            return (rollViewState,cnt,widgSz,cr')
+            return (listViewState,cnt,widgSz,cr')
         -- Пересчёт при изменении кол-ва элементов
         recalcCanvasRect :: Int -> Coord -> GuiRect -> GuiRect
         recalcCanvasRect cnt widgH (SDL.Rectangle (P (V2 xC yC)) (V2 wC _hC)) =
@@ -270,24 +271,24 @@ rollView RollViewDef{..} a parent skin = do
                                        ,Int) -- Маркировать от
                                ) -> m (Maybe Int)
         doMove widget ShiftCtrlAlt{isShift=isS,isCtrl=isC} f = do
-            (RollViewState{..},cnt,V2 _widgW widgH,cr) <- updt widget
-            case f cnt rllVwCur widgH cr of
+            (ListViewState{..},cnt,V2 _widgW widgH,cr) <- updt widget
+            case f cnt lstVwCur widgH cr of
               Just (newPos,markFrom) -> do
                 let newPos' = toRange cnt newPos
                 when (isMultiSelect && (cnt>0)) $ liftIO $ do
                     unless (isC || isS) $
-                        VUM.set rllVwMarkers False
+                        VUM.set lstVwMarkers False
                     when (isC || isS) $
                         let markFrom' = toRange cnt markFrom
                             (iFrom,iLn) = calcFromAndLn newPos' markFrom'
-                        in if isC then modifySlice rllVwMarkers iFrom iLn not
-                           else VUM.set (VUM.unsafeSlice iFrom iLn rllVwMarkers) True
-                writeMonadIORef rfSt $ RollViewState newPos' rllVwMarkers
+                        in if isC then modifySlice lstVwMarkers iFrom iLn not
+                           else VUM.set (VUM.unsafeSlice iFrom iLn lstVwMarkers) True
+                writeMonadIORef rfSt $ ListViewState newPos' lstVwMarkers
                 let cr' = arrangeCanvasRect newPos' widgH cr
                 when (cr /= cr')
                     (setWidgetCanvasRect widget cr' >> scrollNotify widget)
                 markWidgetForRedraw widget
-                doOnMove rllVwCur newPos'
+                doOnMove lstVwCur newPos'
                 return $ Just newPos'
               _ -> return Nothing
 
@@ -298,7 +299,7 @@ rollView RollViewDef{..} a parent skin = do
               else Just (i,i)
 
 
-    mkWidget rollViewFlags WidgetMarginNone (RollViewData a rfH rfSt)
+    mkWidget listViewFlags WidgetMarginNone (ListViewData a rfH rfSt)
                         (getWidget scrll) fns{
        onCreate = \widget -> do
             (_,cnt) <- cntUpdt widget
@@ -322,7 +323,7 @@ rollView RollViewDef{..} a parent skin = do
                             i = if i' < 0 then cnt - 1
                                 else i'
                         in Just (pos,i)
-              | ((rollViewRollFlags .&. MouseTrackingRollFlag) /= RollNoFlags) -> do
+              | ((listViewListViewFlags .&. MouseTrackingListViewFlag) /= ListViewNoFlags) -> do
                     shiftCtrlAlt <- getActualShiftCtrlAlt
                     when (shiftCtrlAlt == ShiftCtrlAlt False False False) $
                         void $ doMouseMove widget shiftCtrlAlt y
@@ -333,17 +334,17 @@ rollView RollViewDef{..} a parent skin = do
                 shiftCtrlAlt <- getActualShiftCtrlAlt
                 mb <- doMouseMove widget shiftCtrlAlt y
                 whenJust mb $ \_ ->
-                    join $ (if clicks==1 then rllVwOnClk else rllVwOnDblClk) <$> readMonadIORef rfH
+                    join $ (if clicks==1 then lstVwOnClk else lstVwOnDblClk) <$> readMonadIORef rfH
 
        ,onKeyboard = \widget motion _repeated keycode km -> when (motion==SDL.Pressed) $ do
             let shiftCtrlAlt@ShiftCtrlAlt{isShift=isS,isCtrl=isC,isAlt=isA} = getShftCtrlAlt km
             if isEnterKey keycode && shiftCtrlAlt == ShiftCtrlAlt False False False then
-                when ((rollViewRollFlags .&. EnterAsClickRollFlag) /= RollNoFlags) $
-                    join $ rllVwOnClk <$> readMonadIORef rfH
+                when ((listViewListViewFlags .&. EnterAsClickListViewFlag) /= ListViewNoFlags) $
+                    join $ lstVwOnClk <$> readMonadIORef rfH
             else case keycode of
                 SDL.KeycodeA | not isS && isC && not isA && isMultiSelect -> do
-                    (RollViewState{..},_cnt) <- cntUpdt widget
-                    liftIO $ VUM.set rllVwMarkers True
+                    (ListViewState{..},_cnt) <- cntUpdt widget
+                    liftIO $ VUM.set lstVwMarkers True
                     markWidgetForRedraw widget
                 SDL.KeycodeHome | not isC && not isA -> void $ doMove widget shiftCtrlAlt $
                     \ _cnt pos _widgH _cr -> Just (0,pos)
@@ -360,7 +361,7 @@ rollView RollViewDef{..} a parent skin = do
                 _ -> return ()
        ,onDraw= \widget -> do
             fl <- getWidgetFlags widget
-            (RollViewState{..},cnt,widgSz@(V2 widgW widgH), SDL.Rectangle pC@(P (V2 _xC yC)) _) <- updt widget
+            (ListViewState{..},cnt,widgSz@(V2 widgW widgH), SDL.Rectangle pC@(P (V2 _xC yC)) _) <- updt widget
 --            liftIO $ putStrLn $ concat ["cnt=",show cnt," widgSz=",show widgSz," yC=",show yC]
 --            sPrnt <- getWidgetParent widget >>= widgetCoordsToStr
 --            sWdg <- widgetCoordsToStr widget
@@ -374,13 +375,13 @@ rollView RollViewDef{..} a parent skin = do
                                          when (y < (yC + widgH)) $ do
                                 let r= SDL.Rectangle (P (V2 0 y)) (V2 widgW itemH)
                                     r'= rectIntersection widgR r
-                                    isCur = i == rllVwCur
+                                    isCur = i == lstVwCur
                                 isMarked <- if not ena || not isMultiSelect
                                             then return False
-                                            else liftIO $ VUM.read rllVwMarkers i
+                                            else liftIO $ VUM.read lstVwMarkers i
                                 let ds = DecoreState
                                             ((if | ena && (isMarked || isCur) -> decoreBkColor . selectedDecore
-                                                 | ena && ((rollViewRollFlags .&. UseOddColorRollFlag) /= RollNoFlags)
+                                                 | ena && ((listViewListViewFlags .&. UseOddColorListViewFlag) /= ListViewNoFlags)
                                                        && odd i -> oddBkColor
                                                  | otherwise -> decoreBkColor . windowDecore) skin)
                                             ((if | not ena -> windowDisabledFgColor
@@ -388,14 +389,14 @@ rollView RollViewDef{..} a parent skin = do
                                                  | otherwise -> decoreFgColor . windowDecore) skin)
 --                                liftIO $ putStrLn $ concat ["i=",show i," y=",show y," r=",rectToBriefStr r,
 --                                    " r'=",rectToBriefStr r']
-                                when ( (rollViewRollFlags .&. DrawItemPrepareRollFlag) /= RollNoFlags) $ do
+                                when ( (listViewListViewFlags .&. DrawItemPrepareListViewFlag) /= ListViewNoFlags) $ do
                                     setColor $ decoreBkColor ds
                                     fillRect r'
                                     when (ena && isCur && isFocused) $ do
                                         setColor $ decoreFgColor ds
                                         drawRect r -- $ SDL.Rectangle (P (V2 0 y)) (V2 (widgW-1) (itemH-1))
                                 --withClipRect r' $
-                                rollViewDrawItem widget skin rollViewRollFlags r ds
+                                listViewDrawItem widget skin listViewListViewFlags r ds
                                         ena isFocused isMarked isCur p a i
                                 itemDraw $ i + 1
             setColor $ decoreBkColor (windowDecore skin)
@@ -405,25 +406,25 @@ rollView RollViewDef{..} a parent skin = do
 --            drawRect $ shrinkRect' 2 widgR
                                     }
 
--- | Подготовленные данные для отрисовки в  @rollView@  упорядоченного контейнера
+-- | Подготовленные данные для отрисовки в  @listView@  упорядоченного контейнера
 --   с элементами поддерживающими 'TextShow'.
-newtype RollViewTSPrepare = RollViewTSPrepare Font
+newtype ListViewTSPrepare = ListViewTSPrepare Font
 
--- | Обёртка для использования с @rollView@ упорядоченного контейнера с элементами поддерживающими 'TextShow'.
-newtype RollViewTS c v = RollViewTS c
+-- | Обёртка для использования с @listView@ упорядоченного контейнера с элементами поддерживающими 'TextShow'.
+newtype ListViewTS c v = ListViewTS c
 
--- | Обёртка для использования с @rollView@ упорядоченного контейнера с элементами типа 'Text'.
-newtype RollViewText c = RollViewText c
+-- | Обёртка для использования с @listView@ упорядоченного контейнера с элементами типа 'Text'.
+newtype ListViewText c = ListViewText c
 
--- | Вспомогательная функция для создания @instance ... RollViewable@ с только текстовым отображением элементов.
-rollViewPrepareTextOnly :: MonadIO m => Canvas m (Coord,Font)
-rollViewPrepareTextOnly = do
-    fnt <- getFont "roll"
+-- | Вспомогательная функция для создания @instance ... ListViewable@ с только текстовым отображением элементов.
+listViewPrepareTextOnly :: MonadIO m => Canvas m (Coord,Font)
+listViewPrepareTextOnly = do
+    fnt <- getFont "list"
     fntHeight <- FNT.lineSkip fnt -- FNT.height fnt
     return (fntHeight + 2 * PaddingY,fnt)
 
--- | Вспомогательная функция для создания @instance ... RollViewable@ с отображением элементов одной строкой.
-rollViewDrawItemTextOnly :: (MonadIO m, DAROContainer c v, TS.TextShow v) =>
+-- | Вспомогательная функция для создания @instance ... ListViewable@ с отображением элементов одной строкой.
+listViewDrawItemTextOnly :: (MonadIO m, DAROContainer c v, TS.TextShow v) =>
                         Font -> -- ^ Шрифт.
                         GuiRect -> -- ^ Координаты области для рисования.
                         DecoreState -> -- ^ Цвета фона и переднего плана.
@@ -431,33 +432,33 @@ rollViewDrawItemTextOnly :: (MonadIO m, DAROContainer c v, TS.TextShow v) =>
                         Int -> -- ^ Номер элемента.
                         (v -> T.Text) -> -- ^ Функция преобразования элемента контейнера в 'Text'.
                         Canvas m ()
-rollViewDrawItemTextOnly fnt rect decoreState c ix f =
+listViewDrawItemTextOnly fnt rect decoreState c ix f =
     drawTextAligned fnt AlignLeftCenter (decoreFgColor decoreState) (DrawStrOpaque (decoreBkColor decoreState))
         (shrinkRect (V2 PaddingX PaddingY) rect) . f =<< getItemDARO c ix
 
-instance (DAROContainer c v, TS.TextShow v) => RollViewable (RollViewTS c v) RollViewTSPrepare where
-    rollViewPrepare _skin _rollFlags _container = fmap RollViewTSPrepare <$> rollViewPrepareTextOnly
+instance (DAROContainer c v, TS.TextShow v) => ListViewable (ListViewTS c v) ListViewTSPrepare where
+    listViewPrepare _skin _listFl _container = fmap ListViewTSPrepare <$> listViewPrepareTextOnly
 
     -- | Вызывается для отрисовки каждого элемента (строки).
-    rollViewDrawItem _widget _skin _rollFlags rect decoreState
-                     _isEna _isFocused _isMarked _isCur (RollViewTSPrepare fnt) (RollViewTS c) ix =
-        rollViewDrawItemTextOnly fnt rect decoreState c ix TS.showt
+    listViewDrawItem _widget _skin _listFl rect decoreState
+                     _isEna _isFocused _isMarked _isCur (ListViewTSPrepare fnt) (ListViewTS c) ix =
+        listViewDrawItemTextOnly fnt rect decoreState c ix TS.showt
 
     -- | Возвращает текущее число элементов.
-    rollViewGetCount _widget (RollViewTS c) = sizeDARO c
+    listViewGetCount _widget (ListViewTS c) = sizeDARO c
 
-instance DAROContainer c T.Text => RollViewable (RollViewText c) RollViewTSPrepare where
-    rollViewPrepare _skin _rollFlags _container = fmap RollViewTSPrepare <$> rollViewPrepareTextOnly
+instance DAROContainer c T.Text => ListViewable (ListViewText c) ListViewTSPrepare where
+    listViewPrepare _skin _listFl _container = fmap ListViewTSPrepare <$> listViewPrepareTextOnly
 
-    rollViewDrawItem _widget _skin _rollFlags rect decoreState
-                     _isEna _isFocused _isMarked _isCur (RollViewTSPrepare fnt) (RollViewText c) ix =
-        rollViewDrawItemTextOnly fnt rect decoreState c ix id
+    listViewDrawItem _widget _skin _listFl rect decoreState
+                     _isEna _isFocused _isMarked _isCur (ListViewTSPrepare fnt) (ListViewText c) ix =
+        listViewDrawItemTextOnly fnt rect decoreState c ix id
 
-    rollViewGetCount _widget (RollViewText c) = sizeDARO c
+    listViewGetCount _widget (ListViewText c) = sizeDARO c
 
 
--- | Функция создающая окно с @rollView@.
-popupRollView :: (MonadIO m, RollViewable a b) =>
+-- | Функция создающая окно с @listView@.
+popupListView :: (MonadIO m, ListViewable a b) =>
                 -- | Виджет активного сейчас окна. Popup окно станет дочерним по отношению к этому окну.
                 Widget ->
                 -- | Начальные координаты окна в координатах указанного виджета.
@@ -466,17 +467,17 @@ popupRollView :: (MonadIO m, RollViewable a b) =>
                 (forall n. MonadIO n => Int -> n ()) ->  -- ^ Функция вызываемая при выборе пункта меню
                                                          -- при закрытии окна.
                 m ()
-popupRollView parent rect a f = do
+popupListView parent rect a f = do
     !winSDL <- getSDLWindow =<< getWidgetWindow parent
     win <- mkPopupWindow parent rect
-    roll <- win $+ rollView def { rollViewFormItemDef = def{formItemMargin=Just WidgetMarginNone}
-                                , rollViewSize = sizeOfRect rect
-                                , rollViewRollFlags = rollViewRollFlags def .|.
-                                    EnterAsClickRollFlag .|. MouseTrackingRollFlag
-                                } a
-    onClick roll $ do
-        !i <- getRowNum roll
+    lstView <- win $+ listView def  { listViewFormItemDef = def{formItemMargin=Just WidgetMarginNone}
+                                    , listViewSize = sizeOfRect rect
+                                    , listViewListViewFlags = listViewListViewFlags def .|.
+                                        EnterAsClickListViewFlag .|. MouseTrackingListViewFlag
+                                    } a
+    onClick lstView $ do
+        !i <- getRowNum lstView
 --        delWindow win
         SDL.showWindow winSDL >> SDL.raiseWindow winSDL
         f i
-    setFocus roll
+    setFocus lstView
