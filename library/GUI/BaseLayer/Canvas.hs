@@ -24,6 +24,7 @@ module GUI.BaseLayer.Canvas(
     -- * Рисование графических примитивов.
     ,drawPoint,drawPoints,drawLine,drawLines,drawRect,drawRects,fillRect,fillRects
     -- * Текстуры.
+    ,getTextureSize
     -- ** Рисование произвольных текстур.
     ,drawTexture,drawStretchedTexture,drawTexturePartial,drawTextureAligned,drawTextureEx
     -- ** Текстуры из графических файлов (кешируемые).
@@ -188,6 +189,11 @@ fillRects :: MonadIO m => V.Vector GuiRect -> Canvas m ()
 fillRects v = do{ c <- ask; lift $ SDL.fillRects (canvasRenderer c) $ V.map (toSDLRect c) v}
 {-# INLINE fillRects #-}
 
+-- | Возвращает размеры текстуры.
+getTextureSize :: MonadIO m => SDL.Texture -> Canvas m GuiSize
+getTextureSize = lift . P.getTextureSize
+{-# INLINE getTextureSize #-}
+
 -- | Нарисовать заданную текстуру в заданной точке (задаётся положение левого верхнего угла текстуры).
 drawTexture :: MonadIO m => SDL.Texture -> GuiPoint -> Canvas m ()
 drawTexture texture pnt =  do{ c <- ask; lift $ P.drawTexture (canvasRenderer c) texture $ toCanvasPoint c pnt}
@@ -311,7 +317,7 @@ withTargetTexture t a = do
     withStateVar (SDL.rendererRenderTarget renderer) (Just t) (do
 --            tst <- lift $ get clipRect
 --            liftIO $ putStrLn $ concat ["withTargetTexture ",show tst]
-            textureSz <- liftIO $ P.getTextureSize t
+            textureSz <- getTextureSize t
             let r = P.toSDLRect $ SDL.Rectangle zero textureSz
             lift $ --do
 --                scale $= V2 1.0 1.0
@@ -330,7 +336,6 @@ withTargetTexture t a = do
                         "  svBlendMode=", show svBlendMode, "  svLogicalSize=", show svLogicalSize,
                         "  svScale=", show svScale, "  svViewport=", show svViewport] -}
                     )
-{-# INLINE withTargetTexture #-}
 
 -- | В функции, переданной третьим аргументом, отрисовка текстуры выполняется с заданной прозрачностью.
 withTransparentTexture :: MonadIO m => GuiTransparency -> -- ^ Прозрачность 0..255.

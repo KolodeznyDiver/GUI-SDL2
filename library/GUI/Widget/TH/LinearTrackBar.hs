@@ -118,7 +118,7 @@ mkLinearTrackBarQ direction = do
                 MouseAnimatedHndlr
                         { mouseAnimatedMouseState = mouseState
                         , mouseAnimatedFs = fs
-                        } <- noChildrenMouseAnimatedHndlr ( $parallelMkV2 linearTrackBarLn (scrollBarWidth $skin))
+                        } <- noChildrenMouseAnimatedHndlr ( $parallelMkV2 linearTrackBarLn (trackBarWidth $skin))
                                         (\_ _ _ -> return () )
                 mkWidget linearTrackBarFlags linearTrackBarMargin (LinearTrackBarData dataRf) $parent $ fs{
                     onMouseMotion = \widget btnsLst p _ {-relMv-} ->

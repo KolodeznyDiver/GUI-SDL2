@@ -64,6 +64,7 @@ import GUI.Widget.Container.Border
 import GUI.Widget.EditBox
 import GUI.Window.MessageBox
 import GUI.Widget.ListView
+import GUI.Widget.DropDownList
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -85,7 +86,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         $ \gui -> do
 
     (v0,v1,v2) <- SDL.version
-    logPutLn gui $ "SDL version " <> showb v0 <> "," <> showb v1 <> "," <> showb (v2 :: Int)
+    logPutLn gui $ "SDL version " <> showb v0 <> "." <> showb v1 <> "." <> showb (v2 :: Int)
 
     win <- newWindow gui "GUI test" $ SDL.defaultWindow { SDL.windowInitialSize = V2 400 400
                                                         --, SDL.windowResizable = True
@@ -97,7 +98,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
                             , labelText="Привет, мир!"}
 #elif EXAMPLE_NUM == 1
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
-    lb0 <- vL $+ label def{labelSize=V2 150 20, labelAlignment=AlignCenter,
+    void $ vL $+ label def{labelSize=V2 150 20, labelAlignment=AlignCenter,
                           labelText="Текст вверху, по центру"}
 
     hL0 <- vL $+ hLayout def
@@ -321,7 +322,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     hL1 <- vL $+ hLayout def
     brd4 <- hL1 $+ border def {borderSize = V2 150 100, borderType = Border3D Nothing Nothing
                               , borderThickness = 20, borderCaption = "border 4"}
-    brd4 $+ exampleTextGrid
+    void $ brd4 $+ exampleTextGrid
 
     void $ hL1 $+ border def {borderSize = V2 150 100, borderType = BorderMono
                              , borderFgColor = Just (rgb 255 0 255), borderCaption = "border 5"
@@ -338,7 +339,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
                            , labelText= "Пример плавающего виджета"}
 
 #elif EXAMPLE_NUM == 9
-    win $+ mouseChkWidget WidgetMarginNone
+    void $ win $+ mouseChkWidget WidgetMarginNone
     fgBorder <- newForeground win (P (V2 130 90)) $
                  border def {  borderType = BorderRect
                              , borderThickness = 1, borderSizeByChild = True
@@ -371,7 +372,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     onMove lstView $ \ i ->
         setText lb $ textVector V.! i
     onDoubleClick lstView $ do
-        i <- getRowNum lstView
+        i <- getIx lstView
         setText lb $ TS.toText $ "Двойной щелчёк на элементе номер " <> showb i
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
     onClick btn $
@@ -379,15 +380,16 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
 
     setFocus lstView
 #elif EXAMPLE_NUM == 12
-    -- Потом здесь будет пример с dropDownRoll (dropDownList)
     let textVector = V.generate 20 $ \i -> TS.toText $ "Элемент номер " <> showb i
     vL <- win $+ vLayout def
-    btn <- vL $+ button def{btnSize = V2 200 35, btnText = "Вызов выпадающего списка"}
-    onClick btn $ do
-        let widget = getWidget btn
-        (SDL.Rectangle _ (V2 _ y)) <- getWidgetRect widget
-        popupListView widget (SDL.Rectangle (P (V2 0 y)) (V2 150 100)) (ListViewText textVector) $ \ i ->
-            say gui MsgBoxOk $ "Выбран элемент номер " <> showb i
+    lb <- vL $+ label def{labelSize=V2 350 20, labelText="Здесь будет отображаться текущая строка"}
+    ddL <- vL $+ dropDownList def{ ddListSize = V2 300 0 -- 0 = высота не меньше 0, т.е. автоопределение высоты.
+                                 } $ ListViewText textVector
+    onChanged ddL $ \i ->
+        setText lb $ textVector V.! i
+    btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
+    onClick btn $
+        allWidgetFlags (getWidget ddL) WidgetEnable >>= enableWidget ddL . not
 #else
     #error EXAMPLE_NUM is out of range
 #endif
@@ -407,9 +409,6 @@ exampleTextGrid parent _ = mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFo
         onCreate = \widget -> setWidgetCanvasRect widget (SDL.Rectangle zero (V2 500 800)) >>
                                  notifyParentAboutSize widget zero
         , onResizing= setWidgetRect
-        ,onMouseButton = \widget motion mouseButton _clicks _point ->
-            -- Нужно установить на виджет фокус что бы можно было прокручивать колесом мыши
-            when ((mouseButton == SDL.ButtonLeft) && (motion==SDL.Pressed)) $ setWidgetFocus widget
         , onDraw= \widget -> do
             rect@(SDL.Rectangle (P (V2 l t)) (V2 w h)) <- getWidgetCanvasRect widget
             setColor $ grayColor 255
@@ -420,7 +419,7 @@ exampleTextGrid parent _ = mkWidget (WidgetVisible .|. WidgetEnable .|. WidgetFo
                 txtColor = V4 0 0 100 0
                 txtFill r y =
                     let txtRow c x = when (x < w) $ do
-                                drawText fnt txtColor (P (V2 x y)) $ concat [show x,",",show y]
+                                drawText fnt txtColor (P (V2 x y)) $ TS.toText $ showb x <> "," <> showb y
                                 txtRow (succ c) (x+dx)
                     in when (y < h) $ do
                         txtRow (0::Int) l
@@ -450,12 +449,12 @@ mouseChkWidget margin parent _ = do
             fnt <- getFont ""
             state <- readMonadIORef rfState
             s <- case state of
-                Just p@(P v) -> do
+                Just p@(P (V2 x y)) -> do
                     setColor $ grayColor 255
                     let crossSz = 10
                     drawLine (p .-^ V2 crossSz 0) (p .+^ V2 crossSz 0)
                     drawLine (p .-^ V2 0 crossSz) (p .+^ V2 0 crossSz)
-                    return $ show v
+                    return $ TS.toText $ showb x <> "x" <> showb y
                 _ -> return "No mouse"
             drawText fnt (grayColor 255) (P (V2 5 5)) s
                                                             }

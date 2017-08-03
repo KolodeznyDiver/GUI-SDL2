@@ -75,7 +75,7 @@ data Skin = Skin { -- decoreBkColor (popupMnuDecore
   , formItemsButtons :: ButtonDecore -- ^ Оформление кнопок
   , formDisabledFgColor  :: GuiColor -- ^ Цвет Цвет переднего плана (текста) элементов формы
                                  -- находящихся в состоянии __disabled__.
-  , scrollBarWidth  :: Coord -- ^ Ширины скроллбаров.
+  , trackBarWidth  :: Coord -- ^ Ширины трекбаров по умолчанию.
   , arrowBtns  :: ButtonDecore -- ^ Оформление кнопок со стрелками (не в составе scrollbar-а)
                                -- пока не используется.
   , scrollBarColor  :: GuiColor -- ^ Цвет полосы скроллбара

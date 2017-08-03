@@ -318,7 +318,7 @@ editBox EditBoxDef{..} parent skin = do
 
         ,onMouseButton = \widget motion mouseButton _clicks (P (V2 x _)) ->
             when ((motion==SDL.Pressed) && (mouseButton == SDL.ButtonLeft)) $ do
-                setWidgetFocus widget
+--                setWidgetFocus widget
                 doMouse widget x $ \pos EditBoxState{..} ->
                     if pos>=0 then (pos,-1) else (edBxPos,edBxSel)
         ,onKeyboard = \widget motion _repeated keycode km -> when (motion==SDL.Pressed) $ do

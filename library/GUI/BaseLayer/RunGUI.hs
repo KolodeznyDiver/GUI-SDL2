@@ -477,9 +477,11 @@ onEvent gui evpl = case evpl of
         onMouseButton'  :: SDL.Window -> SDL.InputMotion -> SDL.MouseButton ->
                                 Word8 -> Point V2 Int32 -> IO ()
         onMouseButton' win motion mouseButton clicks posPointer =
-            let mouseButtonHandler _win fs widget =
-                    onMouseButton fs widget motion mouseButton (fromIntegral clicks) in
-            onMouseAction win posPointer mouseButtonHandler
+            let mouseButtonHandler _win fs widget pnt = do
+                    when (motion==SDL.Pressed) $
+                        setWidgetFocus widget
+                    onMouseButton fs widget motion mouseButton (fromIntegral clicks) pnt
+            in onMouseAction win posPointer mouseButtonHandler
 
 getMouseState :: MonadIO m => m (Int,GuiPoint)
 getMouseState = liftIO $

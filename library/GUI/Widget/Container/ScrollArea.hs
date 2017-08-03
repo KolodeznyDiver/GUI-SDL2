@@ -44,6 +44,7 @@ import Control.Monad.Extra (whenJust)
 import qualified SDL
 import SDL.Vect
 import GUI
+import qualified GUI.BaseLayer.Primitives as P
 import GUI.Widget.Button
 import GUI.Widget.Handlers
 import GUI.Widget.LinearTrackBar
@@ -142,8 +143,9 @@ scrollArea ScrollAreaDef{..} parent skin = do
     vBar  <- vLinearTrackBar trackBarDef selfWidget skin
 
     textureArrBtns <- runProxyCanvas parent $ getTexture "ScrollAreaArrBtns.png"
-    let scrollW = scrollBarWidth skin
-        arrBtnDef =       def{ buttonFormItemDef = def{formItemMargin= Just WidgetMarginNone}
+    scrollW <- ((`div` 2).xV2) <$> P.getTextureSize textureArrBtns
+--    let scrollW = trackBarWidth skin
+    let arrBtnDef =       def{ buttonFormItemDef = def{formItemMargin= Just WidgetMarginNone}
                              , buttonSize = V2 scrollW scrollW
                              , buttonFlags = WidgetNoFlags
                              , buttonTexture = textureArrBtns
@@ -262,15 +264,6 @@ scrollArea ScrollAreaDef{..} parent skin = do
 --            liftIO $ putStrLn $ concat ["arrangeChild ",show childKind, "  selfRect=", rectToBriefStr selfRect,
 --                        "  r=",rectToBriefStr r]
             widgetResizingIfChanged child r
-        fnsCorrectionForTransparent :: MonadIO m => GuiWidget _a -> m ()
-        fnsCorrectionForTransparent gw = do
-            let widget' = getWidget gw
-            fns <- getWidgetFns widget'
-            setWidgetFns widget' fns{
-                onGainedMouseFocus = \widget pnt -> onGainedMouseFocus fns widget pnt >>
-                                                    markWidgetForRedraw selfWidget
-                ,onLostMouseFocus = \widget -> onLostMouseFocus fns widget >> markWidgetForRedraw selfWidget
-                                   }
 
     fnsCorrectionForTransparent hBar
     fnsCorrectionForTransparent vBar

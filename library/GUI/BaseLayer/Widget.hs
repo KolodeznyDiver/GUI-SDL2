@@ -58,7 +58,7 @@ module GUI.BaseLayer.Widget(
     -- ** Отладочные функции вывода парметров виджета(ов) в виде строки.
     ,widgetCoordsToStr,showWidgets,showWidgetsFromMain,showWinWidgets
     -- * Виджет пользовательского уровня.
-    ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget
+    ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget,fnsCorrectionForTransparent
     -- ** Простейший виджет пользовательского уровня не имеюший своих параметров.
     ,SimpleWidget(..),mkSimpleWidget
     --  * Создание виджетов.
@@ -291,7 +291,7 @@ calcWidgetSizeWithMargin widget initSz = do
     return $ (\i m -> if i<0 then i else i+m) <$> initSz <*> mSz
 {-# INLINE calcWidgetSizeWithMargin #-}
 
--- | Получает новые координаты виджета с полями, и если они изменились, вызывает @onResizing@.
+-- | Получает новые координаты виджета с полями, и если координаты изменились, вызывает @onResizing@.
 widgetResizingIfChanged :: MonadIO m => Widget -> GuiRect -> m ()
 widgetResizingIfChanged widget newRect = do
     oldRect <- getWidgetRectWithMargin widget
@@ -792,6 +792,19 @@ visibleWidget :: MonadIO m => GuiWidget a -> Bool -> m ()
 visibleWidget = setWidgetFlag WidgetVisible
 {-# INLINE visibleWidget #-}
 
+-- | Если виджет (частично) прозрачен и изменяет свой вид в зависимости от положения мыши, то,
+-- для правильной отрисовки, после его создания следует выполнить эту функциию.
+fnsCorrectionForTransparent :: MonadIO m => GuiWidget _a -> m ()
+fnsCorrectionForTransparent gw = do
+    let widget' = getWidget gw
+    fns <- getWidgetFns widget'
+    parent <- getWidgetParent widget'
+    setWidgetFns widget' fns{
+                onGainedMouseFocus = \widget pnt -> onGainedMouseFocus fns widget pnt >>
+                                                    markWidgetForRedraw parent
+                ,onLostMouseFocus = \widget -> onLostMouseFocus fns widget >> markWidgetForRedraw parent
+                            }
+
 --------------------- ** Простейший виджет пользовательского уровня не имеюший своих параметров.
 
 -- | Тип для простейшего виджета без параметров.
@@ -853,4 +866,3 @@ mkWidget fl marg a parent fs = do
 createWidget:: MonadIO m => Widget -> (Widget -> Skin -> m (GuiWidget a)) -> m (GuiWidget a)
 createWidget parent initF = getSkinFromWidget parent >>= initF parent
 {-# INLINEABLE createWidget #-}
-

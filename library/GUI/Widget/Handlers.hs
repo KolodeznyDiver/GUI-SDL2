@@ -27,7 +27,8 @@ import GUI
 
 -- | Набор обработчиков базового виджета, годится для большинства виджетов
 -- не имеющих дочерних виджетов.
-noChildrenFns :: GuiSize -> WidgetFunctions
+noChildrenFns :: GuiSize -> -- ^ Размеры виджета без полей.
+                 WidgetFunctions
 noChildrenFns initInsideSz = def{
     onCreate = \widget -> notifyParentAboutSize widget initInsideSz
     ,onResizing= \widget -> void . extendableOnResizing initInsideSz widget

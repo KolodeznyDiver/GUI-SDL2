@@ -61,7 +61,7 @@ defSkin = Skin  {
                      , btnDecoreBorder = BtnBorderRound (grayColor 64)
                      }
     , formDisabledFgColor = disabledColor
-    , scrollBarWidth = 15
+    , trackBarWidth = 15
     , scrollBarColor  = rgb 0 255 255
     , arrowBtns =
         ButtonDecore { btnDecoreOut =

@@ -108,6 +108,7 @@ library
       GUI.Utils.Wrap
       GUI.Widget.Container.Border
       GUI.Widget.Container.ScrollArea
+      GUI.Widget.DropDownList
       GUI.Widget.Internal.LinearTrackBar
       GUI.Widget.Layout.TH.LinearLayout
       GUI.Widget.Layout.LinearLayout

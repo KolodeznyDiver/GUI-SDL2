@@ -21,7 +21,8 @@ module GUI.Widget.Types(
     ,NoArgAction(..),OneArgAction(..),OneArgPredicate(..)
     -- * Распрстранённые для виджетов динамические \"проперти\".
     ,Clickable(..),DoubleClickable(..),Changeable(..)
-    ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),RowNumProperty(..)
+    ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),IxProperty(..)
+    ,RowNumProperty(..),ColNumProperty(..)
     ,MouseStateProperty(..),OnEnd(..),Verifiable(..),Moveable(..),MarkersPropertyType,MarkersProperty(..)
                         ) where
 
@@ -99,10 +100,20 @@ class ValueProperty a b | a -> b where
     setValue :: MonadIO m => a -> b -> m ()
     getValue :: MonadIO m => a -> m b
 
+-- | Для экземпляров этого класса типов можно назначить установку и извлечение номера индекса.
+class IxProperty a where
+    setIx :: MonadIO m => a -> Int -> m ()
+    getIx :: MonadIO m => a -> m Int
+
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение номера некоего ряда.
 class RowNumProperty a where
     setRowNum :: MonadIO m => a -> Int -> m ()
     getRowNum :: MonadIO m => a -> m Int
+
+-- | Для экземпляров этого класса типов можно назначить установку и извлечение номера некой колонки.
+class ColNumProperty a where
+    setColNum :: MonadIO m => a -> Int -> m ()
+    getColNum :: MonadIO m => a -> m Int
 
 -- | Для экземпляров этого класса типов можно назначить извлечение состояние мыши.
 class MouseStateProperty a where

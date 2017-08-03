@@ -91,7 +91,7 @@ data ListViewDef = ListViewDef {
         , listViewSize       :: GuiSize -- ^ Размер без полей.
         , listViewFlags      :: WidgetFlags -- ^ Флаги базового виджета.
         , listViewListViewFlags  :: ListViewFlags -- ^ Флаги виджета списка.
-        , listViewRowNum     :: Coord -- ^ Начальный текущий номер ряда (номер элемента).
+        , listViewIx     :: Int -- ^ Начальный текущий номер ряда (номер элемента).
                                }
 
 
@@ -100,7 +100,7 @@ instance Default ListViewDef where
                       , listViewSize = zero
                       , listViewFlags = WidgetVisible .|. WidgetEnable .|. WidgetFocusable .|. WidgetTabbed
                       , listViewListViewFlags = UseOddColorListViewFlag .|. DrawItemPrepareListViewFlag
-                      , listViewRowNum = 0
+                      , listViewIx = 0
                       }
 
 -- | Задаёт listView с произвольной отрисовкой элементов.
@@ -150,16 +150,17 @@ data ListViewData a = ListViewData { lstVwDat :: a
                                    , lstVw :: IORef ListViewState
                                    }
 
--- | Установка и извлечение номера текущего ряда.
-instance RowNumProperty (GuiWidget (ListViewData a)) where
-    setRowNum w v = do
+-- | Установка и извлечение номера текущего элемента.
+instance IxProperty (GuiWidget (ListViewData a)) where
+    setIx w v = do
         let widget = getWidget w
             ListViewData{..} = getWidgetData w
         ListViewState{..} <- readMonadIORef lstVw
         when ( (v /= lstVwCur) && (v>=0) && (v < VUM.length lstVwMarkers)) $ do
             writeMonadIORef lstVw $ ListViewState v lstVwMarkers
+            readMonadIORef lstVwHndlrs >>= ( ( $ v) . lstVwOnMove)
             markWidgetForRedraw widget
-    getRowNum w = lstVwCur <$> readMonadIORef (lstVw $ getWidgetData w)
+    getIx w = lstVwCur <$> readMonadIORef (lstVw $ getWidgetData w)
 
 -- | Установка функции-обработчика события изменение текущей позиции (номера ряда).
 instance Moveable (GuiWidget (ListViewData a)) Int where
@@ -186,7 +187,7 @@ instance MarkersProperty (GuiWidget (ListViewData a)) where
         liftIO $ VU.generateM (VUM.length v) (VUM.read v)
 
 -- | Функция создания виджета списка.
-listView :: (MonadIO m, ListViewable a b) =>
+listView :: (MonadIO m, ListViewable a _p) =>
                          ListViewDef -> -- ^ Параметры виджета.
                          a -> -- ^ Исходные отображаемые данные.
                          Widget -> -- ^ Будующий предок в дереве виджетов.
@@ -195,7 +196,7 @@ listView :: (MonadIO m, ListViewable a b) =>
 listView ListViewDef{..} a parent skin = do
     (itemH,p) <- runProxyCanvas parent $ listViewPrepare skin listViewListViewFlags a
     rfH <- newMonadIORef $ ListViewHandlers (\_ -> return ()) (return ()) (return ())
-    rfSt <- newMonadIORef =<< (ListViewState listViewRowNum <$> liftIO (VUM.new 0))
+    rfSt <- newMonadIORef =<< (ListViewState listViewIx <$> liftIO (VUM.new 0))
     scrll <- scrollArea def{ scrollAreaItemDef = listViewFormItemDef
                            , scrollAreaSize = listViewSize }
                         parent skin
@@ -330,7 +331,7 @@ listView ListViewDef{..} a parent skin = do
               | otherwise -> return ()
        ,onMouseButton = \widget motion mouseButton clicks (P (V2 _ y)) ->
            when ((motion==SDL.Pressed) && (mouseButton == SDL.ButtonLeft)) $ do
-                setWidgetFocus widget
+--                setWidgetFocus widget
                 shiftCtrlAlt <- getActualShiftCtrlAlt
                 mb <- doMouseMove widget shiftCtrlAlt y
                 whenJust mb $ \_ ->
@@ -423,7 +424,7 @@ listViewPrepareTextOnly = do
     fntHeight <- FNT.lineSkip fnt -- FNT.height fnt
     return (fntHeight + 2 * PaddingY,fnt)
 
--- | Вспомогательная функция для создания @instance ... ListViewable@ с отображением элементов одной строкой.
+-- | Вспомогательная функция для создания @instance ... ListViewable@ с отображением элемента одной строкой.
 listViewDrawItemTextOnly :: (MonadIO m, DAROContainer c v, TS.TextShow v) =>
                         Font -> -- ^ Шрифт.
                         GuiRect -> -- ^ Координаты области для рисования.
@@ -458,25 +459,27 @@ instance DAROContainer c T.Text => ListViewable (ListViewText c) ListViewTSPrepa
 
 
 -- | Функция создающая окно с @listView@.
-popupListView :: (MonadIO m, ListViewable a b) =>
+popupListView :: (MonadIO m, ListViewable a _p) =>
                 -- | Виджет активного сейчас окна. Popup окно станет дочерним по отношению к этому окну.
                 Widget ->
                 -- | Начальные координаты окна в координатах указанного виджета.
                 GuiRect ->
                 a -> -- ^ Исходные отображаемые данные.
+                Int -> -- ^ Начальный текущий номер ряда (номер элемента).
                 (forall n. MonadIO n => Int -> n ()) ->  -- ^ Функция вызываемая при выборе пункта меню
                                                          -- при закрытии окна.
                 m ()
-popupListView parent rect a f = do
+popupListView parent rect a ix f = do
     !winSDL <- getSDLWindow =<< getWidgetWindow parent
     win <- mkPopupWindow parent rect
     lstView <- win $+ listView def  { listViewFormItemDef = def{formItemMargin=Just WidgetMarginNone}
                                     , listViewSize = sizeOfRect rect
                                     , listViewListViewFlags = listViewListViewFlags def .|.
                                         EnterAsClickListViewFlag .|. MouseTrackingListViewFlag
+                                    , listViewIx = ix
                                     } a
     onClick lstView $ do
-        !i <- getRowNum lstView
+        !i <- getIx lstView
 --        delWindow win
         SDL.showWindow winSDL >> SDL.raiseWindow winSDL
         f i

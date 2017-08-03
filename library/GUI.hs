@@ -104,7 +104,7 @@ import GUI.BaseLayer.Widget (
         -- ** Отладочные функции вывода парметров виджета(ов) в виде строки.
         ,widgetCoordsToStr,showWidgets,showWidgetsFromMain,showWinWidgets
         -- * Виджет пользовательского уровня.
-        ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget
+        ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget,fnsCorrectionForTransparent
         -- ** Простейший виджет пользовательского уровня не имеюший своих параметров.
         ,SimpleWidget(..),mkSimpleWidget
         --  * Создание виджетов.
