@@ -16,7 +16,7 @@
 module GUI.Widget.Types(
     -- * Типы и константы используемые во многих виджетах.
     pattern MinInsideSpaceX, pattern MinInsideSpaceY, pattern KbdClickSpecPoint
-    ,WidgetMouseState(..),FormItemWidgetDef(..)
+    ,WidgetMouseState(..),FormItemWidgetDef(..),SortMode(..)
     -- * Обёртки для полиморфных функций.
     ,NoArgAction(..),OneArgAction(..),OneArgPredicate(..)
     -- * Распрстранённые для виджетов динамические \"проперти\".
@@ -55,6 +55,10 @@ newtype FormItemWidgetDef = FormItemWidgetDef { formItemMargin    :: Maybe Widge
 
 instance Default FormItemWidgetDef where
     def = FormItemWidgetDef Nothing
+
+-- | Режим сортировки
+data SortMode = Ascending | Descending
+                 deriving (Eq, Show)
 
 -- | Некое действие без параметров. Реакция на какое то событие.
 newtype NoArgAction = NoArgAction {noArgAction :: forall m. MonadIO m => m ()}

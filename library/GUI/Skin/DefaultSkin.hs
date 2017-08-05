@@ -34,7 +34,7 @@ defSkin = Skin  {
     , selectedDecore = DecoreState { decoreBkColor = rgb 0 64 255
                                    , decoreFgColor = grayColor 255
                                    }
-    , brdr3DColors = Border3DColors (grayColor 240) (grayColor 180)
+    , brdr3DColors = Border3DColors (grayColor 250) (grayColor 150)
     , formItemsMargin = WidgetMarginEvenly 5
     , formTextLineSpacing = 0.75
     , formItemsButtons =
@@ -62,8 +62,8 @@ defSkin = Skin  {
                      }
     , formDisabledFgColor = disabledColor
     , trackBarWidth = 15
-    , scrollBarColor  = rgb 0 255 255
-    , arrowBtns =
+    , trackBarBkColor  = rgb 0 255 255
+{-    , arrowBtns =
         ButtonDecore { btnDecoreOut =
                              DecoreState { decoreBkColor = formBkColor
                                          , decoreFgColor = grayColor 0
@@ -86,8 +86,8 @@ defSkin = Skin  {
                                        --, decoreBrdrColor = grayColor 0
                                          }
                      , btnDecoreBorder = BtnBorderRound (grayColor 64)
-                     }
-    , scrollBarSlider =
+                     } -}
+    , trackBarSlider =
         ButtonDecore { btnDecoreOut =
                             DecoreState { decoreBkColor = rgb 255 255 0 --   grayColor 220
                                         , decoreFgColor = grayColor 220
@@ -111,7 +111,7 @@ defSkin = Skin  {
                      , btnDecoreBorder =
                             BtnBorder3D (Border3DColors (grayColor 250) (grayColor 180))
                      }
-    , scrollBarArrow =
+{-    , scrollBarArrow =
         ButtonDecore { btnDecoreOut =
                             DecoreState { decoreBkColor = grayColor 240
                                         , decoreFgColor = grayColor 160
@@ -134,7 +134,7 @@ defSkin = Skin  {
                                         }
                      , btnDecoreBorder =
                             BtnBorder3D (Border3DColors (grayColor 255) (grayColor 200))
-                     }
+                     }  -}
     , scrollAreaSlidersColor = V4 0 0 0 40
     , scrollAreaArrowsColor = grayColor 0
     , splitterActive = DecoreState { decoreBkColor = grayColor 0

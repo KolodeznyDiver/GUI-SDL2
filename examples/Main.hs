@@ -65,6 +65,7 @@ import GUI.Widget.EditBox
 import GUI.Window.MessageBox
 import GUI.Widget.ListView
 import GUI.Widget.DropDownList
+import GUI.Widget.Header
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -390,6 +391,17 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
     onClick btn $
         allWidgetFlags (getWidget ddL) WidgetEnable >>= enableWidget ddL . not
+#elif EXAMPLE_NUM == 13
+    vL <- win $+ vLayout def
+    lb <- vL $+ label def{labelSize=V2 350 20, labelText="Здесь будет отображаться информация о событиях"}
+    hdr <- vL $+ header def{ headerColumns = V.fromList [("Имя файла",150),("Расширение",60),
+                                                         ("Размер файла",90)]
+                           , headerSortMode = Just (0,Ascending)
+                           }
+    onWidthsChange hdr $ \widths ->
+        setText lb $ TS.showtList $ V.toList widths
+    onSortChange hdr $ \col sm ->
+        setText lb $ TS.toText $ "col=" <> showb col <> ", " <> TS.fromString (show sm)
 #else
     #error EXAMPLE_NUM is out of range
 #endif

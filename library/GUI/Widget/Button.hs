@@ -109,7 +109,7 @@ instance RowNumProperty (GuiWidget TextureButtonData) where
 instance MouseStateProperty (GuiWidget TextureButtonData) where
     getMouseState = readMonadIORef . txtrbttnMouseState . getWidgetData
 
--- | Универсальный виджет с текстурой.
+-- | Универсальная кнопка с текстурой.
 textureButton :: MonadIO m =>
                  TextureButtonDef ->  -- ^ Параметры виджета.
                  Widget ->  -- ^ Будующий предок в дереве виджетов.
@@ -239,9 +239,9 @@ pictureWidget PictureWidgetDef{..} = pictureButton PictureButtonDef {
 
 -- | Вид оформления для кнопки с треугольником.
 data ButtonWithTriangleType =
-         ButtonWithTriangleScrollBar  -- ^ по 'Skin' -у для кнопок у ScrollBar-ов.
-       | ButtonWithTriangleInForm  -- ^ по 'Skin' -у для элементов форм, например,
-                                   -- для кнопки выпадающего списка combobox-а.
+--         ButtonWithTriangleScrollBar  -- ^ по 'Skin' -у для кнопок у ScrollBar-ов.
+--       |
+         ButtonWithTriangleInForm  -- ^ по 'Skin'-у для элементов форм.
        | ButtonWithTriangleUser { -- ^ Свои настройки цветов.
             btTriangleDecore :: ButtonDecore
           , btTriangleExternalColor :: GuiColor
@@ -277,7 +277,7 @@ buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
         cPict = 4
         triangleW = round $ fromIntegral btTriangleWidth * (0.6 :: Double)
         (btDecore,externalColor) = case btTriangleType of
-                                     ButtonWithTriangleScrollBar -> (scrollBarArrow skin,scrollBarColor skin)
+--                                     ButtonWithTriangleScrollBar -> (scrollBarArrow skin,trackBarBkColor skin)
                                      ButtonWithTriangleInForm -> (formItemsButtons skin,decoreBkColor (formDecore skin))
                                      ButtonWithTriangleUser{..} -> (btTriangleDecore,btTriangleExternalColor)
         draw1 x state = do

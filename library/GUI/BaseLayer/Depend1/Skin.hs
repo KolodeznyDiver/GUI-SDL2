@@ -76,14 +76,13 @@ data Skin = Skin { -- decoreBkColor (popupMnuDecore
   , formDisabledFgColor  :: GuiColor -- ^ Цвет Цвет переднего плана (текста) элементов формы
                                  -- находящихся в состоянии __disabled__.
   , trackBarWidth  :: Coord -- ^ Ширины трекбаров по умолчанию.
-  , arrowBtns  :: ButtonDecore -- ^ Оформление кнопок со стрелками (не в составе scrollbar-а)
-                               -- пока не используется.
-  , scrollBarColor  :: GuiColor -- ^ Цвет полосы скроллбара
-  , scrollBarSlider :: ButtonDecore -- ^ Оформление слайдера скроллбара.
+--  , arrowBtns  :: ButtonDecore -- ^ Оформление кнопок со стрелками (не в составе scrollbar-а)
+  , trackBarBkColor  :: GuiColor -- ^ Цвет полосы трекбара.
+  , trackBarSlider :: ButtonDecore -- ^ Оформление слайдера трекбара.
                                     -- В настоящий момент цвета переднего плана из 'ButtonDecore'
                                     -- не используются - на слайдере ничего не нарисовано, только
                                     -- рамка и фон.
-  , scrollBarArrow :: ButtonDecore -- ^ Оформление кнопок со стрелками в составе scrollbar-а.
+--  , scrollBarArrow :: ButtonDecore -- ^ Оформление кнопок со стрелками в составе scrollbar-а.
   , scrollAreaSlidersColor :: GuiColor -- ^ Цвет слайдеров в скроллируемой области
                                        -- @GUI.Widget.Container.ScrollArea.scrollArea@
   , scrollAreaArrowsColor :: GuiColor -- ^ Цвет кнопок-стрелок в @GUI.Widget.Container.ScrollArea.scrollArea@.

@@ -8,7 +8,7 @@ category: GUI SDL2
 license: BSD3
 maintainer: Kolodezny Diver
 github: KolodeznyDiver/GUI-SDL2
-version: '0.1.12'
+version: '0.1.13'
 extra-source-files:
 - CHANGELOG.md
 - LICENSE.md
@@ -96,6 +96,7 @@ library:
   - GUI.Widget.Container.Border
   - GUI.Widget.Container.ScrollArea
   - GUI.Widget.DropDownList
+  - GUI.Widget.Header
   - GUI.Widget.Internal.LinearTrackBar
   - GUI.Widget.Layout.TH.LinearLayout
   - GUI.Widget.Layout.LinearLayout

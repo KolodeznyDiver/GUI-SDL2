@@ -395,9 +395,9 @@ listView ListViewDef{..} a parent skin = do
                                     fillRect r'
                                     when (ena && isCur && isFocused) $ do
                                         setColor $ decoreFgColor ds
-                                        drawRect r -- $ SDL.Rectangle (P (V2 0 y)) (V2 (widgW-1) (itemH-1))
-                                --withClipRect r' $
-                                listViewDrawItem widget skin listViewListViewFlags r ds
+                                        drawRect r
+                                withClipRect r' $
+                                    listViewDrawItem widget skin listViewListViewFlags r ds
                                         ena isFocused isMarked isCur p a i
                                 itemDraw $ i + 1
             setColor $ decoreBkColor (windowDecore skin)
