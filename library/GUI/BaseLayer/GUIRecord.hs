@@ -119,7 +119,7 @@ allWindowsMap_ f gui = mapM_ f =<< getWindowsMap gui
 {-# INLINE allWindowsMap_ #-}
 
 -- | Свёртка по окнам GUI.
-windowsFold:: MonadIO m => Gui -> (a -> Window -> m a) -> a -> m a
+windowsFold :: MonadIO m => Gui -> (a -> Window -> m a) -> a -> m a
 windowsFold gui f a = getWindowsMap gui >>= foldM f a . Map.elems
 {-# INLINE windowsFold #-}
 

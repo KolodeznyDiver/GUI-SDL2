@@ -177,7 +177,7 @@ data TextWrapMode =
         TextWrap {
             -- | Максимально допустимая высота текста. (Минимальная задаётся прямоугольником не в этом типе).
             textAreaMaxHeight :: Coord,
-            -- | Междустрочный интервал. Если Nothing, то взять из 'Sikn'.
+            -- | Междустрочный интервал. Если Nothing, то взять из 'Skin'.
             textAreaLineSpacing :: Maybe Double
                  }
         deriving (Show, Eq)

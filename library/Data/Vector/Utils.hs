@@ -10,10 +10,8 @@
 
 module Data.Vector.Utils where
 
-import Control.Monad
 import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed.Mutable as VUM
-import Control.Monad.Primitive
+import qualified Data.Vector.Mutable as VM
 
 unsafeDelElemByIx :: Int -> V.Vector a -> V.Vector a 
 unsafeDelElemByIx delIx v = let lastIx = V.length v - 1 in 
@@ -24,27 +22,26 @@ delElem :: Eq a => a -> V.Vector a -> V.Vector a
 delElem a v = maybe v (`unsafeDelElemByIx` v) $ V.elemIndex a v 
 
 swapWithLastByIx :: Int -> V.Vector a -> V.Vector a 
-swapWithLastByIx ix v = let lastIx = V.length v - 1 in 
+swapWithLastByIx ix v = let lastIx = V.length v - 1 in
                         if ix>=0 && ix<lastIx then
-                                  V.concat [V.unsafeSlice 0      ix v, 
+                            V.modify (\v' -> VM.swap v' ix lastIx) v
+{-
+                                  V.concat [V.unsafeSlice 0      ix v,
                                            V.unsafeSlice lastIx 1  v, 
                                            V.unsafeSlice (ix+1) (lastIx - ix - 1) v,
                                            V.unsafeSlice ix     1  v]
+-}
                         else v
-
-swapWithLast :: Eq a => a -> V.Vector a -> V.Vector a 
+swapWithLast :: Eq a => a -> V.Vector a -> V.Vector a
 swapWithLast a v = maybe v (`swapWithLastByIx` v) $ V.elemIndex a v
+
+-- | Переставить соседние элементы
+swapNeighb :: Int -> -- ^ Левый из переставляемых элементов
+              V.Vector a ->
+              V.Vector a
+swapNeighb ix = V.modify $ \v -> VM.swap v ix $ ix+1
+{-# INLINE swapNeighb #-}
 
 moveLastToFirst :: V.Vector a -> V.Vector a
 moveLastToFirst v = V.cons ( V.last v) $ V.unsafeSlice 0 (V.length v - 1) v
 
--- | Применяет модифицирует указанный диапазон вектора с помощью функции.
-modifySlice :: (PrimMonad m, VUM.Unbox a) =>
-    VUM.MVector (PrimState m) a -> -- ^ Вектор.
-    Int -> -- ^ Начало диапазона.
-    Int -> -- ^ Длина диапазона
-    (a -> a) -> -- ^ Модифицирующая функция
-    m ()
-modifySlice v from len f = go from len
-    where go i cnt = when (cnt>0)
-                        (VUM.modify v f i >> go (i+1) (cnt-1))

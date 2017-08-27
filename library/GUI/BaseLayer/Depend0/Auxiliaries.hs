@@ -15,8 +15,10 @@ module GUI.BaseLayer.Depend0.Auxiliaries(
     -- * Некоторые вспомогательные функции.
     getAppName,withUTF8,withUtf8Locale,mkRandomWinTitle
     ,showErrMsgBoxT,showErrMsgBoxTL,showErrMsgBoxB,showErrMsgBox,guiCatch
+    ,showbV2,showbPoint
     ) where
 
+import Data.Monoid
 import System.Environment (getProgName)
 import Control.Exception.Safe
 import GHC.IO.Encoding
@@ -26,8 +28,10 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified TextShow as TS
+import           TextShow (showb)
 import System.FilePath
 import qualified SDL
+import SDL.Vect
 
 -- | Возвращает имя текущего исполняемого файла без расширения и пути.
 getAppName :: IO String
@@ -90,3 +94,9 @@ guiCatch f h = f `catches` [Handler (\ e -> throw (e :: ExitCode)),
 
 -- guiCatch :: MonadCatch m => m a -> (SomeException -> m a) -> m a
 -- guiCatch = catchAny
+
+showbV2 :: TS.TextShow a => V2 a -> TS.Builder
+showbV2 (V2 x y) = "(" <> showb x <> "," <> showb y <> ")"
+
+showbPoint  :: TS.TextShow a => SDL.Point V2 a -> TS.Builder
+showbPoint (P p) = "P" <> showbV2 p

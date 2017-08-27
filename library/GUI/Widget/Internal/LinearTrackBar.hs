@@ -94,30 +94,30 @@ newtype LinearTrackBarData = LinearTrackBarData { getLnrTrBr :: IORef LinearTrac
 
 -- | Позволяет установить обработчик на изменение контролируемого трекбаром параметра.
 instance Changeable (GuiWidget LinearTrackBarData) LinearTrackValueType where
-    onChanged w a = modifyMonadIORef' (getLnrTrBr $ getWidgetData w) (\d -> d{lnrTrBrOnChanged= a})
+    onChanged w a = modifyMonadIORef' (getLnrTrBr $ widgetData w) (\d -> d{lnrTrBrOnChanged= a})
 
 -- | Позволяет установить и получать минимальные и максимальные значения трекбара после его содания.
 instance MinMaxValueProperty (GuiWidget LinearTrackBarData) LinearTrackValueType where
     setMinValue w v =  do
-        a@LinearTrackBarStruct{..} <- readMonadIORef $ getLnrTrBr $ getWidgetData w
+        a@LinearTrackBarStruct{..} <- readMonadIORef $ getLnrTrBr $ widgetData w
         when (lnrTrBrMin /= v) $ do
-            writeMonadIORef (getLnrTrBr $ getWidgetData w) a{lnrTrBrMin= v}
-            markWidgetForRedraw (getWidget w)
-    getMinValue = fmap lnrTrBrMin . readMonadIORef . getLnrTrBr . getWidgetData
+            writeMonadIORef (getLnrTrBr $ widgetData w) a{lnrTrBrMin= v}
+            markWidgetForRedraw (baseWidget w)
+    getMinValue = fmap lnrTrBrMin . readMonadIORef . getLnrTrBr . widgetData
     setMaxValue w v = do
-        a@LinearTrackBarStruct{..} <- readMonadIORef $ getLnrTrBr $ getWidgetData w
+        a@LinearTrackBarStruct{..} <- readMonadIORef $ getLnrTrBr $ widgetData w
         when (lnrTrBrMax /= v) $ do
-            writeMonadIORef (getLnrTrBr $ getWidgetData w) a{lnrTrBrMax= v}
-            markWidgetForRedraw (getWidget w)
-    getMaxValue = fmap lnrTrBrMax . readMonadIORef . getLnrTrBr . getWidgetData
+            writeMonadIORef (getLnrTrBr $ widgetData w) a{lnrTrBrMax= v}
+            markWidgetForRedraw (baseWidget w)
+    getMaxValue = fmap lnrTrBrMax . readMonadIORef . getLnrTrBr . widgetData
 
 -- | Позволяет установить и получать значение трекбара после его содания.
 instance ValueProperty (GuiWidget LinearTrackBarData) LinearTrackValueType where
     setValue w v = do
-        a@LinearTrackBarStruct{..} <- readMonadIORef $ getLnrTrBr $ getWidgetData w
+        a@LinearTrackBarStruct{..} <- readMonadIORef $ getLnrTrBr $ widgetData w
         let newV = toBound lnrTrBrMin lnrTrBrMax v
         when ( newV/= lnrTrBrVal) $ do
-            writeMonadIORef (getLnrTrBr $ getWidgetData w) a{lnrTrBrVal= newV}
-            markWidgetForRedraw (getWidget w)
+            writeMonadIORef (getLnrTrBr $ widgetData w) a{lnrTrBrVal= newV}
+            markWidgetForRedraw (baseWidget w)
             lnrTrBrOnChanged newV
-    getValue = fmap lnrTrBrVal . readMonadIORef . getLnrTrBr . getWidgetData
+    getValue = fmap lnrTrBrVal . readMonadIORef . getLnrTrBr . widgetData

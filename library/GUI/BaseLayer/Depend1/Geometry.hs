@@ -11,10 +11,11 @@
 
 module GUI.BaseLayer.Depend1.Geometry(
     -- * Двухмерный вектор @V2 x y@.
-    xV2,yV2,sizeReplaceIfNoPositive,sizeRestoreNegative
+    xV2,yV2,sizeReplaceIfNoPositive,sizeRestoreNegative,moveSegmentIntoSegment
     -- * Прямоугольник.
     ,getRectLT,getRectLB,getRectRT,getRectRB,rectCenter,sizeOfRect,isEmptyRect,isInRect
-    ,rectIntersection,moveRect,moveRectTo,rectMove,shrinkRect,shrinkRect',rectToBriefStr
+    ,rectIntersection,moveRect,moveRectTo,rectMove,moveRectIntoRect,shrinkRect,shrinkRect'
+    ,rectFromCenterAndSz,rectToBriefStr
     -- * Выравнивание.
     ,Alignment(..),VAlign(..),HAlign(..)
     ,hvAlignToAlignment,getVAlign,getHAlign,vAlignToOff,hAlignToOff,rectAlign
@@ -128,6 +129,21 @@ moveRectTo p (SDL.Rectangle _ sz) = SDL.Rectangle p sz
 rectMove :: Num a => SDL.Rectangle a -> V2 a -> SDL.Rectangle a
 rectMove r off = moveRect off r
 {-# INLINE rectMove #-}
+
+-- | Переместить второй прямоугольник на минимальное расстояние, но так, что бы он оказался внутри
+--   первого прямоугольника.
+moveRectIntoRect :: (Ord a, Num a) => SDL.Rectangle a -> SDL.Rectangle a -> SDL.Rectangle a
+moveRectIntoRect (SDL.Rectangle (P (V2 x0 y0)) (V2 w0 h0))
+                 (SDL.Rectangle (P (V2 x y)) sz@(V2 w h)) =
+    SDL.Rectangle (P (V2 (moveSegmentIntoSegment x0 w0 x w)
+                         (moveSegmentIntoSegment y0 h0 y h))) sz
+{-# INLINEABLE moveRectIntoRect #-}
+
+-- | Создать прямоугольник из сентральной точки и размера.
+rectFromCenterAndSz :: Integral a => SDL.Point V2 a -> V2 a -> SDL.Rectangle a
+rectFromCenterAndSz p sz = SDL.Rectangle ( p .-^ ((`div` 2) <$> sz)) sz
+{-# INLINE rectFromCenterAndSz #-}
+
 
 -- | Уменьшить прямоугольник на указанные значения по координатам сохраняя его центр неизменным.
 -- Если значения отрицательные - прямоугольник увеличивается.
@@ -318,3 +334,16 @@ data DirectionVH = DirectionH | DirectionV
 directionLetter :: DirectionVH -> Char
 directionLetter DirectionV = 'v'
 directionLetter _ = 'h'
+
+-- | Переместить второй отрезок на минимальное расстояние, но так, что бы он оказался внутри
+--   первого отрезка.
+moveSegmentIntoSegment :: (Ord a, Num a) => a -> -- ^ Начало объемлющего отрезка
+                                            a -> -- ^ Его длина.
+                                            a -> -- ^ Начало перемещаемого отрезка
+                                            a -> -- ^ Его длина.
+                                            a    -- ^ Новое начало отрезка
+moveSegmentIntoSegment x0 d0 x d | (x+d) > (x0+d0) = x0+d0-d
+                                 | x < x0 = x0
+                                 | otherwise = x
+{-# INLINEABLE moveSegmentIntoSegment #-}
+

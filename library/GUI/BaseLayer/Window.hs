@@ -23,6 +23,8 @@ module GUI.BaseLayer.Window(
     ,doWinOnClosed,canWinClose
      -- * Извлечение SDL кода окна.
     ,getWinId'',getWinId',getWinId
+    -- * Обращение к оконным функциям SDL
+    ,getWindowAbsolutePosition,fromWinToScreenPoint,getFocusedWin
     -- * Флаги окна.
     ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
     ,pattern WindowPopupFlag,pattern WindowLocked,pattern WindowCloseOnEsc
@@ -30,7 +32,7 @@ module GUI.BaseLayer.Window(
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
     -- * Логирование и обработка ошибок.
-    ,logOnErrInWindow',logOnErrInWindow
+    ,logPutLnWindow,logOnErrInWindow',logOnErrInWindow
     -- * Прочее.
     ,getSkinFromWin
     ) where
@@ -42,15 +44,17 @@ import qualified TextShow as TS
 import qualified SDL
 import qualified SDL.Raw as Raw
 import qualified SDL.Internal.Types
+import SDL.Vect
 import GUI.BaseLayer.Depend0.Types
 import GUI.BaseLayer.Depend0.Auxiliaries
 import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend0.BitFlags
 import GUI.BaseLayer.Depend0.Cursor
-import qualified GUI.BaseLayer.Depend1.Logging as L (logOnSomeException)
+import qualified GUI.BaseLayer.Depend1.Logging as L (logPutLn,logOnSomeException)
 import GUI.BaseLayer.Depend1.Skin (Skin)
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.GUIRecord
+import qualified GUI.BaseLayer.Primitives as P
 
 pattern WindowNoFlags :: WindowFlags
 pattern WindowRedrawFlag :: WindowFlags
@@ -226,6 +230,26 @@ getWinId rfWin = getWinId' =<< readMonadIORef rfWin
 {-# INLINE getWinId #-}
 
 -----------------------------------------------------------------
+
+-- | Возвращает абсолютную позицию левого верхнего угла окна.
+getWindowAbsolutePosition :: MonadIO m => Window -> m GuiPoint
+getWindowAbsolutePosition rfWin =
+    (P . P.fromSDLV2) <$> (SDL.getWindowAbsolutePosition =<< getSDLWindow rfWin)
+{-# INLINEABLE getWindowAbsolutePosition #-}
+
+-- | Конвертирует точку из оконных координат  в экранные.
+fromWinToScreenPoint :: MonadIO m => Window -> GuiPoint -> m GuiPoint
+fromWinToScreenPoint rfWin (P p) = (.+^ p) <$> getWindowAbsolutePosition rfWin
+{-# INLINEABLE fromWinToScreenPoint #-}
+
+-- | Возвращает окно GUI приложения имеющее фокус.
+getFocusedWin :: MonadIO m => Gui -> m (Maybe Window)
+getFocusedWin gui = windowsFold gui f Nothing
+    where f r@(Just _) _ = return r
+          f _ win = do focused <- allWindowFlags win WindowHaveMouseFocus
+                       return (if focused then Just win else Nothing)
+
+-----------------------------------------------------------------
 -- | Возвращает все флаги окна.
 getWindowFlags:: MonadIO m => Window -> m WindowFlags
 getWindowFlags = fmap winFlags .  readMonadIORef
@@ -281,6 +305,12 @@ anyWindowFlags win fl = ((WindowNoFlags /=) . (fl .&.) . winFlags) <$> readMonad
 {-# INLINE anyWindowFlags #-}
 
 -------------------------------- * Логирование и обработка ошибок.
+
+-- | Вывод сообщения в журнал.
+logPutLnWindow :: MonadIO m => Window -> -- ^ Ссылка на GUI окно.
+                               TS.Builder -> -- ^ TextShow Билдер из пакета __text-show__.
+                               m ()
+logPutLnWindow window t = (`L.logPutLn` t) =<< guiGetLog =<< getWindowGui window
 
 -- | Выполнение некоторого действия в контексте окна, и, если, при этом возникнет исключение, вывести его в журнал.
 logOnErrInWindow' :: MonadIO m => Window -> -- ^ Ссылка на GUI окно.

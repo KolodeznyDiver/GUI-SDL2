@@ -113,7 +113,7 @@ border BorderDef{..} parent skin = do
     let bkgrndColor = case borderBkgrnd of
                         BorderBkColor c -> c
                         _ -> decoreBkColor (formDecore skin)
-        frgrndColor = fromMaybe (borderColor skin) borderFgColor
+        frgrndColor = fromMaybe (formBorderColor skin) borderFgColor
         isTransp = borderBkgrnd==BorderTransparent
         fns = overlapsChildrenFns borderSize
     mbFnt <- if not $ T.null borderCaption

@@ -130,7 +130,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
     self <- mkWidget scrollAreaFlags
                         (fromMaybe (formItemsMargin skin) $ formItemMargin scrollAreaItemDef)
                         ScrollAreaData parent initScrllArFns
-    let selfWidget = getWidget self
+    let selfWidget = baseWidget self
     -- временно создаём widget скроллируемой области. Она должна быть в начале childs.
     void $ mkSimpleWidget WidgetMarginNone selfWidget $ noChildrenFns scrollAreaSize
 
@@ -194,8 +194,8 @@ scrollArea ScrollAreaDef{..} parent skin = do
                 markWidgetForRedraw selfWidget
         getBarsVisible :: MonadIO m => m (Bool,Bool)
         getBarsVisible = do
-            hBarVisible <- allWidgetFlags (getWidget hBar) WidgetVisible
-            vBarVisible <- allWidgetFlags (getWidget vBar) WidgetVisible
+            hBarVisible <- allWidgetFlags (baseWidget hBar) WidgetVisible
+            vBarVisible <- allWidgetFlags (baseWidget vBar) WidgetVisible
             return (hBarVisible,vBarVisible)
         arrRDSimpleUpdate  :: MonadIO m => Bool -> Bool -> m Bool
         arrRDSimpleUpdate False True = setRowNum arrRD 3 >> return True
@@ -203,10 +203,10 @@ scrollArea ScrollAreaDef{..} parent skin = do
         arrRDSimpleUpdate _     _    = return False
         scrllArActiveFlags = WidgetVisible .|. WidgetEnable
         widgetOff   :: MonadIO m => GuiWidget a -> m ()
-        widgetOff e = let w = getWidget e in
+        widgetOff e = let w = baseWidget e in
                       (widgetFlagsRemove w scrllArActiveFlags >> markWidgetForRedraw w)
         widgetOn   :: MonadIO m => GuiWidget a -> m ()
-        widgetOn  e = let w = getWidget e in
+        widgetOn  e = let w = baseWidget e in
                       (widgetFlagsAdd w scrllArActiveFlags >> markWidgetForRedraw w)
         updateByScrolled :: MonadIO m => m ()
         updateByScrolled = do
@@ -270,8 +270,8 @@ scrollArea ScrollAreaDef{..} parent skin = do
     fnsCorrectionForTransparent arrL
     fnsCorrectionForTransparent arrU
 
-    arrRDfns <- getWidgetFns $ getWidget arrRD
-    setWidgetFns (getWidget arrRD) arrRDfns{
+    arrRDfns <- getWidgetFns $ baseWidget arrRD
+    setWidgetFns (baseWidget arrRD) arrRDfns{
         onGainedMouseFocus = \widget p@(P (V2 x y)) -> do
             onGainedMouseFocus arrRDfns widget p
             (hBarVisible,vBarVisible) <- getBarsVisible
@@ -349,5 +349,5 @@ scrollArea ScrollAreaDef{..} parent skin = do
 
 -- | Реализация вставки виджета в scrollArea.
 instance WidgetComposer (GuiWidget ScrollAreaData) where
-   w $+ initF = createWidget (getWidget w) initF
+   w $+ initF = createWidget (baseWidget w) initF
 

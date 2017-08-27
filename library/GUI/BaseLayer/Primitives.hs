@@ -11,14 +11,18 @@
 
 module GUI.BaseLayer.Primitives(
     -- * Преобразование типов.
-    toSDLV2,fromSDLV2,toSDLRect,mousePointToGuiPoint
+    toSDLV2,fromSDLV2,toSDLPoint,fromSDLPoint,toSDLRect,mousePointToGuiPoint
     -- * Функции, вызываемые, восновном, из "GUI.BaseLayer.Canvas".
     ,getTextureSize,drawTexture,drawTextureAligned,fromRawColor,textSize,getPixelFormat
-    ,createTargetTexture,renderText,renderTextDraft,renderTextOpaque,drawText,drawTextDraft,drawTextOpaque
+    ,createTargetTexture,renderText,renderTextDraft,renderTextOpaque,renderCharOpaque
+    ,drawText,drawTextDraft,drawTextOpaque,drawCharOpaque
     ,withStateVar,withColor,withRendererColor,withRendererTarget,withRendererClipRect,withRendererViewport
     ,DrawStrMode(..),drawStrAligned
+    -- * Прочие
+    ,getDisplayRectByPoint
                      ) where
 
+import Data.Maybe
 import Control.Monad.IO.Class (MonadIO)
 import qualified Data.Text as T
 import Data.StateVar
@@ -41,6 +45,16 @@ toSDLV2 = fmap fromIntegral
 fromSDLV2 :: V2 SDLCoord -> V2 Coord
 fromSDLV2 = fmap fromIntegral
 {-# INLINE fromSDLV2 #-}
+
+-- | Преобразование из 'GuiPoint' в @SDL.Point V2 SDLCoord@.
+toSDLPoint :: GuiPoint -> SDL.Point V2 SDLCoord
+toSDLPoint (P p) = P (toSDLV2 p)
+{-# INLINE toSDLPoint #-}
+
+-- | Преобразование из @SDL.Point V2 SDLCoord@ в 'GuiPoint'.
+fromSDLPoint :: SDL.Point V2 SDLCoord -> GuiPoint
+fromSDLPoint (P p) = P (fromSDLV2 p)
+{-# INLINE fromSDLPoint #-}
 
 -- | Преобразование из 'GuiRect' в @SDL.Rectangle SDLCoord@.
 toSDLRect :: GuiRect -> SDL.Rectangle SDLCoord
@@ -137,11 +151,16 @@ textSize fnt txt
 {-# INLINE textSize #-}
 
 -- No exported.
-renderInternal :: MonadIO m => SDL.Renderer -> SDL.Surface -> m (Maybe SDL.Texture)
-renderInternal renderer sf = do
+renderInternal' :: MonadIO m => SDL.Renderer -> SDL.Surface -> m SDL.Texture
+renderInternal' renderer sf = do
     t <- SDL.createTextureFromSurface renderer sf
     SDL.freeSurface sf
-    return $ Just t
+    return t
+{-# INLINE renderInternal' #-}
+
+-- No exported.
+renderInternal :: MonadIO m => SDL.Renderer -> SDL.Surface -> m (Maybe SDL.Texture)
+renderInternal renderer = fmap Just . renderInternal' renderer
 {-# INLINE renderInternal #-}
 
 -- | Создание текстуры из строки с заданным шрифтом и цветом.
@@ -173,12 +192,26 @@ renderTextOpaque renderer fnt color bkColor txt
     | otherwise  = withUTF8 $ FNT.shaded fnt color bkColor txt >>= renderInternal renderer
 {-# INLINE renderTextOpaque #-}
 
+-- | Создание текстуры из одного символа с заданным шрифтом и цветом.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+renderCharOpaque:: MonadIO m => SDL.Renderer -> -- ^ 'SDL.Renderer'.
+                               Font -> -- ^ Шрифт.
+                               GuiColor -> -- ^ Цвет текста.
+                               GuiColor -> -- ^ Цвет фона.
+                               Char -> -- ^ Выводимый символ.
+                               m SDL.Texture
+renderCharOpaque renderer fnt color bkColor c =
+    withUTF8 $ FNT.shadedGlyph fnt color bkColor c >>= renderInternal' renderer
+{-# INLINE renderCharOpaque #-}
+
+-- No exported.
+drawInternal' :: MonadIO m => SDL.Renderer -> GuiPoint -> SDL.Texture -> m ()
+drawInternal' renderer pnt texture = drawTexture renderer texture pnt >> SDL.destroyTexture texture
+{-# INLINE drawInternal' #-}
+
 -- No exported.
 drawInternal :: MonadIO m => SDL.Renderer -> GuiPoint -> Maybe SDL.Texture -> m ()
-drawInternal renderer pnt mbTexture =
-    whenJust mbTexture $ \ t -> do
-        drawTexture renderer t pnt
-        SDL.destroyTexture t
+drawInternal renderer pnt mbTexture = whenJust mbTexture (drawInternal' renderer pnt)
 {-# INLINE drawInternal #-}
 
 -- | Отрисовка строки с заданным шрифтом и цветом на указанном 'SDL.Renderer' в заданной точке.
@@ -206,6 +239,19 @@ drawTextOpaque renderer fnt color bkColor pnt str = renderTextOpaque renderer fn
                                                             >>= drawInternal renderer pnt
 {-# INLINE drawTextOpaque #-}
 
+-- | Отрисовка одного символа с заданным шрифтом и цветом на указанном 'SDL.Renderer' в заданной точке.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+drawCharOpaque :: MonadIO m => SDL.Renderer -> -- ^ 'SDL.Renderer'.
+                              Font -> -- ^ Шрифт.
+                              GuiColor -> -- ^ Цвет текста.
+                              GuiColor -> -- ^ Цвет фона.
+                              GuiPoint -> -- ^ Позиция вывода.
+                              Char -> -- ^ Выводимый символ.
+                              m ()
+drawCharOpaque renderer fnt color bkColor pnt c = renderCharOpaque renderer fnt color bkColor c
+                                                            >>= drawInternal' renderer pnt
+{-# INLINE drawCharOpaque #-}
+
 -- | Режим отрисовки текста для универсальных функций вывода текста.
 data DrawStrMode = DrawStrFine             -- ^ По прозрачному фону, качественно и медленно.
                  | DrawStrDraft            -- ^ По прозрачному фону, без полутонов но быстро.
@@ -230,3 +276,11 @@ drawStrAligned renderer fnt align color mode rect str = do
     whenJust mbTexture $ \ t -> do
         drawTextureAligned renderer t align rect
         SDL.destroyTexture t
+
+-- | Возвращает границы области отображаемой на дисплее, на котором отображается указанная точка
+getDisplayRectByPoint :: MonadIO m => GuiPoint -> m (Maybe GuiRect)
+getDisplayRectByPoint pnt =
+    (listToMaybe . filter (`isInRect` pnt) .
+            map (\d -> SDL.Rectangle (fromSDLPoint $ SDL.displayBoundsPosition d)
+                            (fromSDLV2 $ SDL.displayBoundsSize d))) <$> SDL.getDisplays
+

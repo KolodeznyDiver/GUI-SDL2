@@ -42,6 +42,7 @@ type NaturalStringCollection = HM.HashMap ByteString T.Text
 data GuiFontOptions = GuiFontOptions {
       fontKerning :: Maybe FNT.Kerning -- ^ Настроить кернинг шрифта или оставить по умолчанию.
     , fontHinting :: Maybe FNT.Hinting -- ^ Настроить хинтинг шрифта или оставить по умолчанию.
+    , fontOutline :: Maybe FNT.Outline -- ^ Настроить Outline шрифта или оставить по умолчанию.
     , fontStyle   :: Maybe [FNT.Style] -- ^ Настроить стили шрифта или оставить по умолчанию.
                                      }
                                  deriving ( Eq, Show )
@@ -49,6 +50,7 @@ data GuiFontOptions = GuiFontOptions {
 instance Default GuiFontOptions where
     def = GuiFontOptions { fontKerning = Nothing
                          , fontHinting = Nothing
+                         , fontOutline = Nothing
                          , fontStyle   = Nothing
                          }
 

@@ -4,3 +4,20 @@ noB          Нет
 cancelB      Отменить
 retryB       Повторить
 skipB        Пропустить
+dateTimeFmt  %d.%m.%y %R
+colName      Имя
+colExt       Тип
+colSize      Размер
+colTime      Дата
+openFile     Открыть файл
+openFiles    Открыть файл(ы)
+saveFile     Сохранить файл с новым именем
+newDir       Новая директория
+letOpen      Открыть
+letSave      Сохранить
+success      Успешно
+information  Информация
+warning      Предупреждение
+error        Ошибка
+confirm      Подтверждение
+fileOverWarn Файл % существует. Переписать?

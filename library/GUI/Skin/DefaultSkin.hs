@@ -30,7 +30,8 @@ defSkin = Skin  {
     , formDecore = DecoreState { decoreBkColor  = formBkColor
                                , decoreFgColor = grayColor 0
                                }
-    , borderColor = grayColor 0
+    , formBorderColor = grayColor 0
+    , cellBorderColor = grayColor 128
     , selectedDecore = DecoreState { decoreBkColor = rgb 0 64 255
                                    , decoreFgColor = grayColor 255
                                    }
@@ -61,6 +62,8 @@ defSkin = Skin  {
                      , btnDecoreBorder = BtnBorderRound (grayColor 64)
                      }
     , formDisabledFgColor = disabledColor
+    , linkFgColor = rgb 0 0 255
+    , linkInFgColor = rgb 64 64 255
     , trackBarWidth = 15
     , trackBarBkColor  = rgb 0 255 255
 {-    , arrowBtns =

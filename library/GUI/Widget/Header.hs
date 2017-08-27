@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -19,7 +19,7 @@
 
 module GUI.Widget.Header(
     -- * Типы используемые в header
-    HeaderDef(..),HeaderData
+    HeaderSortMode,HeaderDef(..),HeaderData
     -- * Установка функций-обработчиков событий
     ,onWidthsChange,onSortChange,
     -- * Функция создания виджета.
@@ -54,18 +54,24 @@ pattern ArrowHW :: Coord -- Размер треугольника
 pattern ArrowHW = 10
 pattern BorderThickness :: Coord
 pattern BorderThickness = 1
+pattern PressedOffset :: Coord -- На сколько смещать изображение на кнопке при нажатии на ней
+pattern PressedOffset = 2      -- указателя мыши.
+
+-- | Возможность и состояние сортировки по колонкам.
+type HeaderSortMode = Maybe -- Если @Just@ - предолагается возможность сортировки нажатием на заголовки колонок.
+                      (Int -- ^ Начальный номер колонки по которой предполагается сортировка.
+                      ,SortMode -- ^ Режим сортировки.
+                      )
 
 -- | Начальные настройки виджета.
 data HeaderDef = HeaderDef {
           headerFormItemDef :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
                                                    -- в настоящий момент только margin's.
+                                                   -- Нижний margin обнуляется в @header@.
 --        , headerSize       :: GuiSize -- ^ Размер без полей.
         , headerFlags      :: WidgetFlags -- ^ Флаги базового виджета.
         , headerColumns  :: V.Vector (T.Text,Coord) -- ^ Исходные заголовки и ширины колонок.
-        , headerSortMode :: Maybe -- Если @Just@ - предолагается возможность сортировки нажатием на заголовки колонок.
-                            (Int -- ^ Начальный номер колонки по которой предполагается сортировка.
-                            ,SortMode -- ^ Режим сортировки.
-                            )
+        , headerSortMode :: HeaderSortMode -- ^ Возможность и начальное состояние сортировки по колонкам.
                                }
 
 
@@ -83,18 +89,26 @@ data HeaderHandlers = HeaderHandlers    { hdrOnWidthsChange :: forall m. MonadIO
                                         }
 
 -- | Тип созданного виджета. Обычно используется как  @GuiWidget ListViewData@.
-newtype HeaderData = HeaderData { -- hdrWidths :: VUM.IOVector Coord
---                             , hdrSortMode :: Maybe (IORef (Int,SortMode))
-                              hdrHndlrs :: IORef HeaderHandlers
+data HeaderData = HeaderData { hdrWidths :: VUM.IOVector Coord
+                             , hdrSortMode :: Maybe (IORef (Int,SortMode))
+                             , hdrHndlrs :: IORef HeaderHandlers
                              }
 
 -- | Установка функции-обработчика на изменение ширин колонок.
 onWidthsChange :: MonadIO m => GuiWidget HeaderData -> (forall n. MonadIO n => V.Vector Coord -> n ()) -> m ()
-onWidthsChange w a = modifyMonadIORef' (hdrHndlrs $ getWidgetData w) (\d -> d{hdrOnWidthsChange= a})
+onWidthsChange w a = modifyMonadIORef' (hdrHndlrs $ widgetData w) (\d -> d{hdrOnWidthsChange= a})
 
 -- | Установка функции-обработчика на изменение режима сортировки.
 onSortChange :: MonadIO m => GuiWidget HeaderData -> (forall n. MonadIO n => Int -> SortMode -> n ()) -> m ()
-onSortChange w a = modifyMonadIORef' (hdrHndlrs $ getWidgetData w) (\d -> d{hdrOnSortChange= a})
+onSortChange w a = modifyMonadIORef' (hdrHndlrs $ widgetData w) (\d -> d{hdrOnSortChange= a})
+
+-- | Извлечение состояния виджета для сохранения.
+instance GetStateForSave (GuiWidget HeaderData) (V.Vector Coord,HeaderSortMode) where
+    getStateForSave w = do
+        let HeaderData{..} = widgetData w
+        widths <- liftIO $ V.generateM (VUM.length hdrWidths) (VUM.read hdrWidths)
+        srtMd <- fmapMaybeM readMonadIORef hdrSortMode
+        return (widths,srtMd)
 
 -- | Не экспортируемый тип. Определяет в какой области виджета находится указатель.
 data AreaOfMouse = Btn  Int -- ^ На кнопке.
@@ -184,7 +198,7 @@ header HeaderDef{..} parent skin = do
                 let (MarginLTRB l t r _) = marginToLTRB $ formItemsMargin skin
                 in WidgetMarginLTRB l t r 0
             ) $ formItemMargin headerFormItemDef)
-            (HeaderData rfH) parent (noChildrenFns widgSz){
+            (HeaderData widths sortMode rfH) parent (noChildrenFns widgSz){
       onDestroy = \ _widget -> SDL.destroyTexture textureUp >> SDL.destroyTexture textureDn
       ,onMouseMotion = \widget btnsLst (P (V2 x _)) (V2 relX _) ->
             if SDL.ButtonLeft `elem` btnsLst then do
@@ -217,15 +231,17 @@ header HeaderDef{..} parent skin = do
                                 w <- liftIO $ VUM.read widths i
                                 let isPressed = iBtnPressed == i
                                     isSortCol = iSortCol == i
-                                    (ltColor,rbColor,off) = if isPressed then (darkColor,lightColor,2)
+                                    (ltColor,rbColor,off) = if isPressed then (darkColor,lightColor,PressedOffset)
                                                             else (lightColor,darkColor,0)
-                                    txtP = P (V2 (x+PaddingX+off) (PaddingY+off))
+                                    txtX = x+PaddingX+off
+--                                    txtP = P (V2 txtX (PaddingY+off-2))
                                     txtW = w - 2*PaddingX - (if isSortCol then ArrowTextureHW else 0)
                                     internH = widgH-2*BorderThickness
                                 draw3DFrame ltColor rbColor bkClr BorderThickness
                                     $ SDL.Rectangle (P (V2 x 0)) (V2 w widgH)
-                                withClipRect (SDL.Rectangle txtP (V2 txtW (internH-off))) $
-                                    drawTextOpaque fnt fgClr bkClr txtP $ fst $ headerColumns V.! i
+                                withClipRect (SDL.Rectangle (P (V2 txtX (PaddingY*2))) (V2 txtW internH)) $
+                                    drawTextOpaque fnt fgClr bkClr (P (V2 txtX (PaddingY+off-2))) $
+                                        fst $ headerColumns V.! i
                                 when isSortCol $
                                     drawTexture (if snd (fromJust srtMd) == Ascending then textureUp
                                                  else textureDn) $

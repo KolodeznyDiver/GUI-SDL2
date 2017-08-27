@@ -4,3 +4,20 @@ noB          No
 cancelB      Cancel
 retryB       Retry
 skipB        Skip
+dateTimeFmt  %x %R
+colName      Name
+colExt       Ext
+colSize      Size
+colTime      Date & Time
+openFile     Open file
+openFiles    Open file(s)
+saveFile     Save file as
+newDir       New directory 
+letOpen      Open
+letSave      Save
+success      Success
+information  Information
+warning      Warning
+error        Error
+confirm      Сonfirmation
+fileOverWarn The file % exists. Overwrite it?

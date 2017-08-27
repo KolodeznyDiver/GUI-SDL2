@@ -25,20 +25,21 @@ module GUI.Widget.ListView(
     ,pattern UseOddColorListViewFlag
     ,pattern DrawItemPrepareListViewFlag,pattern EnterAsClickListViewFlag,pattern MouseTrackingListViewFlag
     -- * Типы и классы listView
-    ,ListViewDef(..),ListViewable(..),ListViewData
+    ,ListViewDef(..),ListViewData
     -- * Виджет отображения списка с произвольной отрисовкой.
     ,listView
     -- * Отображение упорядоченного контейнера с элементами поддерживающими 'TextShow'.
     ,ListViewTSPrepare,ListViewTS(..),ListViewText(..)
-    -- * Вспомогательные функции для создания @instance ... ListViewable@ с только текстовым отображением элементов.
+    -- * Вспомогательные функции для создания @instance ... ViewableItems@ с только текстовым отображением элементов.
     --   Могут пторебоваться только для создания своего варианта отображения контейнера текстом.
-    ,listViewPrepareTextOnly,listViewDrawItemTextOnly
+    ,listViewPrepareTextOnly
     -- * Выпадающее окно с @listView@.
     ,popupListView
     ) where
 
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
 import qualified Data.Vector.Unboxed.Mutable as VUM
@@ -47,7 +48,6 @@ import Data.IORef
 import qualified TextShow as TS
 import qualified SDL
 import SDL.Vect
-import qualified SDL.Font as FNT
 import SDL.Font (Font)
 import Control.Monad.Extra (whenJust)
 import Data.Default
@@ -55,7 +55,7 @@ import GUI
 import GUI.Widget.Handlers
 import GUI.Widget.Container.ScrollArea
 import Data.Container.DirectAccess
-import Data.Vector.Utils (modifySlice)
+import GUI.Utils.ViewableItems
 import GUI.BaseLayer.PopupWindow
 
 -- | Тэг для битовых флагов настройки виджетов списков
@@ -79,11 +79,6 @@ pattern DrawItemPrepareListViewFlag = (Flags 0x0000000000000004) :: ListViewFlag
 pattern EnterAsClickListViewFlag = (Flags 0x0000000000000008) :: ListViewFlags
 pattern MouseTrackingListViewFlag = (Flags 0x0000000000000010) :: ListViewFlags
 
-pattern PaddingX :: Coord
-pattern PaddingX = 5
-pattern PaddingY :: Coord
-pattern PaddingY = 3
-
 -- | Начальные настройки виджета списка с пользовательской отрисовкой элементов
 data ListViewDef = ListViewDef {
           listViewFormItemDef :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм,
@@ -103,39 +98,10 @@ instance Default ListViewDef where
                       , listViewIx = 0
                       }
 
--- | Задаёт listView с произвольной отрисовкой элементов.
-class ListViewable a p | a -> p where
-    -- | Вызывается при создании @listView@ используя @runProxyCanvas@.
-    listViewPrepare :: MonadIO m =>
-                       Skin ->
-                       ListViewFlags ->
-                       a -> -- ^ Отображаемые данные (могут изменться во время существования Widget-а.
-                       Canvas m (Coord,p) -- ^ Высота строки и подготовленные данные для отрисовки.
-    -- | Вызывается для отрисовки каждого элемента (строки).
-    listViewDrawItem :: MonadIO m =>
-                        Widget -> -- ^ @listView@.
-                        Skin ->
-                        ListViewFlags ->
-                        GuiRect -> -- ^ Координаты области для рисования.
-                        DecoreState -> -- ^ Цвета фона и переднего плана.
-                        Bool -> -- ^ WidgetEnable ?
-                        Bool -> -- ^ WidgetFocused ?
-                        Bool -> -- ^ Элемент маркированный.
-                        Bool -> -- ^ Текущий ли это элемент.
-                        p -> -- ^ Данные для отрисовки сформированные в @listViewPrepare@.
-                        a -> -- ^ Отображаемые данные.
-                        Int -> -- ^ Номер элемента.
-                        Canvas m ()
-    -- | Возвращает текущее число элементов.
-    listViewGetCount :: MonadIO m =>
-                        Widget -> -- ^ @listView@.
-                        a -> -- ^ Отображаемые данные.
-                        m Int
-
 -- | Не экспортируемый тип записи. Хранится по ссылке в 'ListViewData'.
 data ListViewHandlers = ListViewHandlers    { lstVwOnMove :: forall m. MonadIO m => Int -> m ()
-                                            , lstVwOnClk :: forall m. MonadIO m => m ()
-                                            , lstVwOnDblClk :: forall m. MonadIO m => m ()
+                                            , lstVwOnClk :: forall m. MonadIO m => Int -> m ()
+                                            , lstVwOnDblClk :: forall m. MonadIO m => Int -> m ()
                                             }
 
 -- | Не экспортируемый тип записи. Хранится по ссылке в 'ListViewData'.
@@ -145,57 +111,74 @@ data ListViewState = ListViewState { lstVwCur :: Int
 
 
 -- | Тип созданного виджета. Обычно используется как  @GuiWidget ListViewData@.
-data ListViewData a = ListViewData { lstVwDat :: a
-                                   , lstVwHndlrs :: IORef ListViewHandlers
-                                   , lstVw :: IORef ListViewState
-                                   }
+data ListViewData a p = ListViewData    { lstVwDat :: a
+                                        , lstVwHndlrs :: IORef ListViewHandlers
+                                        , lstVw :: IORef ListViewState
+                                        }
 
 -- | Установка и извлечение номера текущего элемента.
-instance IxProperty (GuiWidget (ListViewData a)) where
+instance IxProperty (GuiWidget (ListViewData a p)) where
     setIx w v = do
-        let widget = getWidget w
-            ListViewData{..} = getWidgetData w
+        let widget = baseWidget w
+            ListViewData{..} = widgetData w
         ListViewState{..} <- readMonadIORef lstVw
         when ( (v /= lstVwCur) && (v>=0) && (v < VUM.length lstVwMarkers)) $ do
             writeMonadIORef lstVw $ ListViewState v lstVwMarkers
             readMonadIORef lstVwHndlrs >>= ( ( $ v) . lstVwOnMove)
             markWidgetForRedraw widget
-    getIx w = lstVwCur <$> readMonadIORef (lstVw $ getWidgetData w)
+    getIx w = lstVwCur <$> readMonadIORef (lstVw $ widgetData w)
 
 -- | Установка функции-обработчика события изменение текущей позиции (номера ряда).
-instance Moveable (GuiWidget (ListViewData a)) Int where
-    onMove w a = modifyMonadIORef' (lstVwHndlrs $ getWidgetData w) (\d -> d{lstVwOnMove= a})
+instance Moveable (GuiWidget (ListViewData a p)) Int where
+    onMove w a = modifyMonadIORef' (lstVwHndlrs $ widgetData w) (\d -> d{lstVwOnMove= a})
 
 -- | Установка функции-обработчика одинарного щелчка.
-instance Clickable (GuiWidget (ListViewData a)) where
-    onClick w a = modifyMonadIORef' (lstVwHndlrs $ getWidgetData w) (\d -> d{lstVwOnClk= a})
+instance Clickable1 (GuiWidget (ListViewData a p)) Int where
+    onClick1 w a = modifyMonadIORef' (lstVwHndlrs $ widgetData w) (\d -> d{lstVwOnClk= a})
 
 -- | Установка функции-обработчика двойного щелчка.
-instance DoubleClickable (GuiWidget (ListViewData a)) where
-    onDoubleClick w a = modifyMonadIORef' (lstVwHndlrs $ getWidgetData w) (\d -> d{lstVwOnDblClk= a})
+instance DoubleClickable1 (GuiWidget (ListViewData a p)) Int where
+    onDoubleClick1 w a = modifyMonadIORef' (lstVwHndlrs $ widgetData w) (\d -> d{lstVwOnDblClk= a})
+
+-- | Не экспортируемая функция. Изменяет состояние маркируемого элемента с проверкой,
+--   можно ли его маркировать.
+setMarker :: (MonadIO m, ViewableItems a _p) =>
+                        Gui -> -- ^ GUI.
+                        a -> -- ^ Отображаемые данные.
+                        VUM.IOVector Bool -> -- ^ маркеры отмеченных (выбранных) элементов.
+                        Int -> -- ^ Номер элемента.
+                        Bool -> -- ^ Новое значение.
+                        m ()
+setMarker gui a markers ix boolV = (if boolV then viewableCanSelect gui a ix else return False)
+                                        >>= (liftIO . VUM.write markers ix)
+
 
 -- | Установка и извлечение @VU.Vectoor Bool@ - означающего какие элементы (ряды) маркированы.
 -- Для установки значений маркеров вектор должен быть той же длины что и вектор в 'ListViewData'.
-instance MarkersProperty (GuiWidget (ListViewData a)) where
+instance ViewableItems a p => MarkersProperty (GuiWidget (ListViewData a p)) where
     setMarkers w n = do
-        v <- lstVwMarkers <$> readMonadIORef (lstVw $ getWidgetData w)
+        let widget = baseWidget w
+            ListViewData{..} = widgetData w
+        v <- lstVwMarkers <$> readMonadIORef lstVw
         when (VUM.length v == VU.length n) $ do
-            liftIO $ VU.imapM_ (VUM.write v) n
-            markWidgetForRedraw $ getWidget w
+            gui <- getGuiFromWidget widget
+            VU.imapM_ (setMarker gui lstVwDat v) n
+            markWidgetForRedraw $ baseWidget w
     getMarkers w = do
-        v <- lstVwMarkers <$> readMonadIORef (lstVw $ getWidgetData w)
+        v <- lstVwMarkers <$> readMonadIORef (lstVw $ widgetData w)
         liftIO $ VU.generateM (VUM.length v) (VUM.read v)
 
 -- | Функция создания виджета списка.
-listView :: (MonadIO m, ListViewable a _p) =>
+listView :: (MonadIO m, ViewableItems a p) =>
                          ListViewDef -> -- ^ Параметры виджета.
                          a -> -- ^ Исходные отображаемые данные.
                          Widget -> -- ^ Будующий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
-                         m (GuiWidget (ListViewData a))
+                         m (GuiWidget (ListViewData a p))
 listView ListViewDef{..} a parent skin = do
-    (itemH,p) <- runProxyCanvas parent $ listViewPrepare skin listViewListViewFlags a
-    rfH <- newMonadIORef $ ListViewHandlers (\_ -> return ()) (return ()) (return ())
+    gui <- getGuiFromWidget parent
+    (itemH,p) <- runProxyCanvas parent $ viewablePrepare gui skin a
+    rfH <- newMonadIORef $ ListViewHandlers (\_ -> return ()) (\_ -> return ()) (\_ -> return ())
     rfSt <- newMonadIORef =<< (ListViewState listViewIx <$> liftIO (VUM.new 0))
     scrll <- scrollArea def{ scrollAreaItemDef = listViewFormItemDef
                            , scrollAreaSize = listViewSize }
@@ -207,10 +190,10 @@ listView ListViewDef{..} a parent skin = do
         doOnMove old new = when (old /= new)
                              (readMonadIORef rfH >>= ( ( $ new) . lstVwOnMove))
 
-        cntUpdt :: MonadIO m => Widget -> m (ListViewState,Int)
-        cntUpdt widget = do
+        cntUpdt :: MonadIO m => m (ListViewState,Int)
+        cntUpdt = do
             ListViewState{..} <- readMonadIORef rfSt
-            newCnt <- listViewGetCount widget a
+            newCnt <- viewableGetCount a
             let iCur = toRange newCnt lstVwCur
                 cnt = VUM.length lstVwMarkers
                 ret s = do  let r = ListViewState iCur s
@@ -232,7 +215,7 @@ listView ListViewDef{..} a parent skin = do
             return (widgSz,cr)
         updt :: MonadIO m => Widget -> m (ListViewState,Int,GuiSize,GuiRect)
         updt widget = do
-            (listViewState,cnt) <- cntUpdt widget
+            (listViewState,cnt) <- cntUpdt
             (widgSz@(V2 _ widgH),cr) <- getCoords widget
             let cr' = recalcCanvasRect cnt widgH cr
             when (cr /= cr')
@@ -262,6 +245,15 @@ listView ListViewDef{..} a parent skin = do
         scrollNotify widget = notifyParentAboutSize widget =<< (sizeOfRect <$> getWidgetRect widget)
         calcFromAndLn i j = if i < j then (i,j-i+1) else (j,i-j+1)
 
+        setMarkersTrue markers = go
+            where go _ 0 = return ()
+                  go ix n = setMarker gui a markers ix True >> go (ix+1) (n-1)
+
+        modifyMarkers markers f = go
+            where go _ 0 = return ()
+                  go ix n = liftIO (VUM.read markers ix) >>=
+                                setMarker gui a markers ix . f >> go (ix+1) (n-1)
+
         doMove :: MonadIO m => Widget ->
                                ShiftCtrlAlt ->
                                ( Int -> -- cnt
@@ -282,8 +274,10 @@ listView ListViewDef{..} a parent skin = do
                     when (isC || isS) $
                         let markFrom' = toRange cnt markFrom
                             (iFrom,iLn) = calcFromAndLn newPos' markFrom'
-                        in if isC then modifySlice lstVwMarkers iFrom iLn not
-                           else VUM.set (VUM.unsafeSlice iFrom iLn lstVwMarkers) True
+                        in if isC then
+                                when (newPos' /= lstVwCur) $
+                                    modifyMarkers lstVwMarkers not iFrom iLn -- modifySlice lstVwMarkers iFrom iLn not
+                           else setMarkersTrue lstVwMarkers iFrom iLn -- VUM.set (VUM.unsafeSlice iFrom iLn lstVwMarkers) True
                 writeMonadIORef rfSt $ ListViewState newPos' lstVwMarkers
                 let cr' = arrangeCanvasRect newPos' widgH cr
                 when (cr /= cr')
@@ -301,14 +295,14 @@ listView ListViewDef{..} a parent skin = do
 
 
     mkWidget listViewFlags WidgetMarginNone (ListViewData a rfH rfSt)
-                        (getWidget scrll) fns{
+                        (baseWidget scrll) fns{
        onCreate = \widget -> do
-            (_,cnt) <- cntUpdt widget
+            (_,cnt) <- cntUpdt
             let cr = recalcCanvasRect cnt heigth (SDL.Rectangle zero (V2 width 0))
             setWidgetCanvasRect widget cr >> notifyParentAboutSize widget zero
 --            liftIO $ putStrLn $ concat ["itemH=",show itemH]
             -- onCreate fns widget
-
+       ,onDestroy = \ _widget -> viewableUnprepare gui p a
        ,onResizing= \widget newRect -> do
             void $ setWidgetRectWithMarginShrink widget newRect
             getWidgetParent widget >>=  markWidgetForRedraw
@@ -334,18 +328,21 @@ listView ListViewDef{..} a parent skin = do
 --                setWidgetFocus widget
                 shiftCtrlAlt <- getActualShiftCtrlAlt
                 mb <- doMouseMove widget shiftCtrlAlt y
-                whenJust mb $ \_ ->
-                    join $ (if clicks==1 then lstVwOnClk else lstVwOnDblClk) <$> readMonadIORef rfH
+                whenJust mb $ \ix ->
+                    ( $ ix) . (if clicks==1 then lstVwOnClk else lstVwOnDblClk) =<< readMonadIORef rfH
 
        ,onKeyboard = \widget motion _repeated keycode km -> when (motion==SDL.Pressed) $ do
             let shiftCtrlAlt@ShiftCtrlAlt{isShift=isS,isCtrl=isC,isAlt=isA} = getShftCtrlAlt km
             if isEnterKey keycode && shiftCtrlAlt == ShiftCtrlAlt False False False then
-                when ((listViewListViewFlags .&. EnterAsClickListViewFlag) /= ListViewNoFlags) $
-                    join $ lstVwOnClk <$> readMonadIORef rfH
+                when ((listViewListViewFlags .&. EnterAsClickListViewFlag) /= ListViewNoFlags) $ do
+                    (ListViewState{..},cnt) <- cntUpdt
+                    when (cnt>0)
+                        (( $ lstVwCur) . lstVwOnClk =<< readMonadIORef rfH)
             else case keycode of
                 SDL.KeycodeA | not isS && isC && not isA && isMultiSelect -> do
-                    (ListViewState{..},_cnt) <- cntUpdt widget
-                    liftIO $ VUM.set lstVwMarkers True
+                    (ListViewState{..},_cnt) <- cntUpdt
+                    --liftIO $ VUM.set lstVwMarkers True
+                    setMarkersTrue lstVwMarkers 0 $ VUM.length lstVwMarkers
                     markWidgetForRedraw widget
                 SDL.KeycodeHome | not isC && not isA -> void $ doMove widget shiftCtrlAlt $
                     \ _cnt pos _widgH _cr -> Just (0,pos)
@@ -397,7 +394,7 @@ listView ListViewDef{..} a parent skin = do
                                         setColor $ decoreFgColor ds
                                         drawRect r
                                 withClipRect r' $
-                                    listViewDrawItem widget skin listViewListViewFlags r ds
+                                    viewableDrawItem gui skin r ds
                                         ena isFocused isMarked isCur p a i
                                 itemDraw $ i + 1
             setColor $ decoreBkColor (windowDecore skin)
@@ -417,69 +414,56 @@ newtype ListViewTS c v = ListViewTS c
 -- | Обёртка для использования с @listView@ упорядоченного контейнера с элементами типа 'Text'.
 newtype ListViewText c = ListViewText c
 
--- | Вспомогательная функция для создания @instance ... ListViewable@ с только текстовым отображением элементов.
+-- | Вспомогательная функция для создания @instance ... ViewableItems@ с только текстовым отображением элементов.
 listViewPrepareTextOnly :: MonadIO m => Canvas m (Coord,Font)
-listViewPrepareTextOnly = do
-    fnt <- getFont "list"
-    fntHeight <- FNT.lineSkip fnt -- FNT.height fnt
-    return (fntHeight + 2 * PaddingY,fnt)
+listViewPrepareTextOnly = viewablePrepareTextOnly "list"
 
--- | Вспомогательная функция для создания @instance ... ListViewable@ с отображением элемента одной строкой.
-listViewDrawItemTextOnly :: (MonadIO m, DAROContainer c v, TS.TextShow v) =>
-                        Font -> -- ^ Шрифт.
-                        GuiRect -> -- ^ Координаты области для рисования.
-                        DecoreState -> -- ^ Цвета фона и переднего плана.
-                        c -> -- ^ Контейнер с данными.
-                        Int -> -- ^ Номер элемента.
-                        (v -> T.Text) -> -- ^ Функция преобразования элемента контейнера в 'Text'.
-                        Canvas m ()
-listViewDrawItemTextOnly fnt rect decoreState c ix f =
-    drawTextAligned fnt AlignLeftCenter (decoreFgColor decoreState) (DrawStrOpaque (decoreBkColor decoreState))
-        (shrinkRect (V2 PaddingX PaddingY) rect) . f =<< getItemDARO c ix
-
-instance (DAROContainer c v, TS.TextShow v) => ListViewable (ListViewTS c v) ListViewTSPrepare where
-    listViewPrepare _skin _listFl _container = fmap ListViewTSPrepare <$> listViewPrepareTextOnly
+instance (DAROContainer c v, TS.TextShow v) => ViewableItems (ListViewTS c v) ListViewTSPrepare where
+    viewablePrepare _gui _skin _container = fmap ListViewTSPrepare <$> listViewPrepareTextOnly
 
     -- | Вызывается для отрисовки каждого элемента (строки).
-    listViewDrawItem _widget _skin _listFl rect decoreState
+    viewableDrawItem _gui _skin rect decoreState
                      _isEna _isFocused _isMarked _isCur (ListViewTSPrepare fnt) (ListViewTS c) ix =
-        listViewDrawItemTextOnly fnt rect decoreState c ix TS.showt
+        viewableDrawItemTextOnly fnt rect decoreState c ix TS.showt
 
     -- | Возвращает текущее число элементов.
-    listViewGetCount _widget (ListViewTS c) = sizeDARO c
+    viewableGetCount (ListViewTS c) = sizeDARO c
 
-instance DAROContainer c T.Text => ListViewable (ListViewText c) ListViewTSPrepare where
-    listViewPrepare _skin _listFl _container = fmap ListViewTSPrepare <$> listViewPrepareTextOnly
+instance DAROContainer c T.Text => ViewableItems (ListViewText c) ListViewTSPrepare where
+    viewablePrepare _gui _skin _container = fmap ListViewTSPrepare <$> listViewPrepareTextOnly
 
-    listViewDrawItem _widget _skin _listFl rect decoreState
+    viewableDrawItem _gui _skin rect decoreState
                      _isEna _isFocused _isMarked _isCur (ListViewTSPrepare fnt) (ListViewText c) ix =
-        listViewDrawItemTextOnly fnt rect decoreState c ix id
+        viewableDrawItemTextOnly fnt rect decoreState c ix id
 
-    listViewGetCount _widget (ListViewText c) = sizeDARO c
+    viewableGetCount (ListViewText c) = sizeDARO c
 
 
 -- | Функция создающая окно с @listView@.
-popupListView :: (MonadIO m, ListViewable a _p) =>
+popupListView :: (MonadIO m, ViewableItems a _p) =>
                 -- | Виджет активного сейчас окна. Popup окно станет дочерним по отношению к этому окну.
                 Widget ->
                 -- | Начальные координаты окна в координатах указанного виджета.
                 GuiRect ->
+                Maybe ListViewFlags -> -- ^ Флаги виджета списка.
                 a -> -- ^ Исходные отображаемые данные.
                 Int -> -- ^ Начальный текущий номер ряда (номер элемента).
                 (forall n. MonadIO n => Int -> n ()) ->  -- ^ Функция вызываемая при выборе пункта меню
                                                          -- при закрытии окна.
                 m ()
-popupListView parent rect a ix f = do
+popupListView parent rect mbLVFlags a ix f = do
     !winSDL <- getSDLWindow =<< getWidgetWindow parent
     win <- mkPopupWindow parent rect
-    lstView <- win $+ listView def  { listViewFormItemDef = def{formItemMargin=Just WidgetMarginNone}
-                                    , listViewSize = sizeOfRect rect
-                                    , listViewListViewFlags = listViewListViewFlags def .|.
-                                        EnterAsClickListViewFlag .|. MouseTrackingListViewFlag
-                                    , listViewIx = ix
+    lstView <- win $+ listView def  {
+          listViewFormItemDef = def{formItemMargin=Just WidgetMarginNone}
+        , listViewSize = sizeOfRect rect
+        , listViewListViewFlags = -- complement MultiSelectListViewFlag .&. (
+            EnterAsClickListViewFlag .|. MouseTrackingListViewFlag .|.
+            fromMaybe (listViewListViewFlags def) mbLVFlags -- )
+        , listViewIx = ix
                                     } a
-    onClick lstView $ do
-        !i <- getIx lstView
+    onClick1 lstView $ \ !i -> do
+--        !i <- getIx lstView
 --        delWindow win
         SDL.showWindow winSDL >> SDL.raiseWindow winSDL
         f i

@@ -53,12 +53,12 @@ module GUI.BaseLayer.Widget(
     ,notifyParentAboutSize,simpleOnResizing,extendableOnResizing
     -- *** Поиск и преобразование из клиентских координат в координаты виджета.
     ,coordToWidget,mouseToWidget
-    -- ** Обработка прерываний в контексте виджета.
-    ,logOnErrInWidget',logOnErrInWidget
+    -- ** Логирование и обработка прерываний в контексте виджета.
+    ,logPutLnWidget,logOnErrInWidget',logOnErrInWidget
     -- ** Отладочные функции вывода парметров виджета(ов) в виде строки.
     ,widgetCoordsToStr,showWidgets,showWidgetsFromMain,showWinWidgets
     -- * Виджет пользовательского уровня.
-    ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget,fnsCorrectionForTransparent
+    ,GuiWidget(..),setWidgetFlag,enableWidget,visibleWidget,fnsCorrectionForTransparent
     -- ** Простейший виджет пользовательского уровня не имеюший своих параметров.
     ,SimpleWidget(..),mkSimpleWidget
     --  * Создание виджетов.
@@ -79,7 +79,7 @@ import GUI.BaseLayer.Depend0.Ref
 import GUI.BaseLayer.Depend0.BitFlags
 import GUI.BaseLayer.Depend0.Cursor
 import GUI.BaseLayer.Depend1.Geometry
-import qualified GUI.BaseLayer.Depend1.Logging as L (logOnSomeException)
+import qualified GUI.BaseLayer.Depend1.Logging as L (logPutLn,logOnSomeException)
 import GUI.BaseLayer.Depend1.Skin
 import GUI.BaseLayer.Types
 import GUI.BaseLayer.Canvas.Types (Canvas)
@@ -706,6 +706,11 @@ mouseToWidget rfWin pnt = do
 
 --------------------- ** Обработка прерываний.
 
+logPutLnWidget  :: MonadIO m => Widget -> -- ^ Ссылка на виджет.
+                                TS.Builder -> -- ^ Логируемый текст.
+                                m ()
+logPutLnWidget widget t = (`L.logPutLn` t) =<< guiGetLog =<< getWindowGui =<< getWidgetWindow widget
+
 -- | Перехват и логирование прерываний в контексте виджета.
 logOnErrInWidget' :: MonadIO m => Widget -> -- ^ Ссылка на виджет.
                                   TS.Builder -> -- ^ Префикс сообщения об исключении, если оно возникнет.
@@ -754,25 +759,15 @@ showWinWidgets rfWin markedWidget = getWindowMainWidget rfWin >>= (`showWidgets`
 --------------------- * Виджет пользовательского уровня.
 
 -- | Пользовательский виджет. Сочетает виджет базового уровня и данные конкретного виджета.
--- Для извлечения данных из этого типа предпочтительно не разбор по образцу, а использование
--- приведённых ниже функций @getWidget@, @getWidgetData@.
-data GuiWidget a = GuiWidget Widget a
-
--- | Извлекает виджет базового уровня из 'GuiWidget'.
-getWidget :: GuiWidget a -> Widget
-getWidget (GuiWidget w _) = w
-{-# INLINE getWidget #-}
-
--- | Извлекает данные виджета более высокого уровня из 'GuiWidget'.
-getWidgetData :: GuiWidget a -> a
-getWidgetData (GuiWidget _ a) = a
-{-# INLINE getWidgetData #-}
+data GuiWidget a = GuiWidget { baseWidget :: Widget
+                             , widgetData :: a
+                             }
 
 -- | Устанавливает (True) или сбрасывает (False) указанный флаг.
 -- Если флаг на самом деле изменился, вызывается @markWidgetForRedraw@.
 -- Виджет указывается как 'GuiWidget' .т.е. виджет верхнего уровня.
 setWidgetFlag :: MonadIO m => WidgetFlags -> GuiWidget a -> Bool -> m ()
-setWidgetFlag fl g ena = let widget = getWidget g in do
+setWidgetFlag fl g ena = let widget = baseWidget g in do
     o <- allWidgetFlags widget fl
     if ena then
         unless o $ do
@@ -796,7 +791,7 @@ visibleWidget = setWidgetFlag WidgetVisible
 -- для правильной отрисовки, после его создания следует выполнить эту функциию.
 fnsCorrectionForTransparent :: MonadIO m => GuiWidget _a -> m ()
 fnsCorrectionForTransparent gw = do
-    let widget' = getWidget gw
+    let widget' = baseWidget gw
     fns <- getWidgetFns widget'
     parent <- getWidgetParent widget'
     setWidgetFns widget' fns{

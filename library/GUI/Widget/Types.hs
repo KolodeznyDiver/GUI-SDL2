@@ -16,14 +16,16 @@
 module GUI.Widget.Types(
     -- * Типы и константы используемые во многих виджетах.
     pattern MinInsideSpaceX, pattern MinInsideSpaceY, pattern KbdClickSpecPoint
-    ,WidgetMouseState(..),FormItemWidgetDef(..),SortMode(..)
+    ,WidgetMouseState(..),FormItemWidgetDef(..),SortMode(..),MoveOnUpdate(..)
     -- * Обёртки для полиморфных функций.
     ,NoArgAction(..),OneArgAction(..),OneArgPredicate(..)
     -- * Распрстранённые для виджетов динамические \"проперти\".
-    ,Clickable(..),DoubleClickable(..),Changeable(..)
+    ,Clickable(..),Clickable1(..),DoubleClickable(..),DoubleClickable1(..),RightClickable(..),RightClickable1(..)
+    ,Changeable(..)
     ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),IxProperty(..)
     ,RowNumProperty(..),ColNumProperty(..)
     ,MouseStateProperty(..),OnEnd(..),Verifiable(..),Moveable(..),MarkersPropertyType,MarkersProperty(..)
+    ,GetStateForSave(..)
                         ) where
 
 import Control.Monad.IO.Class
@@ -60,6 +62,13 @@ instance Default FormItemWidgetDef where
 data SortMode = Ascending | Descending
                  deriving (Eq, Show)
 
+-- | Как перемещать видимое окно списка при обновлении данных.
+data MoveOnUpdate = NoMoveOnUpdate -- ^ Не перемещать.
+                  | MoveToFirstOnUpdate -- ^ К началу.
+                  | MoveToLastOnUpdate -- ^ К концу
+                  | CurVisibleOnUpdate -- ^ Минимально сместить так, что бы текущий элемент оказался видимым.
+                  deriving (Eq, Show)
+
 -- | Некое действие без параметров. Реакция на какое то событие.
 newtype NoArgAction = NoArgAction {noArgAction :: forall m. MonadIO m => m ()}
 
@@ -73,9 +82,27 @@ newtype OneArgPredicate a = OneArgPredicate {oneArgPredicate :: forall m. MonadI
 class Clickable a where
     onClick :: MonadIO m => a -> (forall n. MonadIO n => n ()) -> m ()
 
+-- | Для экземпляров этого класса типов можно назначить действие на щелчёк.
+-- В функцию-обработчик передаётся один параметр.
+class Clickable1 a b | a -> b where
+    onClick1 :: MonadIO m => a -> (forall n. MonadIO n => b -> n ()) -> m ()
+
 -- | Для экземпляров этого класса типов можно назначить действие на двойной щелчёк.
 class DoubleClickable a where
     onDoubleClick :: MonadIO m => a -> (forall n. MonadIO n => n ()) -> m ()
+
+-- | Для экземпляров этого класса типов можно назначить действие на двойной щелчёк.
+class DoubleClickable1 a b | a -> b where
+    onDoubleClick1 :: MonadIO m => a -> (forall n. MonadIO n => b -> n ()) -> m ()
+
+-- | Для экземпляров этого класса типов можно назначить действие на щелчёк правой кнопкой мыши.
+class RightClickable a where
+    onRightClick :: MonadIO m => a -> (forall n. MonadIO n => n ()) -> m ()
+
+-- | Для экземпляров этого класса типов можно назначить действие на щелчёк правой кнопкой мыши.
+-- В функцию-обработчик передаётся один параметр.
+class RightClickable1 a b | a -> b where
+    onRightClick1 :: MonadIO m => a -> (forall n. MonadIO n => b -> n ()) -> m ()
 
 -- | Для экземпляров этого класса типов можно назначить действие вызываемое виджетом при изменении
 -- ассоциированного с ним значения.
@@ -139,3 +166,9 @@ type MarkersPropertyType = VU.Vector Bool
 class MarkersProperty a where
     setMarkers :: MonadIO m => a -> MarkersPropertyType -> m ()
     getMarkers :: MonadIO m => a -> m MarkersPropertyType
+
+-- | Для экземпляров этого класса типов можно извлекать состояние для сохранения.
+-- Подразумевается, что __/a/__ виджет и состояние передаётся к нему в аргументе функции создания виджета,
+-- а извлекается с помощью __/getStateForSave/__.
+class GetStateForSave a b | a -> b where
+    getStateForSave :: MonadIO m => a -> m b

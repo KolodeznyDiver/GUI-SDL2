@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- |
@@ -29,11 +30,12 @@ module GUI.BaseLayer.Core(
     -- * Наборы функций - обработчиков событий базового виджета.
     ,overlapsChildrenFns
     -- * Изменение окна.
-    ,setWinSize',setWinSize
+    ,setWinSize',setWinSize,setWinRect,setWinNearer
     -- * Proxy Canvas.
     ,runProxyWinCanvas,runProxyCanvas
                  ) where
 
+import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
 import Data.Bits
@@ -62,6 +64,8 @@ import GUI.BaseLayer.Action
 import System.Utils (withRemoveFromTaskbar)
 import GUI.BaseLayer.SpecStateWidget
 import GUI.BaseLayer.GUIRecord
+
+pattern DislayPadding :: Coord; pattern DislayPadding = 50
 
 ----------- * Создание окон.
 
@@ -186,7 +190,7 @@ newForeground rfWin p initF = do
     fgWidget <- getWindowForegroundWidget rfWin
     delAllChildWidgets fgWidget
     gw <- createWidget fgWidget initF
-    let widget = getWidget gw
+    let widget = baseWidget gw
     modifyMonadIORef' widget $ \ w ->
         w{widgetRect=SDL.Rectangle p $ sizeOfRect $ widgetRect w, widgetMargin = MarginLTRB 0 0 0 0}
     return gw
@@ -388,6 +392,28 @@ setWinSize rfWin newSz = do
     setWinSize' rfWin newSz
 {-# INLINE setWinSize #-}
 
+-- | Устанавливает позицию и размеры SDL окна (окна ОС).
+setWinRect :: MonadIO m => Window -> GuiRect -> m ()
+setWinRect rfWin (SDL.Rectangle newP newSz) = do
+    winSDL <- getSDLWindow rfWin
+    SDL.windowSize winSDL $= P.toSDLV2 newSz
+    SDL.setWindowPosition winSDL $ SDL.Absolute $ P.toSDLPoint newP
+    setWinSize' rfWin newSz
+{-# INLINE setWinRect #-}
+
+-- | Устанавливает и размер SDL окна (окна ОС) и перемещает его, по возможности, в центр указанной
+--   точки
+setWinNearer :: MonadIO m => Window -> GuiPoint -> GuiSize -> m ()
+setWinNearer rfWin pnt sz = do
+    mbR <- P.getDisplayRectByPoint pnt
+    case mbR of
+        Just dispR -> -- do
+              -- liftIO (putStr "dispR=" >> print dispR)
+              setWinRect rfWin $
+                moveRectIntoRect (shrinkRect' DislayPadding dispR) $ rectFromCenterAndSz pnt sz
+        _ -> logPutLnWindow rfWin $ "setWinNearer for point=" <> showbPoint pnt <>
+                ". Display not found."
+
 -------------------------------- * Proxy Canvas.
 
 -- | Создать фиктивный Canvas для окна и выполнить в нём действие.
@@ -406,3 +432,19 @@ runProxyCanvas :: MonadIO m => Widget -> Canvas m a -> m a
 runProxyCanvas widget f = getWidgetWindow widget >>= (`runProxyWinCanvas` f)
 {-# INLINE runProxyCanvas #-}
 
+-------------------------------- * Прочие
+{-
+getMouseAbsolutePosition :: MonadIO m => Gui -> m GuiPoint
+getMouseAbsolutePosition gui = do
+    relPnt <- P.fromSDLPoint <$> SDL.getAbsoluteMouseLocation
+--    liftIO (putStr "getMouseAbsolutePosition : relPnt=" >> print relPnt)
+    mbFocusedWin <- getFocusedWin gui
+    case mbFocusedWin of
+        Just win -> -- liftIO (putStrLn "getMouseAbsolutePosition : win found") >>
+                        fromWinToScreenPoint win relPnt
+          -- Окно с фокусом не найдено. Возвращаем центр экрана.
+        _ -> do mbR <- P.getDisplayRectByPoint zero
+                case mbR of
+                    Just r -> return $ rectCenter r
+                    _ -> return relPnt
+-}

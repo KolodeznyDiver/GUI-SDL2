@@ -58,7 +58,7 @@ clearWidgetFocus widget = do
 -- Ни один виджет в окне ни будет в фокусе.
 -- Виджету теряющему фокус посылается @onLostKeyboardFocus@.
 clearFocus :: MonadIO m => GuiWidget a -> m ()
-clearFocus = clearWidgetFocus . getWidget
+clearFocus = clearWidgetFocus . baseWidget
 {-# INLINE clearFocus #-}
 
 
@@ -98,5 +98,5 @@ setWidgetFocus widget = do
 -- Виджету теряющему фокус посылается @onLostKeyboardFocus@, после этого Виджету получающему
 -- фокус посылается @onGainedKeyboardFocus@.
 setFocus :: MonadIO m => GuiWidget a -> m ()
-setFocus = setWidgetFocus . getWidget
+setFocus = setWidgetFocus . baseWidget
 {-# INLINE setFocus #-}

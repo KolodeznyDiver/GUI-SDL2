@@ -96,7 +96,7 @@ data TextureButtonData = TextureButtonData { txtrbttnOnClick :: IORef NoArgActio
 
 -- | Экземпляры этого класса - виджеты, которые могут выполнить действие в ответ на клик.
 instance Clickable (GuiWidget TextureButtonData) where
-    onClick w a = writeMonadIORef (txtrbttnOnClick $ getWidgetData w) $ NoArgAction a
+    onClick w a = writeMonadIORef (txtrbttnOnClick $ widgetData w) $ NoArgAction a
 
 instance RowNumProperty (GuiWidget TextureButtonData) where
     setRowNum (GuiWidget widget TextureButtonData{..}) newV = do
@@ -104,10 +104,10 @@ instance RowNumProperty (GuiWidget TextureButtonData) where
         when (oldV /= newV) $ do
             writeMonadIORef txtrbttnPictRow newV
             markWidgetForRedraw widget
-    getRowNum = readMonadIORef . txtrbttnPictRow . getWidgetData
+    getRowNum = readMonadIORef . txtrbttnPictRow . widgetData
 
 instance MouseStateProperty (GuiWidget TextureButtonData) where
-    getMouseState = readMonadIORef . txtrbttnMouseState . getWidgetData
+    getMouseState = readMonadIORef . txtrbttnMouseState . widgetData
 
 -- | Универсальная кнопка с текстурой.
 textureButton :: MonadIO m =>
@@ -263,7 +263,7 @@ newtype ButtonData = ButtonData { buttonOnClick :: IORef NoArgAction
                                 }
 
 instance Clickable (GuiWidget ButtonData) where
-    onClick w a = writeMonadIORef (buttonOnClick $ getWidgetData w) $ NoArgAction a
+    onClick w a = writeMonadIORef (buttonOnClick $ widgetData w) $ NoArgAction a
 
 -- | Виджет - кнопка с треугольником.
 -- Вообще то не так и нужен. Можно просто нарисовать картинку и использовать @pictureButton@.

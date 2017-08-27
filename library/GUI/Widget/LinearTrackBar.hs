@@ -63,8 +63,8 @@ vTrackBar = hvTrackBar vLinearTrackBar
 -- | Установить новую длину ползунка в пикселях.
 setLinearTrackBarSliderLn :: MonadIO m => GuiWidget LinearTrackBarData -> Double -> m ()
 setLinearTrackBarSliderLn w v = do
-        let widg   = getWidget w
-            wStruc = getLnrTrBr $ getWidgetData w
+        let widg   = baseWidget w
+            wStruc = getLnrTrBr $ widgetData w
         a@LinearTrackBarStruct{..} <- readMonadIORef wStruc
         when ( v > 0 && v /= lnrTrBrSliderLn) $ do
             writeMonadIORef wStruc a{lnrTrBrSliderLn= v}

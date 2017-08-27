@@ -8,7 +8,7 @@ category: GUI SDL2
 license: BSD3
 maintainer: Kolodezny Diver
 github: KolodeznyDiver/GUI-SDL2
-version: '0.1.13'
+version: '0.1.14'
 extra-source-files:
 - CHANGELOG.md
 - LICENSE.md
@@ -46,6 +46,7 @@ executables:
           - extra
           - data-default
           - text-show
+          - directory
           ghc-options:
           - -Wall
           - -Wname-shadowing
@@ -78,6 +79,7 @@ library:
   - GUI.BaseLayer.Canvas.Types
   - GUI.BaseLayer.Focus
   - GUI.BaseLayer.GUIRecord
+  - GUI.BaseLayer.Mouse
   - GUI.BaseLayer.NaturalLangIO
   - GUI.BaseLayer.RunGUI
   - GUI.BaseLayer.Pipe
@@ -93,6 +95,7 @@ library:
   - GUI.Skin.DefaultSkin
   - GUI.Utils.TextWrap
   - GUI.Utils.Wrap
+  - GUI.Utils.ViewableItems
   - GUI.Widget.Container.Border
   - GUI.Widget.Container.ScrollArea
   - GUI.Widget.DropDownList
@@ -104,6 +107,9 @@ library:
   - GUI.Widget.TH.LinearTrackBar
   - GUI.Widget.Button
   - GUI.Widget.Handlers
+  - GUI.Widget.HorizontalItems
+  - GUI.Widget.HorizontalLinks
+  - GUI.Widget.PathBox
   - GUI.Widget.Menu.Horizontal
   - GUI.Widget.Label
   - GUI.Widget.LinearTrackBar
@@ -112,12 +118,17 @@ library:
   - GUI.Widget.EditBox
   - GUI.Widget.TH
   - GUI.Widget.Types
+  - GUI.Window.LoadSaveDialog
   - GUI.Window.MessageBox
   - GUI.Window.PopupMenu
   - GUI
+  - Control.Monad.Auxiliaries
   - Data.Container.DirectAccess
   - Data.Vector.Utils
+  - Data.Vector.Unboxed.Utils
+  - Data.Vector.Unboxed.Mutable.Utils
   - System.Utils
+  - System.FileSystem
   when:
     - condition: os(windows)
       then:
@@ -141,6 +152,7 @@ library:
   - text
   - transformers
   - vector
+  - vector-algorithms
   - primitive
   - containers
   - unordered-containers

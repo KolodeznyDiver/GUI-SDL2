@@ -37,7 +37,8 @@ module GUI.BaseLayer.Canvas(
     -- * Отрисовка текста
     ,getFont,DrawStrMode(..)
     -- ** Строки 'T.Text'
-    ,getTextSize,renderText,renderTextDraft,renderTextOpaque,drawText,drawTextDraft,drawTextOpaque,drawTextAligned
+    ,getTextSize,renderText,renderTextDraft,renderTextOpaque,renderCharOpaque
+    ,drawText,drawTextDraft,drawTextOpaque,drawCharOpaque,drawTextAligned
     -- * Специализированные функции рисования
     ,drawRoundBorder,drawRoundFrame,draw3DBorder,draw3DFrame,drawDotBorder,Orientation(..),drawArrowTriangle,drawArrow
                      ) where
@@ -395,6 +396,18 @@ renderTextOpaque fnt color bkColor txt = do
     lift $ P.renderTextOpaque renderer fnt color bkColor txt
 {-# INLINE renderTextOpaque #-}
 
+-- | Создание текстуры из из одного символа с заданным шрифтом и цветом.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+renderCharOpaque:: MonadIO m => Font -> -- ^ Шрифт.
+                                GuiColor -> -- ^ Цвет текста.
+                                GuiColor -> -- ^ Цвет фона.
+                                Char -> -- ^ Выводимый символ.
+                                Canvas m SDL.Texture
+renderCharOpaque fnt color bkColor c = do
+    renderer <- asks canvasRenderer
+    lift $ P.renderCharOpaque renderer fnt color bkColor c
+{-# INLINE renderCharOpaque #-}
+
 -- | Отрисовка строки с заданным шрифтом и цветом в заданной точке.
 -- Качественно, с полутонами, но медленно.
 drawText :: MonadIO m => Font -> GuiColor -> GuiPoint -> T.Text -> Canvas m ()
@@ -421,6 +434,19 @@ drawTextOpaque fnt color bkColor pnt txt = do
     c <- ask
     lift $ P.drawTextOpaque (canvasRenderer c) fnt color bkColor (toCanvasPoint c pnt) txt
 {-# INLINE drawTextOpaque #-}
+
+-- | Отрисовка одного символа с заданным шрифтом и цветом в заданной точке.
+-- С полутонами и быстро за счёт непрозрачного рисования по указанному фоновому цвету.
+drawCharOpaque :: MonadIO m => Font -> -- ^ Шрифт.
+                               GuiColor -> -- ^ Цвет текста.
+                               GuiColor -> -- ^ Цвет фона.
+                               GuiPoint -> -- ^ Позиция вывода.
+                               Char -> -- ^ Выводимый символ.
+                               Canvas m ()
+drawCharOpaque fnt color bkColor pnt c' = do
+    c <- ask
+    lift $ P.drawCharOpaque (canvasRenderer c) fnt color bkColor (toCanvasPoint c pnt) c'
+{-# INLINE drawCharOpaque #-}
 
 -- | Отрисовка строки с заданным шрифтом и цветом,
 --  с заданным выравниванием в пределах заданного прямоугольника и с заданным режимом отрисовки.

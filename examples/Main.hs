@@ -45,6 +45,7 @@ import TextShow (showb,showt)
 import qualified Data.Vector as V
 import Data.Bits
 import Data.Maybe
+import System.Directory
 import Data.Default
 import GHC.Conc
 import qualified SDL
@@ -66,6 +67,9 @@ import GUI.Window.MessageBox
 import GUI.Widget.ListView
 import GUI.Widget.DropDownList
 import GUI.Widget.Header
+import GUI.Window.LoadSaveDialog
+import GUI.Widget.HorizontalLinks
+import GUI.Widget.PathBox
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -73,9 +77,13 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         -- Список предзагруженных шрифтов : ключ, имя файла, размер шрифта, опции
         [GuiFontDef ""            "PTM55F.ttf" 14 def -- по молч., если не найден указанный ключ
         ,GuiFontDef "label"       "PTN57F.ttf" 15 def -- label
-        ,GuiFontDef "edit"        "PTM55F.ttf" 14 def{ fontHinting = Just FNT.None
-                                                     , fontKerning = Just False }
-        ,GuiFontDef "list"        "PTM55F.ttf" 14 def -- listView
+        ,GuiFontDef "edit"        "PTN57F.ttf" 14 def{-- fontHinting = Just FNT.None
+                                                     , fontKerning = Just False
+--                                                     , fontOutline = Just 0
+                                                     -}
+        ,GuiFontDef "link"        "PTN57F.ttf" 14 def{fontStyle = Just [FNT.Underline]}
+        ,GuiFontDef "separator"   "PTN57F.ttf" 14 def{fontStyle = Just [FNT.Bold]}
+        ,GuiFontDef "list"        "PTN57F.ttf" 13 def -- listView
         ,GuiFontDef "small"       "PTN57F.ttf" 13 def
         ,GuiFontDef "menu"        "PTN57F.ttf" 14 def
         ,GuiFontDef "hello world" "PTN57F.ttf" 28 def{fontStyle = Just [FNT.Bold, FNT.Italic, FNT.Underline]}
@@ -304,11 +312,18 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     setAction gui "File" "Save" $ setText lb "Нажат пункт меню File/Save"
     setAction gui "File" "New" $ messageBox gui MsgBoxRetrySkipCancel
         "Это модальное окно, когда оно активно, невозможно выбрать ранее созданные окна - фокус возвращается к модальному окну"
-        def $ \case
-                ButtonRetry -> say gui MsgBoxLambda "Была нажата ButtonRetry"
+         $ \case
+                ButtonRetry -> say gui MsgBoxInfo "Была нажата ButtonRetry"
                 ButtonSkip -> say gui MsgBoxWarning "Была нажата ButtonSkip"
                 ButtonCancel -> say gui MsgBoxOk "Была нажата ButtonCancel"
                 k -> say gui MsgBoxError $ "Завершение с кодом " <> showb (fromEnum k)
+    setAction gui "File" "Open" $ textInput gui "Наберите чего ни будь"
+        def{
+              textInputPrompt = "Вводить сюда :"
+            , textInputAccept = \case
+                                    Just t -> setText lb t
+                                    _ -> setText lb "<Отменено>"
+           }
 #elif EXAMPLE_NUM == 8
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
     hL0 <- vL $+ hLayout def
@@ -360,7 +375,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         setText lb "Enter or lost focuse"
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
     onClick btn $
-        allWidgetFlags (getWidget ed) WidgetEnable >>= enableWidget ed . not
+        allWidgetFlags (baseWidget ed) WidgetEnable >>= enableWidget ed . not
 
     setFocus ed
 #elif EXAMPLE_NUM == 11
@@ -372,12 +387,12 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
                                  } $ ListViewText textVector
     onMove lstView $ \ i ->
         setText lb $ textVector V.! i
-    onDoubleClick lstView $ do
-        i <- getIx lstView
+    onDoubleClick1 lstView $ \i -> do
+--        i <- getIx lstView
         setText lb $ TS.toText $ "Двойной щелчёк на элементе номер " <> showb i
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
     onClick btn $
-        allWidgetFlags (getWidget lstView) WidgetEnable >>= enableWidget lstView . not
+        allWidgetFlags (baseWidget lstView) WidgetEnable >>= enableWidget lstView . not
 
     setFocus lstView
 #elif EXAMPLE_NUM == 12
@@ -390,7 +405,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         setText lb $ textVector V.! i
     btn <- vL $+ button def{btnSize = V2 200 35, btnText = "disable/enable"}
     onClick btn $
-        allWidgetFlags (getWidget ddL) WidgetEnable >>= enableWidget ddL . not
+        allWidgetFlags (baseWidget ddL) WidgetEnable >>= enableWidget ddL . not
 #elif EXAMPLE_NUM == 13
     vL <- win $+ vLayout def
     lb <- vL $+ label def{labelSize=V2 350 20, labelText="Здесь будет отображаться информация о событиях"}
@@ -402,6 +417,29 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         setText lb $ TS.showtList $ V.toList widths
     onSortChange hdr $ \col sm ->
         setText lb $ TS.toText $ "col=" <> showb col <> ", " <> TS.fromString (show sm)
+#elif EXAMPLE_NUM == 14
+    vL <- win $+ vLayout def
+    lb <- vL $+ label def{labelSize=V2 350 (-1) , labelWrapMode = TextWrap 0 Nothing
+                 , labelText="Здесь будет отображаться информация о событиях"}
+#if 0
+    -- Проверка вспомогательного виджета, косвенно используемоего в loadSaveDialog
+    hLnks <- vL $+ horizLinks def{ horizLnFirstSep = "["
+                                 , horizLnSep = "/"
+                                 , horizLnLastSep = "]"
+                                 , horizLnOptBtn = "plus.png"
+                                 , horizLnFlags = WidgetVisible .|. WidgetEnable .|. WidgetFocusable
+                                 }
+    setFocus hLnks
+    onClick1 hLnks $ \i -> setText lb $ TS.toText $ showb i
+    setValue hLnks $ V.fromList $ T.words "Съешь же ещё этих мягких французских булок, да выпей чаю."
+#else
+    let doDlg :: MonadIO m => m ()
+        doDlg = loadSaveDialog gui SaveDialog "" def $ \_state v ->
+                    (setText lb $ T.intercalate "\n" $ map T.pack $ V.toList v)
+    btn <- vL $+ button def{btnSize = V2 400 35, btnText = "Повторить вызов диалога"}
+    onClick btn doDlg
+    doDlg
+#endif
 #else
     #error EXAMPLE_NUM is out of range
 #endif

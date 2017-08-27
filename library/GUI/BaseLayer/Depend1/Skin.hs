@@ -67,14 +67,18 @@ data Skin = Skin { -- decoreBkColor (popupMnuDecore
                                       -- и окон ввода текста в состоянии __disabled__.
   , oddBkColor :: GuiColor -- ^ Цвет фона нечётных (считая с нуля) элементов отображения списков списков.
   , formDecore :: DecoreState -- ^ Цвета форм, диалоговых окон.
-  , borderColor :: GuiColor -- ^ Цвет рамок элементов на форме
+  , formBorderColor :: GuiColor -- ^ Цвет рамок элементов на форме
+  , cellBorderColor :: GuiColor -- ^ Цвет рамок в списках и таблицах.
   , selectedDecore :: DecoreState -- ^ Цвета выделенной области (например, выделенного фрагмента текста).
   , brdr3DColors :: Border3DColors -- ^ Цвета "3D"-рамок, которые не изменяют цвет в зависимости от состояния.
   , formItemsMargin  :: WidgetMargin -- ^ Поля рамок элементов формы по умолчанию
   , formTextLineSpacing :: Double -- ^ Междустрочное расстояние для текстов элементов формы.
   , formItemsButtons :: ButtonDecore -- ^ Оформление кнопок
-  , formDisabledFgColor  :: GuiColor -- ^ Цвет Цвет переднего плана (текста) элементов формы
-                                 -- находящихся в состоянии __disabled__.
+  , formDisabledFgColor  :: GuiColor -- ^ Цвет переднего плана (текста) элементов формы
+                                     -- находящихся в состоянии __disabled__.
+  , linkFgColor :: GuiColor -- ^ Цвет переднего плана фрагментов текста которые могут быть ссылками.
+  , linkInFgColor :: GuiColor -- ^ Цвет переднего плана фрагментов текста которые могут быть ссылками
+                                -- когда курсор над ними.
   , trackBarWidth  :: Coord -- ^ Ширины трекбаров по умолчанию.
 --  , arrowBtns  :: ButtonDecore -- ^ Оформление кнопок со стрелками (не в составе scrollbar-а)
   , trackBarBkColor  :: GuiColor -- ^ Цвет полосы трекбара.

@@ -328,15 +328,18 @@ rmLoadFont r (GuiFontDef abbr pth fntSz opts) = do
 -- корректного отображения виджетов.
 fontTuning :: MonadIO m => Font -> GuiFontOptions -> m ()
 fontTuning fnt GuiFontOptions{..} = do
-    whenJust fontKerning $ \ kerning -> do
+    whenJust fontKerning $ \ new -> do
         old <- FNT.getKerning fnt
-        when (old /= kerning) $ FNT.setKerning fnt kerning
-    whenJust fontHinting $ \ hinting -> do
+        when (old /= new) $ FNT.setKerning fnt new
+    whenJust fontHinting $ \ new -> do
         old <- FNT.getHinting fnt
-        when (old /= hinting) $ FNT.setHinting fnt hinting
-    whenJust fontStyle $ \ style -> do
+        when (old /= new) $ FNT.setHinting fnt new
+    whenJust fontOutline $ \ new -> do
+        old <- FNT.getOutline fnt
+        when (old /= new) $ FNT.setOutline fnt new
+    whenJust fontStyle $ \ new -> do
         old <- FNT.getStyle fnt
-        when (old /= style) $ FNT.setStyle fnt style
+        when (old /= new) $ FNT.setStyle fnt new
 --    setFontStyleIfNeed fnt style
 
 -- | Получить курсор из кеша по индексу курсора. См. "GUI.BaseLayer.Depend0.Cursor".

@@ -41,6 +41,7 @@ module GUI(
     ,module GUI.BaseLayer.GUIRecord
     ,module GUI.BaseLayer.SpecStateWidget
     ,module GUI.BaseLayer.Focus
+    ,module GUI.BaseLayer.Mouse
     ,module GUI.Widget.Types
   ) where
 
@@ -99,12 +100,12 @@ import GUI.BaseLayer.Widget (
         ,notifyParentAboutSize,simpleOnResizing,extendableOnResizing
         -- *** Поиск и преобразование из клиентских координат в координаты виджета.
         ,coordToWidget,mouseToWidget
-        -- ** Обработка прерываний в контексте виджета.
-        ,logOnErrInWidget
+        -- ** Логирование и обработка прерываний в контексте виджета.
+        ,logPutLnWidget,logOnErrInWidget
         -- ** Отладочные функции вывода парметров виджета(ов) в виде строки.
         ,widgetCoordsToStr,showWidgets,showWidgetsFromMain,showWinWidgets
         -- * Виджет пользовательского уровня.
-        ,GuiWidget(..),getWidget,getWidgetData,setWidgetFlag,enableWidget,visibleWidget,fnsCorrectionForTransparent
+        ,GuiWidget(..),setWidgetFlag,enableWidget,visibleWidget,fnsCorrectionForTransparent
         -- ** Простейший виджет пользовательского уровня не имеюший своих параметров.
         ,SimpleWidget(..),mkSimpleWidget
         --  * Создание виджетов.
@@ -116,6 +117,8 @@ import GUI.BaseLayer.Window (
         ,getWindowForegroundWidget,getFocusedWidget,setFocusedWidget
         ,getWinCursorIx,getWinMainMenu,setWinMainMenu,getWinRetcode,setWinRetcode,setWinOnClosed
         ,setWinOnCloseConfirm
+        -- * Обращение к оконным функциям SDL
+        ,getWindowAbsolutePosition,fromWinToScreenPoint,getFocusedWin
         -- * Флаги окна.
         ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
         ,pattern WindowPopupFlag,pattern WindowLocked,pattern WindowHaveKeyboardFocus,pattern WindowHaveMouseFocus
@@ -123,7 +126,7 @@ import GUI.BaseLayer.Window (
         ,getWindowFlags,windowFlagsAddRemove,windowFlagsAdd
         ,windowFlagsRemove,allWindowFlags,anyWindowFlags
         -- * Логирование и обработка ошибок.
-        ,logOnErrInWindow',logOnErrInWindow
+        ,logPutLnWindow,logOnErrInWindow',logOnErrInWindow
         -- * Прочее.
         ,getSkinFromWin )
 import GUI.BaseLayer.Pipe (
@@ -148,7 +151,7 @@ import GUI.BaseLayer.Core (
         -- * Наборы функций - обработчиков событий базового виджета.
         ,overlapsChildrenFns
         -- * Изменение окна.
-        ,setWinSize',setWinSize
+        ,setWinSize',setWinSize,setWinRect,setWinNearer
         -- * Proxy Canvas.
         ,runProxyWinCanvas,runProxyCanvas
                                            )
@@ -187,4 +190,5 @@ import GUI.BaseLayer.SpecStateWidget (
     setMouseCapturedWidget,getMouseCapturedWidget,resetMouseCaptured,resetMouseCapturedWidget)
 import GUI.BaseLayer.Focus (clearFocusInWindow,clearWidgetFocus,clearFocus
                            ,setWidgetFocus,setFocus)
+import GUI.BaseLayer.Mouse
 import GUI.Widget.Types

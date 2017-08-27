@@ -61,8 +61,8 @@ linearLayoutCalc childs allSpace =
 
 -- | Реализация вставки виджета в линейный layout.
 instance WidgetComposer (GuiWidget LinearLayoutData) where
-    w $+ initF = modifyMonadIORef' (layoutSpaces $ getWidgetData w) (`VU.snoc` zero) >>
-                   createWidget (getWidget w) initF
+    w $+ initF = modifyMonadIORef' (layoutSpaces $ widgetData w) (`VU.snoc` zero) >>
+                   createWidget (baseWidget w) initF
 
 -- | Вспомогательная функция используемая в layout-ах.
 -- Если отрицательных элементов нет, то вернуть максимальное, иначе минимальное из отрицательных.

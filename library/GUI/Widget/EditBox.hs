@@ -84,21 +84,21 @@ newtype EditBoxData = EditBoxData { getTxtEd :: IORef EditBoxStruct }
 
 -- | Установка функции-обработчика на изменение текста.
 instance Changeable (GuiWidget EditBoxData) T.Text where
-    onChanged w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxOnChanged= a})
+    onChanged w a = modifyMonadIORef' (getTxtEd $ widgetData w) (\d -> d{edBxOnChanged= a})
 
 -- | Установка функции-обработчика вызываемого когда поле редактирования теряет фокус или нажат Enter.
 instance OnEnd (GuiWidget EditBoxData) T.Text where
-    onEnd w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxAtEnd= a})
+    onEnd w a = modifyMonadIORef' (getTxtEd $ widgetData w) (\d -> d{edBxAtEnd= a})
 
 -- | Установка предиката-верификатора. Он вызывается при любой ПОПЫТКЕ изменения текста.
 -- если предикат вернёт False, текст не будет изменён.
 instance Verifiable (GuiWidget EditBoxData) T.Text where
-    setVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxVerif= a})
+    setVerifier w a = modifyMonadIORef' (getTxtEd $ widgetData w) (\d -> d{edBxVerif= a})
 
 {-
 setEditBoxCharVerifier :: forall m. MonadIO m => GuiWidget EditBoxData ->
                             (forall n. MonadIO n => Char -> n Bool) -> m ()
-setEditBoxCharVerifier w a = modifyMonadIORef' (getTxtEd $ getWidgetData w) (\d -> d{edBxCharVerif= a})
+setEditBoxCharVerifier w a = modifyMonadIORef' (getTxtEd $ widgetData w) (\d -> d{edBxCharVerif= a})
 -}
 
 -- | Установка и извлечение редактируемого текста.
@@ -371,17 +371,25 @@ editBox EditBoxDef{..} parent skin = do
         ,onDraw= \widget -> do
                 fl <- getWidgetFlags widget
                 r@(SDL.Rectangle p0 (V2 fullW fullH)) <- getVisibleRect widget
-                drawRoundFrame (decoreBkColor (formDecore skin)) (borderColor skin) (decoreBkColor (windowDecore skin)) r
+                drawRoundFrame (decoreBkColor (formDecore skin)) (formBorderColor skin) (decoreBkColor (windowDecore skin)) r
                 txt <- edBxText <$> readMonadIORef d
                 let p1 = p0 .+^ V2 PaddingX PaddingY
                 s@EditBoxState{..} <- readMonadIORef state
+                let drawTxt _     _     _ _     0   _ = return ()
+                    drawTxt fgClr bkClr p iFrom iLn t =
+                        case T.uncons t of
+                            Just (c,rest) -> drawCharOpaque fnt fgClr bkClr p c >>
+                                                drawTxt fgClr bkClr
+                                                    (p .+^ V2 (edBxWidths VU.! iFrom) 0)
+                                                        (iFrom+1) (iLn-1) rest
+                            _ -> return ()
                 if (fl .&. (WidgetEnable .|. WidgetFocused)) == (WidgetEnable .|. WidgetFocused) then do
                     let chrsVisible = calcCharsVisible edBxWidths edBxOff
                         txt' = T.drop edBxOff txt
                         rightOver = T.length txt' > chrsVisible
                         txt1 = T.take chrsVisible txt'
-                        drawUnselected = drawTextOpaque fnt (decoreFgColor (windowDecore skin))
-                                                            (decoreBkColor (windowDecore skin))
+                        drawUnselected = drawTxt (decoreFgColor (windowDecore skin))
+                                                 (decoreBkColor (windowDecore skin))
                         drawSemiBorder x = do
                             let outSpan = 5
                                 lineLn = 3
@@ -389,7 +397,7 @@ editBox EditBoxDef{..} parent skin = do
                             drawLine (P (V2 x outSpan)) (P (V2 x (outSpan + lineLn)))
                             drawLine (P (V2 x (fullH - outSpan))) (P (V2 x (fullH - outSpan - lineLn -1)))
                     if edBxSel < 0 then do
-                        drawUnselected p1 txt1
+                        drawUnselected p1 edBxOff chrsVisible txt1
                         blinNow <- readMonadIORef blink
                         when blinNow $ do
                             setColor (decoreFgColor (windowDecore skin))
@@ -405,15 +413,17 @@ editBox EditBoxDef{..} parent skin = do
                             (txtSel,txtR) = T.splitAt m txtRest
                             p2 = p1 .+^ V2 (widthSum edBxOff visibleSelL edBxWidths) 0
                             p3 = p2 .+^ V2 (widthSum visibleSelL visibleSelR edBxWidths) 0
-                        drawUnselected p1 txtL
-                        drawTextOpaque fnt (decoreFgColor $ selectedDecore skin)
-                            (decoreBkColor $ selectedDecore skin) p2 txtSel
-                        drawUnselected p3 txtR
+                        drawUnselected p1 edBxOff l txtL
+                        drawTxt (decoreFgColor $ selectedDecore skin)
+                                (decoreBkColor $ selectedDecore skin) p2
+                                visibleSelL m txtSel
+                        drawUnselected p3 visibleSelR 99999 txtR
                     when (edBxOff>0) $ drawSemiBorder 0
                     when rightOver $ drawSemiBorder (fullW - 1)
                 else let chrsVisible = calcCharsVisible edBxWidths 0
                          txt1 = T.take chrsVisible txt
                          colorF = if (fl .&. WidgetEnable) == WidgetEnable then decoreFgColor . windowDecore
                                   else windowDisabledFgColor
-                     in drawTextOpaque fnt (colorF skin) (decoreBkColor (windowDecore skin)) p1 txt1
+                     in drawTxt (colorF skin) (decoreBkColor (windowDecore skin)) p1
+                            0 chrsVisible txt1
                                      }

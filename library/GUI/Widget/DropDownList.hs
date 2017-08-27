@@ -16,7 +16,12 @@
 --
 -- Виджет отображения нередактируемого поля с возможностью вызова выпадающего списка для выбора варианта.
 
-module GUI.Widget.DropDownList where
+module GUI.Widget.DropDownList(
+    -- * Типы используемые в dropDownList
+    DropDownListDef(..),DropDownListData
+    -- * Функция создания виджета.
+    ,dropDownList
+    ) where
 
 import Control.Monad
 import Control.Monad.IO.Class
@@ -30,6 +35,7 @@ import Data.Default
 import GUI
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.Widget.Handlers
+import GUI.Utils.ViewableItems
 import GUI.Widget.Button
 import GUI.Widget.ListView
 
@@ -44,7 +50,7 @@ data DropDownListDef = DropDownListDef {
                                                    -- в настоящий момент только margin's.
         , ddListSize       :: GuiSize -- ^ Размер без полей.
                                       -- высота будет установлена не менее требуемой для отображения
-                                      -- элементов т.е. возвращаемая @listViewPrepare@ @+PaddingY@.
+                                      -- элементов т.е. возвращаемая @viewablePrepare@ @+PaddingY@.
                                       -- Можно указывать высоту 0 для автоопределения высоты виджета.
         , ddListFlags      :: WidgetFlags -- ^ Флаги базового виджета.
         , ddListListViewFlags  :: Maybe ListViewFlags -- ^ Флаги виджета выпадающего списка,
@@ -75,24 +81,24 @@ data DropDownListData a p = DropDownListData    { ddLstDat :: a
 
 -- | Установка функции-обработчика на изменение номера выбранного элемента.
 instance Changeable (GuiWidget (DropDownListData a p)) Int where
-    onChanged w a = writeMonadIORef (ddLstOnChanged $ getWidgetData w) $ OneArgAction a
+    onChanged w a = writeMonadIORef (ddLstOnChanged $ widgetData w) $ OneArgAction a
 
 -- | Установка и извлечение номера выбранного элемента.
-instance ListViewable a p => IxProperty (GuiWidget (DropDownListData a p)) where
+instance ViewableItems a p => IxProperty (GuiWidget (DropDownListData a p)) where
     setIx w v = do
-        let widget = getWidget w
-            DropDownListData{..} = getWidgetData w
+        let widget = baseWidget w
+            DropDownListData{..} = widgetData w
         old <- readMonadIORef ddLstIx
         when ( (v /= old) && (v>=0)) $ do
-            count <- listViewGetCount widget ddLstDat
+            count <- viewableGetCount ddLstDat
             when (v < count) $ do
                 writeMonadIORef ddLstIx v
                 readMonadIORef ddLstOnChanged >>= ( ( $ v) . oneArgAction)
                 markWidgetForRedraw widget
-    getIx = readMonadIORef . ddLstIx . getWidgetData
+    getIx = readMonadIORef . ddLstIx . widgetData
 
 -- | Функция создания виджета списка.
-dropDownList :: (MonadIO m, ListViewable a p) =>
+dropDownList :: (MonadIO m, ViewableItems a p) =>
                          DropDownListDef -> -- ^ Параметры виджета.
                          a -> -- ^ Отображаемые в виде списка данные. Выбранный элемент отображается в
                               -- основном поле виджета.
@@ -103,7 +109,8 @@ dropDownList DropDownListDef{..} a parent skin = do
     let listViewFlags = complement MultiSelectListViewFlag .&. (
             EnterAsClickListViewFlag .|. MouseTrackingListViewFlag .|.
             fromMaybe (listViewListViewFlags def) ddListListViewFlags)
-    (itemH,p) <- runProxyCanvas parent $ listViewPrepare skin listViewFlags a
+    gui <- getGuiFromWidget parent
+    (itemH,p) <- runProxyCanvas parent $ viewablePrepare gui skin a
     rfOnChanged <- newMonadIORef $ OneArgAction (\_ -> return ())
     rfIx <- newMonadIORef ddListIx
     btTexture <- runProxyCanvas parent $ getTexture "ScrollAreaArrBtns.png"
@@ -119,8 +126,9 @@ dropDownList DropDownListDef{..} a parent skin = do
          doPopupList widget = do
             (SDL.Rectangle _ (V2 w h)) <- getWidgetRect widget
             ix <- readMonadIORef rfIx
-            count <- listViewGetCount widget a
-            popupListView widget (SDL.Rectangle (P (V2 0 h)) (V2 w (min ddListPopupHeight (itemH*count)))) a ix
+            count <- viewableGetCount a
+            popupListView widget (SDL.Rectangle (P (V2 0 h)) (V2 w (min ddListPopupHeight (itemH*count))))
+                (Just listViewFlags) a ix
                 (\ i -> doChange widget i >> setWidgetFocus widget)
          arrangeChild widget =
             whenJustM (getWidgetChild widget 0) $ \child ->
@@ -146,13 +154,13 @@ dropDownList DropDownListDef{..} a parent skin = do
                 ds = if | not ena -> DecoreState (decoreBkColor $ windowDecore skin) (windowDisabledFgColor skin)
                         | isFocused -> selectedDecore skin
                         | otherwise -> windowDecore skin
-            drawRoundFrame (decoreBkColor (formDecore skin)) (borderColor skin) (decoreBkColor ds) widgR
+            drawRoundFrame (decoreBkColor (formDecore skin)) (formBorderColor skin) (decoreBkColor ds) widgR
             ix <- readMonadIORef rfIx
-            listViewDrawItem widget skin listViewFlags
+            viewableDrawItem gui skin
                 (SDL.Rectangle (P (V2 PaddingX PaddingY)) (V2 (widgW-btWH-3*PaddingX) itemH))
                 ds ena isFocused False False p a ix
                                                                        }
-    let selfWidget = getWidget self
+    let selfWidget = baseWidget self
     btDn <- textureButton def{ buttonFormItemDef = def{formItemMargin= Just WidgetMarginNone}
                              , buttonSize = V2 btWH btWH
                              , buttonFlags = WidgetVisible .|. WidgetEnable
