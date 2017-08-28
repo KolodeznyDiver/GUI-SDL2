@@ -43,6 +43,7 @@ import qualified Data.Text as T
 import qualified TextShow as TS
 import TextShow (showb,showt)
 import qualified Data.Vector as V
+import qualified Data.Vector.Utils as V
 import Data.Bits
 import Data.Maybe
 import System.Directory
@@ -68,8 +69,10 @@ import GUI.Widget.ListView
 import GUI.Widget.DropDownList
 import GUI.Widget.Header
 import GUI.Window.LoadSaveDialog
-import GUI.Widget.HorizontalLinks
-import GUI.Widget.PathBox
+-- import GUI.Widget.HorizontalLinks
+-- import GUI.Widget.PathBox
+import GUI.Widget.HorizontalTabbeds
+import GUI.Widget.HorizontalItems (NeighborSwap(..))
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -327,7 +330,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
 #elif EXAMPLE_NUM == 8
     vL <- win $+ vLayout def{layoutAlignment = AlignCenterTop}
     hL0 <- vL $+ hLayout def
-    void $ hL0 $+ border def {borderSize = V2 150 100, borderType = BorderRound Nothing
+    void $ hL0 $+ border def {borderSize = V2 150 100, borderType = BorderRound
                              , borderThickness = 20, borderCaption = "border 1"
                              }
     void $ hL0 $+ border def {borderSize = V2 150 100, borderType = BorderDot 4
@@ -436,10 +439,33 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     let doDlg :: MonadIO m => m ()
         doDlg = loadSaveDialog gui SaveDialog "" def $ \_state v ->
                     (setText lb $ T.intercalate "\n" $ map T.pack $ V.toList v)
-    btn <- vL $+ button def{btnSize = V2 400 35, btnText = "Повторить вызов диалога"}
+    btn <- vL $+ button def{btnSize = V2 300 35, btnText = "Повторить вызов диалога"}
     onClick btn doDlg
     doDlg
 #endif
+#elif EXAMPLE_NUM == 15
+    vL <- win $+ vLayout def
+    lb <- vL $+ label def{labelSize=V2 350 (-1) , labelWrapMode = TextWrap 0 Nothing
+                 , labelText="Здесь будет отображаться информация о событиях"}
+    ht <- vL $+ horizTab def{
+            hTabCanDelete = True, -- ^ Добавить кнопку с крестиком. Само удаление реализуется вне  @horizTab@
+            hTabPermutable = True -- ^ Разрешить перетаскивать закладки мышью.
+                            }
+    setValue ht $ V.fromList [
+          TabItem "Съешь" (rgb 0 0 0)
+        , TabItem "же" (rgb 255 0 0 )
+        , TabItem "ещё" (rgb  0 255 0)
+        , TabItem "этих" (rgb  128 128 0)
+        , TabItem "мягких" (rgb  0 0 255)
+        , TabItem "французских" (rgb  128 0 128)
+        , TabItem "булок," (rgb  0 128 128)
+        , TabItem "да" (rgb  0 0 0)
+        , TabItem "выпей" (rgb  128 128 0)
+        , TabItem "чаю." (rgb  128 0 0)
+                             ]
+    onMove ht (setText lb . TS.toText . showb)
+    --  Поддержка перестановки элементов мышью.
+    setNeighborSwap ht $ \i v -> return $ V.swapNeighb i v
 #else
     #error EXAMPLE_NUM is out of range
 #endif
@@ -565,22 +591,15 @@ blendModeTest parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent (noChildre
 
 -- Делаем простенький виджет
 framesTest :: MonadIO m => Widget -> Skin -> m (GuiWidget SimpleWidget)
-framesTest parent Skin{..} = mkSimpleWidget (WidgetMarginXY 20 10) parent (noChildrenFns $ V2 300 80){
+framesTest parent _skin = mkSimpleWidget WidgetMarginNone parent (noChildrenFns $ V2 (-1) (-1)){
             onDraw= \ widget -> do
-                visibleRect@(SDL.Rectangle p0 _) <- getVisibleRect widget
-                setColor $ decoreBkColor formDecore
+                visibleRect <- getVisibleRect widget
+                setColor $ grayColor 255
                 fillRect visibleRect
-                let rect0 = SDL.Rectangle (p0 .+^ V2 10 10)  (V2 50 50)
-                    ligthColor = grayColor 240
-                    darkColor = grayColor 180
-                draw3DBorder ligthColor darkColor 1 rect0
-                draw3DBorder ligthColor darkColor 2 $ rectMove rect0 (V2 70 0)
-                setColor $ grayColor 0
-                drawRoundBorder $ rectMove rect0 (V2 140 0)
-                let arrH = 4
-                drawArrow OrientationLeft  (P (V2 220 30)) arrH
-                drawArrow OrientationUp    (P (V2 240 30)) arrH
-                drawArrow OrientationRight (P (V2 260 30)) arrH
-                drawArrow OrientationDown  (P (V2 280 30)) arrH
+                let drawR = drawRoundFrame (rgb 255 0 0) (rgb 0 255 0)
+                drawR $ SDL.Rectangle (P (V2 10 10)) (V2 33 27)
+                drawR $ SDL.Rectangle (P (V2 50 10)) (V2 50 18)
+                drawR $ SDL.Rectangle (P (V2 10 50)) (V2 300 27)
+                drawR $ SDL.Rectangle (P (V2 10 100)) (V2 333 227)
             }
 

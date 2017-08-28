@@ -244,7 +244,6 @@ data ButtonWithTriangleType =
          ButtonWithTriangleInForm  -- ^ по 'Skin'-у для элементов форм.
        | ButtonWithTriangleUser { -- ^ Свои настройки цветов.
             btTriangleDecore :: ButtonDecore
-          , btTriangleExternalColor :: GuiColor
                                 }
 
 -- | Параметры настройки кнопки с треугольником.
@@ -276,14 +275,14 @@ buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
     let (V2 btTriangleWidth btTriangleHeight) = btTriangleSize
         cPict = 4
         triangleW = round $ fromIntegral btTriangleWidth * (0.6 :: Double)
-        (btDecore,externalColor) = case btTriangleType of
---                                     ButtonWithTriangleScrollBar -> (scrollBarArrow skin,trackBarBkColor skin)
-                                     ButtonWithTriangleInForm -> (formItemsButtons skin,decoreBkColor (formDecore skin))
-                                     ButtonWithTriangleUser{..} -> (btTriangleDecore,btTriangleExternalColor)
+        btDecore = case btTriangleType of
+--                                     ButtonWithTriangleScrollBar -> scrollBarArrow skin
+                                     ButtonWithTriangleInForm -> formItemsButtons skin
+                                     ButtonWithTriangleUser{..} -> btTriangleDecore
         draw1 x state = do
             let r=SDL.Rectangle (P (V2 x 0)) btTriangleSize
                 decoreSt = getButtonDecoreState state btDecore
-            drawButtonFrame decoreSt (btnDecoreBorder btDecore) externalColor r
+            drawButtonFrame decoreSt (btnDecoreBorder btDecore) r
             drawArrowTriangle btTriangleOrientation (decoreFgColor decoreSt) (rectCenter r) triangleW
             return $ x + btTriangleWidth
     texture <- runProxyCanvas parent $ do
@@ -420,7 +419,7 @@ button ButtonDef{..} parent skin = do
 --                drawRoundFrame  (decoreBrdrColor d) (decoreBkColor d) r
 --                liftIO $ putStrLn $ concat ["button.onDraw ", rectToBriefStr r]
                 if btnUseBorder then
-                     drawButtonFrame d btnDecoreBorder (decoreBkColor (formDecore skin)) r
+                     drawButtonFrame d btnDecoreBorder r
                 else setColor (decoreBkColor d) >> fillRect r
                 drawPreparedText prep (decoreFgColor d)
                     (textWrapModeToMbBkColor btnTextWrapMode skin $ decoreBkColor d)
@@ -440,11 +439,11 @@ getButtonDecoreState (Just WidgetMouseIn) = btnDecoreIn
 getButtonDecoreState (Just WidgetMousePressed) = btnDecorePressed
 getButtonDecoreState _ = btnDecoreDisabled
 
-drawButtonFrame :: MonadIO m => DecoreState -> BtnBorderType -> GuiColor -> GuiRect -> Canvas m ()
-drawButtonFrame DecoreState{..} borderType externalColor r = do
+drawButtonFrame :: MonadIO m => DecoreState -> BtnBorderType -> GuiRect -> Canvas m ()
+drawButtonFrame DecoreState{..} borderType r = do
     let borderWith = 1
     case borderType of
-        BtnBorderRound brdrClr -> drawRoundFrame externalColor brdrClr decoreBkColor r
+        BtnBorderRound brdrClr -> drawRoundFrame brdrClr decoreBkColor r
         BtnBorder3D brdrClr -> draw3DFrame (brdr3DLightColor brdrClr) (brdr3DDarkColor brdrClr)
                                     decoreBkColor borderWith r
 

@@ -371,7 +371,7 @@ editBox EditBoxDef{..} parent skin = do
         ,onDraw= \widget -> do
                 fl <- getWidgetFlags widget
                 r@(SDL.Rectangle p0 (V2 fullW fullH)) <- getVisibleRect widget
-                drawRoundFrame (decoreBkColor (formDecore skin)) (formBorderColor skin) (decoreBkColor (windowDecore skin)) r
+                drawRoundFrame (formBorderColor skin) (decoreBkColor (windowDecore skin)) r
                 txt <- edBxText <$> readMonadIORef d
                 let p1 = p0 .+^ V2 PaddingX PaddingY
                 s@EditBoxState{..} <- readMonadIORef state

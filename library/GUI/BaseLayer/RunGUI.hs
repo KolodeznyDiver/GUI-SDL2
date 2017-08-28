@@ -185,10 +185,9 @@ onEvent gui evpl = case evpl of
     --
     SDL.WindowMaximizedEvent (SDL.WindowMaximizedEventData win) ->  return $ const () (win)
     --
-    SDL.WindowRestoredEvent (SDL.WindowRestoredEventData win) -> do
-        logPutLn gui "WindowRestoredEvent"
+    SDL.WindowRestoredEvent (SDL.WindowRestoredEventData win) -> -- do
+--        logPutLn gui "WindowRestoredEvent"
         return $ const () (win)
-    --
     SDL.WindowGainedMouseFocusEvent (SDL.WindowGainedMouseFocusEventData win) ->
         withWindow win $ \rfWin -> -- do
             --logPutLn gui "WindowGainedMouseFocusEvent"

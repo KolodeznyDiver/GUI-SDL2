@@ -469,32 +469,39 @@ drawRoundBorder :: MonadIO m => GuiRect -> Canvas m ()
 drawRoundBorder (SDL.Rectangle p (V2 w' h')) =
     let radius = 2
         w = w' - 1
-        h = h' - 1 in
+        h = h' - 1 in do
+      drawLine (p .+^ V2 0 radius) (p .+^ V2 0 (h-radius))
+      drawLine (p .+^ V2 w radius) (p .+^ V2 w (h-radius))
+      drawLine (p .+^ V2 radius 0) (p .+^ V2 (w-radius) 0)
+      drawLine (p .+^ V2 radius h) (p .+^ V2 (w-radius) h)
+      drawPoints $ V.fromList [p .+^ V2 1 1,p .+^ V2 1 (h-1),p .+^ V2 (w-1) 1,p .+^ V2 (w-1) (h-1)]
+{-
     drawLines $ V.fromList [
         p .+^ V2 0 radius, p .+^ V2 radius 0,
         p .+^ V2 (w-radius) 0, p .+^ V2 w radius,
         p .+^ V2 w (h-radius), p .+^ V2 (w-radius) h,
         p .+^ V2 radius h, p .+^ V2 0 (h-radius),    p .+^ V2 0 radius  ]
+-}
 
 -- | Нарисовать прямоугольник с закруглёнными краями.
 drawRoundFrame :: MonadIO m =>
-                  GuiColor -> -- ^ Цвет вне прямоугольника. Нужен для восстановления закруглений.
+--                  GuiColor -> -- ^ Цвет вне прямоугольника. Нужен для восстановления закруглений.
                   GuiColor -> -- ^ Цвет рамки - границы прямоугольника.
                   GuiColor -> -- ^ Цвет внутри прямоугольника.
                   GuiRect -> -- ^ Границы прямоугольника.
                   Canvas m ()
-drawRoundFrame outsideColor borderColor insideColor r@(SDL.Rectangle p (V2 w' h')) = do
+drawRoundFrame borderColor insideColor r{-@(SDL.Rectangle p (V2 w' h'))-} = do
     setColor insideColor
-    fillRect r
-    setColor outsideColor
+    fillRect $ shrinkRect' 1 r
+{-    setColor outsideColor
     let w = w' - 1
         h = h' - 1
     drawPoints $ V.concat [cornPnts 1 1 p, cornPnts  (-1) 1 $ p .+^ V2 w 0,
-        cornPnts (-1) (-1) $ p .+^ V2 w h, cornPnts 1 (-1) $ p .+^ V2 0 h]
+        cornPnts (-1) (-1) $ p .+^ V2 w h, cornPnts 1 (-1) $ p .+^ V2 0 h] -}
     setColor borderColor
     drawRoundBorder r
-  where cornPnts :: Coord -> Coord -> GuiPoint -> V.Vector GuiPoint
-        cornPnts dx dy pt = V.fromList [pt, pt .+^ V2 dx 0, pt .+^ V2 0 dy]
+{-  where cornPnts :: Coord -> Coord -> GuiPoint -> V.Vector GuiPoint
+        cornPnts dx dy pt = V.fromList [pt, pt .+^ V2 dx 0, pt .+^ V2 0 dy] -}
 
 -- | Нарисовать псевдо 3D прямоугольную рамку без внутреннего заполнения.
 draw3DBorder :: MonadIO m => GuiColor -> -- ^ Цвет левого и верхнего края.

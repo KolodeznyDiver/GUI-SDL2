@@ -154,7 +154,7 @@ dropDownList DropDownListDef{..} a parent skin = do
                 ds = if | not ena -> DecoreState (decoreBkColor $ windowDecore skin) (windowDisabledFgColor skin)
                         | isFocused -> selectedDecore skin
                         | otherwise -> windowDecore skin
-            drawRoundFrame (decoreBkColor (formDecore skin)) (formBorderColor skin) (decoreBkColor ds) widgR
+            drawRoundFrame (formBorderColor skin) (decoreBkColor ds) widgR
             ix <- readMonadIORef rfIx
             viewableDrawItem gui skin
                 (SDL.Rectangle (P (V2 PaddingX PaddingY)) (V2 (widgW-btWH-3*PaddingX) itemH))

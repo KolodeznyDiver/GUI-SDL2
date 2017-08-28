@@ -8,7 +8,7 @@ category: GUI SDL2
 license: BSD3
 maintainer: Kolodezny Diver
 github: KolodeznyDiver/GUI-SDL2
-version: '0.1.14'
+version: '0.1.15'
 extra-source-files:
 - CHANGELOG.md
 - LICENSE.md
@@ -109,6 +109,7 @@ library:
   - GUI.Widget.Handlers
   - GUI.Widget.HorizontalItems
   - GUI.Widget.HorizontalLinks
+  - GUI.Widget.HorizontalTabbeds
   - GUI.Widget.PathBox
   - GUI.Widget.Menu.Horizontal
   - GUI.Widget.Label

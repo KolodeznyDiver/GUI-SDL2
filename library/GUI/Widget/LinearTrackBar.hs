@@ -42,13 +42,13 @@ hvTrackBar :: forall m. MonadIO m =>
     (LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)) ->
     LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)
 hvTrackBar f dat parent skin@Skin{..} = f dat{
-        linearTrackBarDraw = \ _ _ r -> do
+          linearTrackBarDraw = \ _ _ r -> do
             setColor trackBarBkColor
             fillRect r
         , linearTrackBarSliderDraw = \ _ mbSt r -> do
             let decoreSt = getButtonDecoreState mbSt trackBarSlider
-            drawButtonFrame decoreSt (btnDecoreBorder trackBarSlider) trackBarBkColor r
-                       } parent skin
+            drawButtonFrame decoreSt (btnDecoreBorder trackBarSlider) r
+                                             } parent skin
 
 -- | Горизонтальный трекбар с отрисовкой по умолчанию.
 hTrackBar :: MonadIO m => LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)

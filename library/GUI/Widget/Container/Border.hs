@@ -49,10 +49,8 @@ data BorderBackground = BorderTransparent -- ^ Прозрачный.
 -- | Тип рпедставления.
 data BorderType = BorderMono  -- ^ Просто прямоуольник равномерно заполненный цветом.
                 | BorderRect  -- ^ Тонкая рамка (в 1 пиксель).
-                -- | Рамка с закруглёнными краями. Механизм её отрисовки требует знать цвет
-                -- фона на котором она рисуется.
-                | BorderRound { borderRoundOutsideColor :: Maybe GuiColor
-                              }
+                -- | Рамка с закруглёнными краями.
+                | BorderRound
                 -- | Трёхмерная рамка. Плохо смотрится вместе с заголовоком.
                 | Border3D  {border3DLightColor :: Maybe GuiColor
                             ,border3DDarkColor :: Maybe GuiColor
@@ -130,9 +128,8 @@ border BorderDef{..} parent skin = do
             case borderType of
               BorderMono -> bkFill
               BorderRect -> bkFill >> setColor frgrndColor >> drawRect r'
-              BorderRound{..} | isTransp -> setColor frgrndColor >> drawRoundBorder r'
-                              | otherwise -> drawRoundFrame (fromMaybe bkgrndColor borderRoundOutsideColor)
-                                                 frgrndColor bkgrndColor r'
+              BorderRound | isTransp -> setColor frgrndColor >> drawRoundBorder r'
+                          | otherwise -> drawRoundFrame frgrndColor bkgrndColor r'
               Border3D{..} -> bkFill >> draw3DBorder (lightClr border3DLightColor)
                                             (fromMaybe (brdr3DDarkColor $ brdr3DColors skin) border3DDarkColor)
                                             borderThickness r

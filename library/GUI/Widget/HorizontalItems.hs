@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -27,10 +27,10 @@
 module GUI.Widget.HorizontalItems(
     -- * Флаги @horizItems@.
     pattern OptBtnIx
-    -- * Типы используемые с @horizItems@.
-    ,HorizItsDef(..),HorizItsData
+    -- * Классы и типы используемые с @horizItems@.
+    ,NeighborSwap(..),HorizItsDef(..),HorizItsData
     -- * Функции.
-    ,setSwapNeighbFn,horizItems
+    ,horizItems
     ) where
 
 import Control.Monad
@@ -84,7 +84,7 @@ data Handlers a p = Handlers    { hndlrOnMove :: forall m. MonadIO m => Int -> m
                                 , hndlrDataUpdate :: forall m. (MonadIO m, ViewableVarWidthItems a p) =>
                                         Widget -> a -> m ()
                                 , hndlrIxUpdate :: forall m. MonadIO m => Widget -> Int -> m ()
-                                , doSwapNeighb  :: forall m. (MonadIO m, ViewableVarWidthItems a p) =>
+                                , doNeighborSwap :: forall m. (MonadIO m, ViewableVarWidthItems a p) =>
                                         Int -> a -> m a
                                 }
 
@@ -94,15 +94,20 @@ data HorizItsData a p = HorizItsData    { refData :: IORef a
                                         , refCurIx :: IORef Int
                                         }
 
--- | Установка функции для перестановки соседних элементов, когда они перемещаются мышью.
---   Необходимо установить если такое премещение предусматривается. horizItems использует данные в режиме read only.
-setSwapNeighbFn :: (MonadIO m, ViewableVarWidthItems a p) => GuiWidget (HorizItsData a p) -> (
+class NeighborSwap w c | w -> c where
+    -- | Установка функции для перестановки соседних элементов, когда они перемещаются мышью.
+    --   Необходимо установить если такое премещение предусматривается.
+    -- @horizItems@, в котором устанавливаемя функция обработчик используется,  использует данные в режиме read only.
+    -- Для обновления нужно установить свой обработчик с помощью @setNeighborSwap@.
+    setNeighborSwap :: MonadIO m => w -> (
         -- | Функция которая будет вызываться для перестановки элементов
         forall n. MonadIO n => Int -> -- ^ Левый из переставляемых элементов.
-                                a -> -- ^ исходные данные
-                                n a
+                                c -> -- ^ исходные данные
+                                n c
                                 ) -> m ()
-setSwapNeighbFn w a = modifyMonadIORef' (refHandlers $ widgetData w) (\d -> d{doSwapNeighb= a})
+
+instance ViewableVarWidthItems c p => NeighborSwap (GuiWidget (HorizItsData c p)) c where
+    setNeighborSwap w a = modifyMonadIORef' (refHandlers $ widgetData w) (\d -> d{doNeighborSwap= a})
 
 -- | Установка и извлечение номера текущего (выделенного) элемента.
 instance ViewableVarWidthItems a p => IxProperty (GuiWidget (HorizItsData a p)) where
@@ -193,7 +198,7 @@ horizItems HorizItsDef{..} separatorsData initData parent skin = do
                                    , hndlrOnRightClick = \_ -> return ()
                                    , hndlrDataUpdate = \_ _ -> return () -- tmp. reset later
                                    , hndlrIxUpdate  = \_ _ -> return () -- tmp. reset later
-                                   , doSwapNeighb = \_ a -> return a
+                                   , doNeighborSwap = \_ a -> return a
                                    }
     refC <- newMonadIORef 0 -- Номер текущего элемента
     refM <- newMonadIORef None -- Область, в которой была нажата кнопка мыши (и ещё не отпущена), иначе None.
@@ -313,7 +318,7 @@ horizItems HorizItsDef{..} separatorsData initData parent skin = do
                                             let ix = min old n
                                             modifyMonadIORef' refS $ \s ->
                                                 s{intrnWidths = VU.swapNeighb ix $ intrnWidths s}
-                                            f <- doSwapNeighb <$> readMonadIORef refH
+                                            f <- doNeighborSwap <$> readMonadIORef refH
                                             readMonadIORef refD >>= f ix >>= writeMonadIORef refD
                                             ixUpdate widget n
                                             coord2ixM widget x
@@ -377,7 +382,7 @@ horizItems HorizItsDef{..} separatorsData initData parent skin = do
                         horizSepDrawItem gui skin (SDL.Rectangle (P (V2 x internT)) (V2 w internH))
                                     horizSepPrData separatorsData sepPos
                                     (if | curIx == (i-1) -> LeftIsCurItem
-                                        | curIx == (i+1) -> RightIsCurItem
+                                        | curIx == i -> RightIsCurItem
                                         | otherwise -> OrdinalSeparator)
                         return $ x+w
                     widgetEna = (WidgetEnable .&. fl) /= WidgetNoFlags

@@ -95,11 +95,13 @@ class ViewableItems a p => ViewableVarWidthItems a p | a -> p where
 data HorizSepPos = FirstSeparator -- ^ Разделитель слева от первого элемента.
                  | MiddleSeparator -- ^ Обычный разделитель между элементами.
                  | LastSeparator -- ^ Разделитель справа от последнего элемента.
+                 deriving Eq
 
 -- | Позиция горизонтального разделителя относительно текущего элемента.
 data HorizSepCurPos = OrdinalSeparator -- ^ Текущий элемент находится не рядом с разделителем.
                     | LeftIsCurItem  -- ^ Слева от разделителя находится текущий элемент.
                     | RightIsCurItem  -- ^ Справа от разделителя находится текущий элемент.
+                    deriving Eq
 
 data HorizSepPrepare p = HorizSepPrepare {
           horizSepPrFirstWidth :: Coord -- ^ Ширина разделителя типа FirstSeparator.
