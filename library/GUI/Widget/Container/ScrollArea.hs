@@ -8,7 +8,7 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- |
--- Module:      GUI.BaseLayer.RunGUI
+-- Module:      GUI.Widget.Container.ScrollArea
 -- Copyright:   (c) 2017 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
@@ -82,7 +82,7 @@ data ScrollAreaDef = ScrollAreaDef {
     , scrollAreaSteps :: GuiSize -- ^ На сколько пикселей смещать окно области отрисовки в виртуальном
                                  -- пространстве при нажатии на кнопки.
                                     }
-                                    deriving (Show)
+--                                    deriving (Show)
 
 instance Default ScrollAreaDef where
     def = ScrollAreaDef { scrollAreaItemDef = def

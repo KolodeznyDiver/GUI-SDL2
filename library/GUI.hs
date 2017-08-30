@@ -80,7 +80,7 @@ import GUI.BaseLayer.Widget (
         ,setWidgetRectWithMarginShrink,calcWidgetSizeWithMargin,widgetResizingIfChanged
         ,getWidgetVisibleRect,getVisibleRect
          -- ** Функции использующие вектор дочерих виджетов.
-        ,getWidgetChildrenCount,getChildWidgetIx,getWidgetChild
+        ,getWidgetChildrenCount,getChildWidgetIx,getWidgetChild,swapChildWidgets
          -- *** Map-ы по вектору виджетов.
         ,mapByWidgetChildren,imapByWidgetChildren,mapByWidgetChildren_,imapByWidgetChildren_
          -- *** Свёртки по вектору виджетов.

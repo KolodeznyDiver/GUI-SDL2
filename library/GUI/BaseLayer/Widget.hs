@@ -33,7 +33,7 @@ module GUI.BaseLayer.Widget(
      ,setWidgetRectWithMarginShrink,calcWidgetSizeWithMargin,widgetResizingIfChanged
      ,getWidgetVisibleRect,getVisibleRect
      -- ** Функции использующие вектор дочерих виджетов.
-     ,getWidgetChildrenCount,getChildWidgetIx',getChildWidgetIx,getWidgetChild
+     ,getWidgetChildrenCount,getChildWidgetIx',getChildWidgetIx,getWidgetChild,swapChildWidgets
      -- *** Map-ы по вектору виджетов.
      ,mapByWidgetChildren,imapByWidgetChildren,mapByWidgetChildren_,imapByWidgetChildren_
      -- *** Свёртки по вектору виджетов.
@@ -68,6 +68,7 @@ module GUI.BaseLayer.Widget(
 import Control.Monad.Trans.Class
 import Data.Bits
 import qualified Data.Vector as V
+import qualified Data.Vector.Mutable as VM
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO,liftIO)
 import qualified TextShow as TS
@@ -338,6 +339,12 @@ getChildWidgetIx widget whatFound = (`getChildWidgetIx'` whatFound) <$> readMona
 getWidgetChild :: MonadIO m => Widget -> Int -> m (Maybe Widget)
 getWidgetChild widget ix = ((V.!? ix) . cildrenWidgets) <$> readMonadIORef widget
 {-# INLINE getWidgetChild #-}
+
+-- | Переставляет два виджета-потомка местами.
+swapChildWidgets :: MonadIO m => Widget -> Int -> Int -> m ()
+swapChildWidgets parent l r = modifyMonadIORef' parent $ \w ->
+    w{cildrenWidgets= V.modify (\v -> VM.swap v l r) $ cildrenWidgets w}
+{-# INLINEABLE swapChildWidgets #-}
 
 -------------------- *** Map-ы по вектору виджетов.
 

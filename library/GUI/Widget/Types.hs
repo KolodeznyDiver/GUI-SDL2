@@ -23,7 +23,7 @@ module GUI.Widget.Types(
     ,Clickable(..),Clickable1(..),DoubleClickable(..),DoubleClickable1(..),RightClickable(..),RightClickable1(..)
     ,Changeable(..)
     ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),IxProperty(..)
-    ,RowNumProperty(..),ColNumProperty(..)
+    ,IndexedValueProperty(..),RowNumProperty(..),ColNumProperty(..)
     ,MouseStateProperty(..),OnEnd(..),Verifiable(..),Moveable(..),MarkersPropertyType,MarkersProperty(..)
     ,GetStateForSave(..)
                         ) where
@@ -135,6 +135,12 @@ class ValueProperty a b | a -> b where
 class IxProperty a where
     setIx :: MonadIO m => a -> Int -> m ()
     getIx :: MonadIO m => a -> m Int
+
+-- | Для экземпляров этого класса типов можно назначить установку и извлечение некоего
+-- индексируемого целым числом значения.
+class IndexedValueProperty a b | a -> b where
+    setIndexedValue :: MonadIO m => a -> Int -> b -> m ()
+    getIndexedValue :: MonadIO m => a -> Int -> m b
 
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение номера некоего ряда.
 class RowNumProperty a where

@@ -73,6 +73,7 @@ import GUI.Window.LoadSaveDialog
 -- import GUI.Widget.PathBox
 import GUI.Widget.HorizontalTabbeds
 import GUI.Widget.HorizontalItems (NeighborSwap(..))
+import GUI.Widget.Container.TabbedPanel
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -466,6 +467,20 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     onMove ht (setText lb . TS.toText . showb)
     --  Поддержка перестановки элементов мышью.
     setNeighborSwap ht $ \i v -> return $ V.swapNeighb i v
+#elif EXAMPLE_NUM == 16
+    vL <- win $+ vLayout def
+    lb <- vL $+ label def{labelSize=V2 350 50
+                 , labelText="Здесь будет отображаться информация о событиях"}
+    tp <- vL $+ tabbedPanel def{tabPanelPermutable = True}
+    let mkTab s = do
+            vLTabbed <- tabbedPanelAppend tp def{tabItemCaption=s} $ vLayout def
+            void $ vLTabbed $+ label def { labelFormItemDef = def{formItemMargin=Just WidgetMarginNone}
+                            , labelAlignment=AlignCenter, labelFontKey = "hello world"
+                            , labelColor = Just $ rgb 0 100 0, labelSize=V2 (-1) (-1)
+                            , labelText=s}
+    mapM_ mkTab $ T.words "Пример пенели с закладками которые можно менять местами перетаскивая"
+    setIx tp 0
+    onMove tp (setText lb . TS.toText . showb)
 #else
     #error EXAMPLE_NUM is out of range
 #endif

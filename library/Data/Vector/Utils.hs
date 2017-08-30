@@ -45,3 +45,7 @@ swapNeighb ix = V.modify $ \v -> VM.swap v ix $ ix+1
 moveLastToFirst :: V.Vector a -> V.Vector a
 moveLastToFirst v = V.cons ( V.last v) $ V.unsafeSlice 0 (V.length v - 1) v
 
+-- | Вставить элемент в указанную позицию
+insert :: Int -> a -> V.Vector a -> V.Vector a
+insert pos n v = V.slice 0 pos v V.++ V.cons n (V.slice pos (V.length v - pos) v)
+{-# INLINEABLE insert #-}
