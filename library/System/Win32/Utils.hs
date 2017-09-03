@@ -16,7 +16,7 @@
 module System.Win32.Utils
 #if defined(mingw32_HOST_OS) || defined(__MINGW32__)
     (
-    hideConsole,withRemoveFromTaskbar,getUILang
+    hideConsole,withRemoveFromTaskbar,getWinBorders,getUILang
     )
 #endif
     where
@@ -24,6 +24,7 @@ module System.Win32.Utils
 #if defined(mingw32_HOST_OS) || defined(__MINGW32__)
 import Data.Bits
 import Foreign hiding(void)
+import Foreign.C.Types
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Exception.Safe
@@ -31,6 +32,7 @@ import System.Win32 hiding (try)
 import Graphics.Win32.GDI.Types
 import Graphics.Win32.Window
 import Control.Monad.Extra (whenJust)
+import SDL.Vect
 
 #if defined(i386_HOST_ARCH)
 #   define WINDOWS_CCONV stdcall
@@ -91,6 +93,12 @@ withRemoveFromTaskbar title f = do
         whenJust mbW $ \ w ->
             void $ c_SetWindowLongPtr w GWLP_HWNDPARENT $ castPtr wParent
     return r
+
+-- | Функция возвращает поля от видимой границы окна до клиентской области.
+--   Для SDL2 for Windows коррекция при создании одного окна относительно другого не требуется.
+getWinBorders :: MonadIO m => m (V4 CInt)
+getWinBorders = return $ V4 0 0 0 0
+
 
 -- | Должна возвращать, например "en-US" or "ru-Ru" или выбрасывать исключение.
 getUILang :: IO String

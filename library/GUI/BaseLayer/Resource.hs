@@ -71,6 +71,7 @@
 --      @getXdgDirectory XdgData \"ИмяПриложения\"@ (см. документацию к пакету __directory__);
 --
 --    - Проверяется наличие поддиректории GUI.Resources по пути исполняемого файла.
+--      Если в этом пути находится директория __/.stack-work/__ , то оставляется путь левее этой директории.
 --
 -- Директория ресурсов должна существовать к моменту выполнения функции @GUI.BaseLayer.RunGUI.runGUI@.
 
@@ -87,6 +88,7 @@ module GUI.BaseLayer.Resource(
     ,rmGetB
     ) where
 
+import Data.List
 import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -121,6 +123,8 @@ pattern SkinDirectorySuffix :: String
 pattern SkinDirectorySuffix             = ".skin"
 pattern EnvResourceDirectoryPathSuffix :: String
 pattern EnvResourceDirectoryPathSuffix  = "_GUIRESOURCES"
+pattern StackWorkDirectory :: String
+pattern StackWorkDirectory  = ".stack-work"
 pattern ErrSurfaceDimension :: Coord
 pattern ErrSurfaceDimension             = 5
 
@@ -158,7 +162,13 @@ initResourceManager skinName fntLst dataDirectory uiLang gLog = do
             exist0 <- liftIO $ doesDirectoryExist p0
             if exist0 then return p0
             else do
-                p1 <- ((</> DefResourceSubDirectory).takeDirectory) <$> liftIO getExecutablePath
+--                p1 <- ((</> DefResourceSubDirectory).takeDirectory) <$> liftIO getExecutablePath
+                exeDir <- takeDirectory <$> liftIO getExecutablePath
+                let spltd = splitPath exeDir
+                    p' = case elemIndex (addTrailingPathSeparator StackWorkDirectory) spltd of
+                            Just i -> joinPath $ take i spltd
+                            _ -> exeDir
+                    p1 = p' </> DefResourceSubDirectory
                 exist1 <- liftIO $ doesDirectoryExist p1
                 if exist1 then return p1
                 else guiTerminated $ "Search for resources directory is unsuccessful :\n" <>

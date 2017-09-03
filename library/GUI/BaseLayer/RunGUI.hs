@@ -32,7 +32,6 @@ import qualified TextShow as TS
 import           TextShow (showb)
 import qualified SDL
 import qualified SDL.Raw as Raw
-import qualified SDL.Internal.Types
 import SDL.Vect
 import qualified SDL.Font as FNT
 import qualified SDL.Image as IMAGE
@@ -57,6 +56,10 @@ import GUI.BaseLayer.RedrawWindow
 import GUI.BaseLayer.SpecStateWidget
 import GUI.BaseLayer.GUIRecord
 import GUI.BaseLayer.Focus
+
+{- -- For debug
+import Data.StateVar
+import qualified SDL.Internal.Types -}
 
 -- | Необязательные параметры инициализации GUI.
 data GUIDef = GUIDef {
@@ -149,53 +152,52 @@ runGUI skin fntLst GUIDef{..} initFn =
                 mainLoop
  where defLangLocale = "en_US"
 
--- | Не экспортируемая функция, вызываемяа только из @runGUI@ для обработки одного SDL сообщения из очереди.
+-- | Не экспортируемая функция, вызываемая только из @runGUI@ для обработки одного SDL сообщения из очереди.
 onEvent:: Gui -> SDL.EventPayload -> IO ()
 onEvent gui evpl = case evpl of
     -- A window has been shown.
-    SDL.WindowShownEvent (SDL.WindowShownEventData win) -> do
+    SDL.WindowShownEvent (SDL.WindowShownEventData _win) -> -- do
 --        putStrLn "WindowShownEventData"
-        return $ const () win
+        return ()
      -- A window has been hidden.
-    SDL.WindowHiddenEvent (SDL.WindowHiddenEventData win) -> do
+    SDL.WindowHiddenEvent (SDL.WindowHiddenEventData _win) -> -- do
 --        putStrLn "WindowHiddenEvent"
-        return $ const () win
+        return ()
     -- A part of a window has been exposed - where exposure means to become visible
     -- (for example, an overlapping window no longer overlaps with the window).
-    SDL.WindowExposedEvent (SDL.WindowExposedEventData win) -> do
+    SDL.WindowExposedEvent (SDL.WindowExposedEventData win) -> -- do
 --        putStrLn "WindowExposedEvent"
         withWindow win $ \rfWin -> redrawWindow rfWin True
     -- A Window has been moved.
-    SDL.WindowMovedEvent (SDL.WindowMovedEventData win newPosPoint) -> return $ const () (win,newPosPoint)
+    SDL.WindowMovedEvent (SDL.WindowMovedEventData _win _newPosPoint) -> return ()
     -- Window has been resized. This is event is always preceded by WindowSizeChangedEvent.
     SDL.WindowResizedEvent (SDL.WindowResizedEventData win newSz)     -> -- do
 --        putStrLn $ concat ["WindowResizedEvent  newSz=",show newSz]
         withWindow win $ \rfWin -> do
             setWinSize' rfWin $ fmap fromIntegral newSz
             redrawWindow rfWin False
---        return $ const () (win, newSz)
     -- The window size has changed, either as a result of an API call or through the system or user changing the window size;
     -- this event is followed by WindowResizedEvent if the size was changed by an external event,
     -- i.e. the user or the window manager.
-    SDL.WindowSizeChangedEvent (SDL.WindowSizeChangedEventData win) -> -- do
+    SDL.WindowSizeChangedEvent (SDL.WindowSizeChangedEventData _win) -> -- do
 --        putStrLn "WindowSizeChangedEvent"
-        return $ const () (win)
+        return ()
     --
-    SDL.WindowMinimizedEvent (SDL.WindowMinimizedEventData win) ->  return $ const () (win)
+    SDL.WindowMinimizedEvent (SDL.WindowMinimizedEventData _win) ->  return ()
     --
-    SDL.WindowMaximizedEvent (SDL.WindowMaximizedEventData win) ->  return $ const () (win)
+    SDL.WindowMaximizedEvent (SDL.WindowMaximizedEventData _win) ->  return ()
     --
-    SDL.WindowRestoredEvent (SDL.WindowRestoredEventData win) -> -- do
+    SDL.WindowRestoredEvent (SDL.WindowRestoredEventData _win) -> -- do
 --        logPutLn gui "WindowRestoredEvent"
-        return $ const () (win)
+        return ()
     SDL.WindowGainedMouseFocusEvent (SDL.WindowGainedMouseFocusEventData win) ->
         withWindow win $ \rfWin -> -- do
-            --logPutLn gui "WindowGainedMouseFocusEvent"
+            -- sayDbg win "WindowGainedMouseFocusEvent"
             windowFlagsAdd rfWin WindowHaveMouseFocus
     --
     SDL.WindowLostMouseFocusEvent (SDL.WindowLostMouseFocusEventData win) ->
         withWindow win $ \rfWin -> do
---            logPutLn gui "WindowLostMouseFocusEvent"
+            -- sayDbg win "WindowLostMouseFocusEvent"
             windowFlagsRemove rfWin $ WindowHaveMouseFocus .|. WindowClickable
             winMouseLost rfWin
 
@@ -203,7 +205,13 @@ onEvent gui evpl = case evpl of
         withNoLockedWindow win $ \rfWin -> do
             windowFlagsAdd rfWin WindowHaveKeyboardFocus
             fl <- getWindowFlags rfWin
-            when ((fl .&. WindowPopupFlag) == WindowNoFlags ) $ delAllPopupWindows gui
+            -- sayDbg win "WindowGainedKeyboardFocusEvent"
+            when ((fl .&. (WindowPopupFlag .|. WindowWaitPopup)) == WindowNoFlags ) $ -- do
+                -- putStrLn "WindowGainedKeyboardFocusEvent delAllPopupWindows"
+                delAllPopupWindows gui
+            when ((fl .&. WindowWaitPopupReset) /= WindowNoFlags ) $ do
+                windowFlagsRemove rfWin WindowWaitPopupReset
+                allWindowsMap_ (`windowFlagsRemove` WindowWaitPopup) gui
 {-            (btns,mouseP) <- getMouseState -- SDL.getMouseButtons
             putStrLn $ concat ["WindowGainedKeyboardFocusEvent  btns=", show btns, "   ", show mouseP
                 ,"   haveMouseFocus = ", show haveMouseFocus] -}
@@ -213,21 +221,23 @@ onEvent gui evpl = case evpl of
               --  putStrLn $ concat ["WindowGainedKeyboardFocusEvent  btns=", show btns, "   ", show mouseP]
                 when (btns ==0) $ do
                     windowFlagsAdd rfWin WindowClickable
-                    onMouseButton' win SDL.Pressed SDL.ButtonLeft 1 $ fmap fromIntegral mouseP
+                    onMouseButton' (Just win) SDL.Pressed SDL.ButtonLeft 1 $ fmap fromIntegral mouseP
             --else logPutLn gui "WindowGainedKeyboardFocusEvent"
     --
     SDL.WindowLostKeyboardFocusEvent (SDL.WindowLostKeyboardFocusEventData win) ->
         withWindow win $ \rfWin -> do
             closeOnLost <- allWindowFlags rfWin WindowCloseOnLostFocuse
-            if closeOnLost then
---                putStrLn "WindowLostKeyboardFocusEvent delWindow"
+            if closeOnLost then -- do
+--                 sayDbg win "WindowLostKeyboardFocusEvent delWindow"
                  delWindow rfWin
-            else windowFlagsRemove rfWin WindowHaveKeyboardFocus -- .|. WindowClickable
---            putStrLn "WindowLostKeyboardFocusEvent"
+            else -- do
+--              sayDbg win "WindowLostKeyboardFocusEvent"
+              windowFlagsRemove rfWin WindowHaveKeyboardFocus -- .|. WindowClickable
     --
     SDL.WindowClosedEvent (SDL.WindowClosedEventData win) -> -- do
       withNoLockedWindow win $ \ rfWin -> do
 --        cWins' <- getWindowsCount gui
+--        sayDbg win "WindowClosedEvent"
         whenM (canWinClose rfWin) $
             delWindowByIx gui win
 --        cWins <- getWindowsCount gui
@@ -241,7 +251,7 @@ onEvent gui evpl = case evpl of
         when (cNoPopupWins==0) $ guiApplicationExitSuccess gui
     -- A keyboard key has been pressed or released.
     SDL.KeyboardEvent (SDL.KeyboardEventData
-                win
+                mbWin
                 motion -- SDL.Released | SDL.Pressed  --  data InputMotion = Released | Pressed
                 repeated -- True if this is a repeating key press from the user holding the key down.
                 (SDL.Keysym
@@ -262,11 +272,11 @@ onEvent gui evpl = case evpl of
                              if wasHK then "   KeyWithModifiers" else ""] -}
            if wasHK then do
                 delAllPopupWindows gui
-                withWindow win $ \rfWin ->
+                withWindowMB mbWin $ \rfWin ->
                                 windowFlagsRemove rfWin WindowWaitAlt
                 redrawAll gui
            else
-                withWindow win $ \rfWin -> do
+                withWindowMB mbWin $ \rfWin -> do
                     waitAlt <- allWindowFlags rfWin WindowWaitAlt
                     if isAltKey keycode && not isShift && not isCtrl then
                         if motion == SDL.Pressed then
@@ -285,7 +295,7 @@ onEvent gui evpl = case evpl of
                     next0 <- if (keycode==SDL.KeycodeEscape) && not isAlt && not isShift && not isCtrl then do
                                 closeOnEsc <- allWindowFlags rfWin WindowCloseOnEsc
                                 when closeOnEsc $ whenM (canWinClose rfWin) $
-                                        delWindowByIx gui win
+                                        delWindowByIx gui $ fromJust mbWin
                                 return $ not closeOnEsc
                              else return True
                     when next0 $ do
@@ -320,8 +330,8 @@ onEvent gui evpl = case evpl of
         return $ const () (win)
 -}
     --
-    SDL.TextInputEvent (SDL.TextInputEventData win text) ->
-        withWindow win $ \rfWin -> do
+    SDL.TextInputEvent (SDL.TextInputEventData mbWin text) ->
+        withWindowMB mbWin $ \rfWin -> do
 --            putStrLn ("TextInputEvent text=" ++ T.unpack text)
             mbf <- getFocusedWidget rfWin
             whenJust mbf $ \widget -> do
@@ -331,7 +341,7 @@ onEvent gui evpl = case evpl of
 
     -- A mouse or pointer device was moved.
     SDL.MouseMotionEvent (SDL.MouseMotionEventData
-                win _
+                mbWin _
                 btnsLst -- [MouseButton] --  data InputMotion = Released | Pressed
                 posPointer -- The new position of the mouse. (Point V2 Int32)
                 relMv -- The relative mouse motion of the mouse. (V2 Int32)
@@ -347,11 +357,11 @@ onEvent gui evpl = case evpl of
 {-        let mouseMotionHandler _win fs widget pnt =
                 onMouseMotion fs widget btnsLst pnt (fromIntegral <$> relMv) in
         onMouseAction win posPointer mouseMotionHandler -}
-        onMouseAction win posPointer $ \_rfWin fs widget pnt ->
+        onMouseAction mbWin posPointer $ \_rfWin fs widget pnt ->
             onMouseMotion fs widget btnsLst pnt (fromIntegral <$> relMv)
     -- A mouse button was pressed or released.
     SDL.MouseButtonEvent (SDL.MouseButtonEventData
-                win motion _
+                mbWin motion _
                 mouseButton -- MouseButton = ButtonLeft | ButtonMiddle | ButtonRight | ButtonX1 | ButtonX2 | ButtonExtra Int
                 clicks -- The amount of clicks. 1 for a single-click, 2 for a double-click, etc.
                 posPointer -- (Point V2 Int32)
@@ -363,14 +373,16 @@ onEvent gui evpl = case evpl of
 {-            putStrLn $ concat [ "MouseButtonEvent  motion=",show motion
                ,"  mouseButton=",show mouseButton
                ," clicks=",show clicks,"  posPointer=",show posPointer ] -}
-        onMouseButton' win motion mouseButton clicks posPointer
+--        whenJust mbWin $ \win ->
+--          sayDbg win $ "MouseButtonEvent " <> TS.fromString (show mouseButton)
+        onMouseButton' mbWin motion mouseButton clicks posPointer
     -- Mouse wheel event information.
-    SDL.MouseWheelEvent (SDL.MouseWheelEventData win _
+    SDL.MouseWheelEvent (SDL.MouseWheelEventData mbWin _
                 pos -- (V2 Int32)                  The amount scrolled.
                 dir -- The scroll direction mode. ScrollNormal | ScrollFlipped
                          ) ->  -- do
 --        putStrLn $ concat ["MouseWheelEvent  ", show pos, "    ", show dir]
-        withWindow win $ \rfWin -> do
+        withWindowMB mbWin $ \rfWin -> do
             mbf <- getFocusedWidget rfWin
             whenJust mbf $ \widget -> do
 --                putStrLn "MouseWheelEvent : FocusedWidget found"
@@ -391,9 +403,11 @@ onEvent gui evpl = case evpl of
     SDL.DropEvent (SDL.DropEventData cString) ->  putStr "DropEvent  string=" >> print cString
     --
     SDL.ClipboardUpdateEvent ->  return () -- no param
-    SDL.UserEvent (SDL.UserEventData win code d1 d2) -> do
+{-    SDL.UserEvent (SDL.UserEventData win code d1 d2) -> do
         let (SDL.Internal.Types.Window w) = win
-        when (w==nullPtr) $ userMsgHandler gui code d1 d2
+        when (w==nullPtr) -}
+    SDL.UserEvent (SDL.UserEventData _usrEvType mbWin code d1 d2) -> when (isNothing mbWin)
+            $ userMsgHandler gui code d1 d2
 {-            p1 = ptrToWordPtr d1
             p2 = ptrToWordPtr d2
         putStrLn $ concat ["UserEvent win=", show w, "  code=", show code,
@@ -407,8 +421,15 @@ onEvent gui evpl = case evpl of
             fs <- getWidgetFns widget
             logOnErr gui "onEvent.widgetMouseLostNotify.onLostMouseFocus" $
                 onLostMouseFocus fs widget
+{-        sayDbg win msg = do
+            title <- get $ SDL.windowTitle win
+            let (SDL.Internal.Types.Window w) = win
+            putStrLn $ TS.toString $ msg <> " : " <> TS.fromString (show w)
+                <> " : " <> TS.fromText title -}
 --        withWindow :: MonadIO m => GuiWindowIx -> (Window -> m ()) -> m ()
         withWindow win f = getWindowByIx gui win >>= (`whenJust` f)
+--        withWindowMB :: MonadIO m => Maybe GuiWindowIx -> (Window -> m ()) -> m ()
+        withWindowMB mbWin f = whenJust mbWin (`withWindow` f)
         withNoLockedWindow win f = withWindow win $ \ rfWin -> do
             isLocked <- allWindowFlags rfWin WindowLocked
             if isLocked then do
@@ -426,14 +447,14 @@ onEvent gui evpl = case evpl of
                                             resetMouseCaptured rfWin
                                             markWidgetForRedraw widget
                                         redrawAll gui
-        onMouseAction :: SDL.Window -> Point V2 Int32 ->
+        onMouseAction :: Maybe SDL.Window -> Point V2 Int32 ->
                             -- Main event handler
                         (Window -> WidgetFunctions -> Widget -> GuiPoint -> IO ()) ->
                             -- Mouse captured handler
 --                            (WidgetFunctions -> Widget -> GuiPoint -> m ()) ->
                             IO ()
-        onMouseAction win posPointer action {- capturedAction -} =
-            withWindow win $ \ rfWin -> do
+        onMouseAction mbWin posPointer action {- capturedAction -} =
+            withWindowMB mbWin $ \ rfWin -> do
                 let pnt = P.mousePointToGuiPoint posPointer
                     doAction widget offset = do
                         fs <- getWidgetFns widget
@@ -473,14 +494,14 @@ onEvent gui evpl = case evpl of
                                 guiSetCursor gui nc
                                 setWinCursorIx rfWin nc
                             redrawAll gui
-        onMouseButton'  :: SDL.Window -> SDL.InputMotion -> SDL.MouseButton ->
+        onMouseButton'  :: Maybe SDL.Window -> SDL.InputMotion -> SDL.MouseButton ->
                                 Word8 -> Point V2 Int32 -> IO ()
-        onMouseButton' win motion mouseButton clicks posPointer =
+        onMouseButton' mbWin motion mouseButton clicks posPointer =
             let mouseButtonHandler _win fs widget pnt = do
                     when (motion==SDL.Pressed) $
                         setWidgetFocus widget
                     onMouseButton fs widget motion mouseButton (fromIntegral clicks) pnt
-            in onMouseAction win posPointer mouseButtonHandler
+            in onMouseAction mbWin posPointer mouseButtonHandler
 
 getMouseState :: MonadIO m => m (Int,GuiPoint)
 getMouseState = liftIO $

@@ -183,7 +183,7 @@ horizItems HorizItsDef{..} separatorsData initData parent skin = do
         <- runProxyCanvas parent $ do
             (datH,p) <- viewablePrepare gui skin initData
             sepP <- horizSepPrepare gui skin separatorsData
-            arrT <- getTexture "ScrollAreaArrBtns.png"
+            arrT <- getTexture "ArrBtns.png"
             arrW <- ((`div` 2).xV2) <$> getTextureSize arrT
             (oSz,oT) <- if T.null horizItsOptBtn then return (zero,Nothing)
                         else do t <- getTexture horizItsOptBtn

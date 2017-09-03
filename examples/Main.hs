@@ -296,7 +296,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
                             , borderBkgrnd = BorderBkColor $ grayColor 255
                             }
 
-    let txtHotKeyPrompt = "Попробуйте нажать Alt-F2 или Ctrl-D"
+    let txtHotKeyPrompt = "Попробуйте нажать Alt-F12 или Ctrl-D"
     lb <- vL $+ label def{labelSize=V2 (-1) 20, labelAlignment=AlignCenter, labelText=txtHotKeyPrompt}
 
     hL0 <- vL $+ hLayout def
@@ -305,7 +305,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
         setText lb txtHotKeyPrompt
         
     addActions gui "Hotkeys" [
-         ("hk0",def{actionHotKey= kAlt SDL.KeycodeF2, actionValue=def{onAction= setText lb "Alt-F2"}})
+         ("hk0",def{actionHotKey= kAlt SDL.KeycodeF12, actionValue=def{onAction= setText lb "Alt-F12"}})
         ,("hk1",def{actionHotKey= kCtrl SDL.KeycodeD, actionValue=def{onAction= setText lb "Ctrl-D"}})
         ,("hkExceptionCatchTest",def{actionHotKey= kShift SDL.KeycodeF1, actionValue=def{onAction=
             setText lb $ showt $ 1 `div` (0 :: Int)
@@ -478,7 +478,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
                             , labelAlignment=AlignCenter, labelFontKey = "hello world"
                             , labelColor = Just $ rgb 0 100 0, labelSize=V2 (-1) (-1)
                             , labelText=s}
-    mapM_ mkTab $ T.words "Пример пенели с закладками которые можно менять местами перетаскивая"
+    mapM_ mkTab $ T.words "Пример панели с закладками которые можно менять местами перетаскивая"
     setIx tp 0
     onMove tp (setText lb . TS.toText . showb)
 #else
@@ -573,7 +573,7 @@ exampleWidgetPicture parent _ = mkSimpleWidget (WidgetMarginXY 20 10) parent (no
                     visibleRect <- getVisibleRect widget
                     setColor $ V4 255 255 255 0
                     fillRect visibleRect
-                    drawTextureR "ScrollAreaArrBtns.png" zero
+                    drawTextureR "ArrBtns.png" zero
                     -- drawStretchedTextureR "snapshot_00.41.57.jpg" Nothing visibleRect
                 }
 

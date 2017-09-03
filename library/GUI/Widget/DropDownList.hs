@@ -113,7 +113,7 @@ dropDownList DropDownListDef{..} a parent skin = do
     (itemH,p) <- runProxyCanvas parent $ viewablePrepare gui skin a
     rfOnChanged <- newMonadIORef $ OneArgAction (\_ -> return ())
     rfIx <- newMonadIORef ddListIx
-    btTexture <- runProxyCanvas parent $ getTexture "ScrollAreaArrBtns.png"
+    btTexture <- runProxyCanvas parent $ getTexture "ArrBtns.png"
     btWH <- ((`div` 2).xV2) <$> P.getTextureSize btTexture
     let  widgSz@(V2 widgW widgH) = let (V2 w h) = ddListSize in
                                    V2 w (max (itemH+PaddingY*2) h)

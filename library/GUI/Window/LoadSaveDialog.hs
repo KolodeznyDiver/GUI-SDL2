@@ -186,7 +186,7 @@ loadSaveDialog gui loadOrSave initFilePath LoadSaveDialogDef{..} answerFn = do
         , editBoxCharFilter = isLegalPathSymbol
                          }
     hLExt <- vL $+ hLayout def
-    ddlExt <- hLExt $+ dropDownList def{ ddListSize = V2 (tableW-6*lMarg-2*ButtonW)   ButtonH
+    ddlExt <- hLExt $+ dropDownList def{ ddListSize = V2 (tableW-6*lMarg-2*ButtonW)   0
                                        , ddListIx = loadSaveStExtsVarIx loadSaveState
                                        } $ ListViewText (V.fromList extsDescr)
     okT <- getT gui $ if loadOrSave == SaveDialog then "letSave" else "letOpen"
@@ -300,6 +300,8 @@ loadSaveDialog gui loadOrSave initFilePath LoadSaveDialogDef{..} answerFn = do
     onSortChange hdr $ \col sm ->  do
         modifyMonadIORef' rfS $ \d -> d{ loadSaveStSortCol = toEnum col, loadSaveStSortMode  = sm}
         reSort
+
+    onChanged pthBx $ \_newPth -> loadDir
 
     onClick btOk onSuccess
 

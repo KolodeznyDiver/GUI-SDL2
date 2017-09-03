@@ -10,20 +10,23 @@ This GUI is in the design process now.
     Look **Building** section in https://github.com/haskell-game/sdl2 about install **SDL2**.
     **SDL2_image** and **SDL2_ttf** are installed similarly.
     
-    For example, on **Windows 64** you can install C packages use stack's embedded MSYS2.
+    Install C packages on **Ubuntu 16.04**
+``` sh
+sudo apt install libsdl2-image-dev
+sudo apt install libsdl2-ttf-dev
+```
+
+    On **Windows 64** you can install C packages use stack's embedded MSYS2.
 ``` bat
 stack exec -- pacman -Syu
 stack exec -- pacman -S mingw-w64-x86_64-pkg-config mingw-w64-x86_64-SDL2
 stack exec -- pacman -S mingw-w64-x86_64-SDL2_image mingw-w64-x86_64-SDL2_ttf
 ```
 
--   For all OS.  Build and run the GUIDemo from GUI-SDL2 directory (This file directory).
+-   For all OS.  Build and run the GUIDemo from GUI-SDL2 directory.
 ``` sh
 stack build --flag GUI-SDL2:examples --exec GUIDemo
 ```
-
-- When you first start **GUIDemo**, you will receive a message about which directory you must 
-  to copy **GUI.Resources** directory from GUI-SDL2. Copy to the first of the directories specified in this message and try again `stack exec GUIDemo`. 
 
 # See other examples
 

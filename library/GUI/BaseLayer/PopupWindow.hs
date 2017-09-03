@@ -27,6 +27,7 @@ import GUI.BaseLayer.Widget
 import GUI.BaseLayer.Window
 import qualified GUI.BaseLayer.Primitives as P
 import GUI.BaseLayer.Core
+import System.Utils
 
 -- | Создать всплывающее окно.
 mkPopupWindow :: MonadIO m =>
@@ -38,12 +39,23 @@ mkPopupWindow :: MonadIO m =>
     m Window
 mkPopupWindow widget (SDL.Rectangle (P p) sz) = do
     win <- getWidgetWindow widget
+    windowFlagsAdd win WindowWaitPopup
     gui <- getWindowGui win
     offset <- getWidgetCoordOffset widget
     absPos <- SDL.getWindowAbsolutePosition =<< getSDLWindow win
+    borderOff <- if IsWindows then return $ V2 0 0
+                 else do
+                    (V4 l _r t _b) <- getWinBorders
+--                    liftIO $ putStrLn $ concat ["mkPopupWindow  getWinBorders=", show v4]
+                    return $ V2 l t             
+--    borderOff <- getWindowBordersSize =<< getSDLWindow win 
+--    liftIO $ putStrLn $ concat ["mkPopupWindow p=",show p," offset=", show offset, " absPos=", show absPos
+--          , "  borderOff=", show borderOff
+--          ]  
     newWindow' gui T.empty
-        (WindowRedrawFlag .|. WindowCloseOnLostFocuse .|. WindowPopupFlag .|. WindowCloseOnEsc) $
+        (WindowRedrawFlag .|. WindowCloseOnLostFocuse .|. WindowPopupFlag .|.
+         WindowCloseOnEsc .|. WindowWaitPopupReset) $
         SDL.defaultWindow { SDL.windowInitialSize = P.toSDLV2 sz
                           , SDL.windowBorder = False
-                          , SDL.windowPosition = SDL.Absolute $ P $ P.toSDLV2 (p ^+^ offset) ^+^ absPos
+                          , SDL.windowPosition = SDL.Absolute $ P $ P.toSDLV2 (p ^+^ offset) ^+^ absPos ^+^ borderOff
                           }

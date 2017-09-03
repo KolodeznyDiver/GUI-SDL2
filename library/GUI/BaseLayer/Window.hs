@@ -29,6 +29,7 @@ module GUI.BaseLayer.Window(
     ,pattern WindowNoFlags,pattern WindowRedrawFlag,pattern WindowCloseOnLostFocuse,pattern WindowWaitAlt
     ,pattern WindowPopupFlag,pattern WindowLocked,pattern WindowCloseOnEsc
     ,pattern WindowHaveKeyboardFocus, pattern WindowHaveMouseFocus,pattern WindowClickable
+    ,pattern WindowWaitPopup,pattern WindowWaitPopupReset
     ,removeWindowFlags,getWindowFlags,setWindowFlags,windowFlagsAddRemove,windowFlagsAdd
     ,windowFlagsRemove,allWindowFlags',allWindowFlags,anyWindowFlags
     -- * Логирование и обработка ошибок.
@@ -66,6 +67,8 @@ pattern WindowHaveMouseFocus :: WindowFlags
 pattern WindowClickable :: WindowFlags
 pattern WindowLocked :: WindowFlags
 pattern WindowCloseOnEsc :: WindowFlags
+pattern WindowWaitPopup :: WindowFlags
+pattern WindowWaitPopupReset :: WindowFlags
                                       --  5432109876543210
 pattern WindowNoFlags        =    Flags 0x0000000000000000
 pattern WindowRedrawFlag =        Flags 0x0000000000000001
@@ -77,6 +80,8 @@ pattern WindowHaveMouseFocus =    Flags 0x0000000000000020
 pattern WindowClickable =         Flags 0x0000000000000040
 pattern WindowLocked =            Flags 0x0000000000000080
 pattern WindowCloseOnEsc =        Flags 0x0000000000000100
+pattern WindowWaitPopup  =        Flags 0x0000000000000200
+pattern WindowWaitPopupReset =    Flags 0x0000000000000400
 
 -- | Получить SDL тип окна из окна GUI.
 getSDLWindow:: MonadIO m => Window -> m SDL.Window

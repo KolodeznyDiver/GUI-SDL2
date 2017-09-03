@@ -1,9 +1,9 @@
--- This file has been generated from package.yaml by hpack version 0.14.0.
+-- This file has been generated from package.yaml by hpack version 0.17.1.
 --
 -- see: https://github.com/sol/hpack
 
 name:           GUI-SDL2
-version:        0.1.16
+version:        0.1.17
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -73,6 +73,7 @@ library
   else
     build-depends:
         setlocale
+      , X11
   exposed-modules:
       GUI.BaseLayer.Depend0.Auxiliaries
       GUI.BaseLayer.Depend0.BitFlags
@@ -145,6 +146,7 @@ library
       System.Utils
       System.FileSystem
   other-modules:
+      GUI.BaseLayer.Depend0.SDLWindow
       GUI.BaseLayer.SpecStateWidget
       System.Win32.Utils
       System.X11.Utils

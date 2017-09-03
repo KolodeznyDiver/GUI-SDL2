@@ -142,7 +142,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
     hBar  <- hLinearTrackBar trackBarDef selfWidget skin
     vBar  <- vLinearTrackBar trackBarDef selfWidget skin
 
-    textureArrBtns <- runProxyCanvas parent $ getTexture "ScrollAreaArrBtns.png"
+    textureArrBtns <- runProxyCanvas parent $ getTexture "ArrBtns.png"
     scrollW <- ((`div` 2).xV2) <$> P.getTextureSize textureArrBtns
 --    let scrollW = trackBarWidth skin
     let arrBtnDef =       def{ buttonFormItemDef = def{formItemMargin= Just WidgetMarginNone}
