@@ -10,13 +10,15 @@ This GUI is in the design process now.
     Look **Building** section in https://github.com/haskell-game/sdl2 about install **SDL2**.
     **SDL2_image** and **SDL2_ttf** are installed similarly.
     
-    Install C packages on **Ubuntu 16.04**
+    -- Install C packages on **Ubuntu 16.04**
+    
 ``` sh
 sudo apt install libsdl2-image-dev
 sudo apt install libsdl2-ttf-dev
 ```
 
-    On **Windows 64** you can install C packages use stack's embedded MSYS2.
+    -- For install C packages on **Windows 64** you can use stack's embedded MSYS2.
+    
 ``` bat
 stack exec -- pacman -Syu
 stack exec -- pacman -S mingw-w64-x86_64-pkg-config mingw-w64-x86_64-SDL2
