@@ -3,7 +3,7 @@
 -- Module:      GUI.BaseLayer.Primitives
 -- Copyright:   (c) 2017 KolodeznyDiver
 -- License:     BSD3
--- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
 -- Portability: portable
 --

@@ -6,7 +6,7 @@ description: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is
 synopsis: GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category: GUI SDL2
 license: BSD3
-maintainer: Kolodezny Diver
+maintainer: KolodeznyDiver
 github: KolodeznyDiver/GUI-SDL2
 version: '0.1.17'
 extra-source-files:

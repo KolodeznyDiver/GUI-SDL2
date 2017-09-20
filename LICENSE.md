@@ -1,6 +1,6 @@
 [The 3-Clause BSD License (BSD3)][]
 
-Copyright (c) 2017 Kolodezny Diver
+Copyright (c) 2017 KolodeznyDiver
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
 following conditions are met:

@@ -15,8 +15,8 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-#resolver: lts-9.3
-resolver: lts-8.24
+resolver: lts-9.5
+#resolver: lts-8.24
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -40,15 +40,9 @@ packages:
 #- '../sdl2'
 #- '../sdl2-ttf'
 #- '../sdl2-image'
-#- location:
-#    git: https://github.com/haskell-game/sdl2
-#    commit: 50fd095dcfdf64a8d43f2ac001da06b2665cec00
-#- location:
-#    git: https://github.com/haskell-game/sdl2-ttf
-#    commit: d98b475813e5d58aa0408ccf4f8cf4ea114db982
 - location:
     git: https://github.com/haskell-game/sdl2
-    commit: 100790713e1158cc8b8fcd325d376f4f7eddae62
+    commit: e57ede8119b879e0308bf59006cde5b97adb77c3
 - location:
     git: https://github.com/haskell-game/sdl2-ttf
     commit: 1cf10a568948c9df56f31029dc30f3e9087b4334

@@ -5,7 +5,7 @@
 -- Module:      GUI.Widget.Layout.LinearLayoutUtils
 -- Copyright:   (c) 2017 KolodeznyDiver
 -- License:     BSD3
--- Maintainer:  KolodeznyDiver <kolodeznydiver@gmail.com>
+-- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
 -- Portability: portable
 --
