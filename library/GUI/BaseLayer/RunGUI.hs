@@ -179,7 +179,7 @@ onEvent gui evpl = case evpl of
     -- The window size has changed, either as a result of an API call or through the system or user changing the window size;
     -- this event is followed by WindowResizedEvent if the size was changed by an external event,
     -- i.e. the user or the window manager.
-    SDL.WindowSizeChangedEvent (SDL.WindowSizeChangedEventData _win) -> -- do
+    SDL.WindowSizeChangedEvent (SDL.WindowSizeChangedEventData _win _v2NewSz) -> -- do
 --        putStrLn "WindowSizeChangedEvent"
         return ()
     --

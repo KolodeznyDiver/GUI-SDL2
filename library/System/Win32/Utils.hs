@@ -66,10 +66,10 @@ hideConsole = do
         void $ c_SetWindowLongPtr wConsole GWL_EXSTYLE $ wordPtrToPtr $ fromIntegral
             (wS_EX_TOOLWINDOW .|. fromIntegral es)
 
--- Copypast from "Graphics.Win32.Window".
+{- --- Copypast from "Graphics.Win32.Window".
 findWindowByName :: String -> IO (Maybe HWND)
 findWindowByName wname = withTString wname $ \ c_wname ->
-  liftM ptrToMaybe $ c_FindWindow nullPtr c_wname
+  liftM ptrToMaybe $ c_FindWindow nullPtr c_wname -}
 
 foreign import WINDOWS_CCONV unsafe "Windows.h GetActiveWindow"
     getActiveWindow :: IO HWND
@@ -89,6 +89,8 @@ withRemoveFromTaskbar title f = do
     wParent <- liftIO getActiveWindow
     r <- f
     liftIO $ do
+--        mbW <- findWindow Nothing $ Just title -- в версии пакета Win32 2.8.0.0 можно будет так.
+                                                 -- Пока Win32 не обновлён на stackage.
         mbW <- findWindowByName title
         whenJust mbW $ \ w ->
             void $ c_SetWindowLongPtr w GWLP_HWNDPARENT $ castPtr wParent

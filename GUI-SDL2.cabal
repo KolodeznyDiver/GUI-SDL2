@@ -1,9 +1,11 @@
--- This file has been generated from package.yaml by hpack version 0.17.1.
+-- This file has been generated from package.yaml by hpack version 0.28.2.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: 6c67c1565d8ed062fe556dd27b1e6837b383fb6eaf3ba3e6e37324087f808181
 
 name:           GUI-SDL2
-version:        0.1.17
+version:        0.1.18
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -13,7 +15,6 @@ maintainer:     KolodeznyDiver
 license:        BSD3
 build-type:     Simple
 cabal-version:  >= 1.10
-
 extra-source-files:
     CHANGELOG.md
     GUI.Resources/check.png
@@ -44,36 +45,36 @@ library
       SDL2_ttf
       SDL2_image
   build-depends:
-      base
-    , template-haskell
-    , extra
+      StateVar
+    , base
     , bytestring
-    , safe-exceptions
+    , containers
+    , data-default
+    , directory
+    , extra
+    , filepath
     , linear
-    , StateVar
+    , monadplus
+    , primitive
+    , safe-exceptions
+    , sdl2
+    , sdl2-image
+    , sdl2-ttf
+    , template-haskell
     , text
+    , text-show
+    , time
     , transformers
+    , unordered-containers
     , vector
     , vector-algorithms
-    , primitive
-    , containers
-    , unordered-containers
-    , data-default
-    , time
-    , text-show
-    , filepath
-    , directory
-    , monadplus
-    , sdl2
-    , sdl2-ttf
-    , sdl2-image
   if os(windows)
     build-depends:
         Win32
   else
     build-depends:
-        setlocale
-      , X11
+        X11
+      , setlocale
   exposed-modules:
       GUI.BaseLayer.Depend0.Auxiliaries
       GUI.BaseLayer.Depend0.BitFlags
@@ -160,22 +161,24 @@ executable GUIDemo
   if flag(examples)
     ghc-options: -Wall -Wname-shadowing -fwarn-tabs -Wno-unused-imports -Werror -rtsopts -threaded -with-rtsopts=-N
     build-depends:
-        base
-      , GUI-SDL2
+        GUI-SDL2
+      , base
       , bytestring
-      , safe-exceptions
+      , data-default
+      , directory
+      , extra
       , linear
+      , safe-exceptions
+      , sdl2
+      , sdl2-image
+      , sdl2-ttf
+      , stm
       , text
+      , text-show
       , transformers
       , vector
-      , sdl2
-      , sdl2-ttf
-      , sdl2-image
-      , stm
-      , extra
-      , data-default
-      , text-show
-      , directory
   else
     buildable: False
+  other-modules:
+      Paths_GUI_SDL2
   default-language: Haskell2010
