@@ -5,7 +5,7 @@
 
 -- |
 -- Module:      GUI.Widget.Types
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -35,9 +35,9 @@ import Data.Default
 import SDL.Vect
 import GUI.BaseLayer.Depend0.Types
 
-pattern MinInsideSpaceX :: Coord -- Минимальные расстояния между элементами внутри оснвных виджетов
+pattern MinInsideSpaceX :: Coord -- Минимальные расстояния между элементами внутри основных виджетов
 pattern MinInsideSpaceX = 5
-pattern MinInsideSpaceY :: Coord -- Минимальные расстояния между элементами внутри оснвных виджетов
+pattern MinInsideSpaceY :: Coord -- Минимальные расстояния между элементами внутри основных виджетов
 pattern MinInsideSpaceY = 3
 
 pattern KbdClickSpecPoint :: GuiPoint

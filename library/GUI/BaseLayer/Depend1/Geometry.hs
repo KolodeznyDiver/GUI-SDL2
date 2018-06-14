@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 -- |
 -- Module:      GUI.BaseLayer.Depend1.Geometry
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -14,7 +14,7 @@ module GUI.BaseLayer.Depend1.Geometry(
     xV2,yV2,sizeReplaceIfNoPositive,sizeRestoreNegative,moveSegmentIntoSegment
     -- * Прямоугольник.
     ,getRectLT,getRectLB,getRectRT,getRectRB,rectCenter,sizeOfRect,isEmptyRect,isInRect
-    ,rectIntersection,moveRect,moveRectTo,rectMove,moveRectIntoRect,shrinkRect,shrinkRect'
+    ,rectIntersection,moveRect,moveRectTo,rectMove,moveRectIntoRect,shrinkRect,shrinkRect',shrinkRectNoLim
     ,rectFromCenterAndSz,rectToBriefStr
     -- * Выравнивание.
     ,Alignment(..),VAlign(..),HAlign(..)
@@ -156,6 +156,13 @@ shrinkRect (V2 dx dy) (SDL.Rectangle (P (V2 x0 y0)) (V2 w h)) =
 shrinkRect' :: (Ord a, Num a) => a -> SDL.Rectangle a -> SDL.Rectangle a
 shrinkRect' dt = shrinkRect (V2 dt dt)
 {-# INLINE shrinkRect' #-}
+
+-- | Уменьшить прямоугольник на указанные значения по координатам сохраняя его центр неизменным.
+-- Если значения отрицательные - прямоугольник увеличивается.
+-- Размеры не контролируются и могут быть любыми.
+shrinkRectNoLim :: (Ord a, Num a) => V2 a -> SDL.Rectangle a -> SDL.Rectangle a
+shrinkRectNoLim (V2 dx dy) (SDL.Rectangle (P (V2 x0 y0)) (V2 w h)) =
+    SDL.Rectangle (P (V2 (x0+dx) (y0+dy))) (V2 (w-2*dx) (h-2*dy))
 
 -- | Отладочная функция преобразования координат прямоугольника в строку в сокращённом виде по сравнению с
 -- @show@ для 'SDL.Rectangle'.

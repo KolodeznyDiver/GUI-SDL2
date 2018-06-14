@@ -6,7 +6,7 @@
 
 -- |
 -- Module:      GUI.Widget.Container.Border
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -46,7 +46,7 @@ data BorderBackground = BorderTransparent -- ^ Прозрачный.
                       | BorderBkColor GuiColor -- ^ Свой цвет.
                       deriving Eq
 
--- | Тип рпедставления.
+-- | Тип представления  border-а.
 data BorderType = BorderMono  -- ^ Просто прямоуольник равномерно заполненный цветом.
                 | BorderRect  -- ^ Тонкая рамка (в 1 пиксель).
                 -- | Рамка с закруглёнными краями.
@@ -114,15 +114,20 @@ border BorderDef{..} parent skin = do
         frgrndColor = fromMaybe (formBorderColor skin) borderFgColor
         isTransp = borderBkgrnd==BorderTransparent
         fns = overlapsChildrenFns borderSize
-    mbFnt <- if not $ T.null borderCaption
-             then Just <$> runProxyCanvas parent (getFont borderFontKey) else return Nothing
+    (mbFnt,topSpacing) <-
+        if not $ T.null borderCaption then runProxyCanvas parent $ do
+            fnt <- getFont borderFontKey
+            V2 _ captionH <- getTextSize fnt borderCaption
+            return (Just fnt,max borderThickness captionH)
+        else return (Nothing,borderThickness)
+    let shrinkByBorder = rectShrinkByMargin (MarginLTRB borderThickness topSpacing borderThickness borderThickness)
     mkWidget borderFlags
             (fromMaybe (formItemsMargin skin) $ formItemMargin borderFormItemDef)
             (BorderData borderOnlyOneChild) parent fns{
         onDraw= \widget -> do
             r@(SDL.Rectangle (P (V2 x0 y0)) (V2 w h)) <- getVisibleRect widget
             let bkFill = unless isTransp (setColor bkgrndColor >> fillRect r)
-                r' | isJust mbFnt = let dy = borderThickness `div` 2 in SDL.Rectangle (P (V2 x0 (y0+dy))) (V2 w (h-dy))
+                r' | isJust mbFnt = let dy = topSpacing `div` 2 in SDL.Rectangle (P (V2 x0 (y0+dy))) (V2 w (h-dy))
                    | otherwise = r
                 lightClr = fromMaybe (brdr3DLightColor $ brdr3DColors skin)
             case borderType of
@@ -153,12 +158,13 @@ border BorderDef{..} parent skin = do
                 widgetResizingIfChanged child $ SDL.Rectangle zero newSz
                 maxSz <- foldByWidgetChildren' (\sz widg -> ((\x -> max <$> sz <*> x) . sizeOfRect) <$>
                             getWidgetRectWithMargin widg) zero widget
-                resizeWidgetWithCanvas widget $ (let x = borderThickness*2 in V2 x x) ^+^ maxSz
+                resizeWidgetWithCanvas widget $ (V2 (borderThickness*2) (topSpacing+borderThickness)) ^+^ maxSz
             else onSizeChangedParentNotify fns widget child newSz
         ,onResizing= \widget newRect -> do
                 r <- extendableOnResizing borderSize widget newRect
                 unless borderSizeByChild $ do
-                    let r' = shrinkRect' borderThickness (SDL.Rectangle zero (sizeOfRect r))
+                    let r' = -- shrinkRect' borderThickness
+                            shrinkByBorder (SDL.Rectangle zero (sizeOfRect r))
                     mapByWidgetChildren_ (\c -> do {fs <- getWidgetFns c; onResizing fs c r'}) widget
                                 }
 

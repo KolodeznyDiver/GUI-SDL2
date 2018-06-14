@@ -2,7 +2,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Module:      GUI.Utils.ViewableItems
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -36,7 +36,7 @@ pattern PaddingX = 5
 pattern PaddingY :: Coord
 pattern PaddingY = 3
 
--- | Контейнер с произвольной отрисовкой элементов в, предположительно прямоугольных областях.
+-- | Контейнер с произвольной отрисовкой элементов в, предположительно, прямоугольных областях.
 class ViewableItems a p | a -> p where
     -- | Вызывается перед использованием, при создании виджета, через @runProxyCanvas@.
     viewablePrepare :: MonadIO m =>

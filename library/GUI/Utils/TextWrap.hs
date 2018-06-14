@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 -- |
 -- Module:      GUI.Utils.TextWrap
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -18,7 +18,8 @@ module GUI.Utils.TextWrap(
     -- * 'PreparedText'.
     -- Тип включает в себя 'PreparedWrapText', ссылку на использованный шрифт и исходные параметры
     -- подкготовки шрифта. Более громоздок но более универсален.
-    ,TextWrapMode(..),DrawTextDef(..),PreparedText(..),prepareTextGui,prepareText,drawPreparedText
+    ,TextWrapMode(..),DrawTextDef(..),PreparedText(..)
+    ,prepareText',prepareTextGui,prepareText,drawPreparedText
                         ) where
 
 import Control.Monad.IO.Class
@@ -38,18 +39,18 @@ import GUI.Utils.Wrap
 
 -- | Разобранный для отрисовки (возможно) на нескольких строках текст.
 data PreparedWrapText = PreparedWrapText
-        -- | Текст разбитый не непробельные последовательности символов (фрагменты).
+        -- | Текст разбитый на не непробельные последовательности символов (фрагменты).
         (V.Vector T.Text)
         -- | Координаты левых верхних точек отрисовки фрагментов.
         -- Для отрисовки достаточно первых двух полей.
         (VU.Vector GuiPoint)
         -- | Левая граница текста. Вначале (до выравнивания) равна 0. Потом увеличивается вместе с координатами всех точек.
         Coord
-        -- | Высота всего текста. По вектору координт точно рассчитать нельзя, нуже ещё междустрочный интервал.
+        -- | Высота всего текста. По вектору координат точно рассчитать нельзя, нужен ещё междустрочный интервал.
         Coord
         deriving (Show, Eq)
 
--- | Строит разобранный для отрисовки (возможно) на нескольких строках текст, который можно отрисовать
+-- | Строит разобранный для отрисовки (возможно на нескольких строках) текст, который можно отрисовать
 -- с помощью @drawSplitPreparedText@.
 prepareWrapText :: MonadIO m =>
     -- | Выравнивания. 'HAlign' используется уже в @rowWrapping@ Для каждой строки.
@@ -169,8 +170,7 @@ textWrapModeToMbBkColor TextWrap{textAreaLineSpacing=s} skin c
 data TextWrapMode =
         -- | Без переноса строк
         TextNoWrap {
-            -- | До скольки можно увеличить ширину заданного первоначально прямоугольника
-            -- (не в этом типе).
+            -- | До скольки можно увеличить ширину заданного первоначально не в этом типе) прямоугольника.
             textAreaMaxWidth :: Coord
                    } |
         -- | С переносом строк
@@ -185,7 +185,7 @@ data TextWrapMode =
 instance Default TextWrapMode where
     def = TextNoWrap 0
 
--- | Подробное описание текста со способ вывода текста. И с переносом на другие строки, и без.
+-- | Подробное описание текста со способом вывода текста. И с переносом на другие строки, и без.
 data DrawTextDef = DrawTextDef  {
     -- | Прямоугольник в котором выполняется выравнивание текста. Может расширяться до указанных пределов если
     -- они заданы в 'TextWrapMode'.
@@ -215,12 +215,9 @@ data PreparedText = PreparedText    {
                                     }
                                     deriving (Show)
 
--- | Препарировать текст.
-prepareTextGui :: MonadIO m => Gui -> DrawTextDef -> m PreparedText
-prepareTextGui gui d@DrawTextDef{..} = do
-    skin <- guiGetSkin gui
-    rm <- guiGetResourceManager gui
-    fnt <- rmGetFont rm drawTextFontKey
+-- | Препарировать текст используя 'Skin' и 'Font'. Поле 'drawTextFontKey' в 'DrawTextDef' не исп-ся.
+prepareText' :: MonadIO m => Skin -> Font -> DrawTextDef -> m PreparedText
+prepareText' skin fnt d@DrawTextDef{..} = do
     let (SDL.Rectangle p' (V2 w' h')) = drawTextRect
     case drawTextWrap of
       TextNoWrap{..} -> do
@@ -239,6 +236,14 @@ prepareTextGui gui d@DrawTextDef{..} = do
             (fromMaybe (formTextLineSpacing skin) textAreaLineSpacing) fnt drawTextText
         let h2 = if (prepH > h') && (textAreaMaxHeight > 0) then min prepH textAreaMaxHeight else h'
         return $ PreparedText t d{drawTextRect=SDL.Rectangle p' (V2 w' h2)} fnt
+
+-- | Препарировать текст используя 'Gui'.
+prepareTextGui :: MonadIO m => Gui -> DrawTextDef -> m PreparedText
+prepareTextGui gui d@DrawTextDef{..} = do
+    skin <- guiGetSkin gui
+    rm <- guiGetResourceManager gui
+    fnt <- rmGetFont rm drawTextFontKey
+    prepareText' skin fnt d
 
 -- | Препарировать текст используя текущий виджет (виджет нужен только для получения шрифта и 'Skin').
 prepareText :: MonadIO m => Widget -> DrawTextDef -> m PreparedText

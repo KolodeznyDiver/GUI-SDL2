@@ -6,7 +6,7 @@
 
 -- |
 -- Module:      GUI.BaseLayer.Widget
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -711,12 +711,14 @@ mouseToWidget rfWin pnt = do
         _ -> forMain
 {-# INLINEABLE mouseToWidget #-}
 
---------------------- ** Обработка прерываний.
+--------------------- ** Журналирование.
 
 logPutLnWidget  :: MonadIO m => Widget -> -- ^ Ссылка на виджет.
                                 TS.Builder -> -- ^ Логируемый текст.
                                 m ()
 logPutLnWidget widget t = (`L.logPutLn` t) =<< guiGetLog =<< getWindowGui =<< getWidgetWindow widget
+
+--------------------- ** Обработка прерываний.
 
 -- | Перехват и логирование прерываний в контексте виджета.
 logOnErrInWidget' :: MonadIO m => Widget -> -- ^ Ссылка на виджет.

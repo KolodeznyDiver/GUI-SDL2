@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module:      GUI.Widget.Button
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -116,11 +116,12 @@ textureButton :: MonadIO m =>
                  Skin -> -- ^ Skin.
                  m (GuiWidget TextureButtonData)
 textureButton TextureButtonDef{..} parent skin = do
-    MouseAnimatedClickableHndlr
+    MouseAnimatedClickableHelper
             { mouseAnimatedClickableMouseState = mouseState
             , mouseAnimatedClickableAction = onCLick'
             , mouseAnimatedClickableFs = fns
-            } <- noChildrenClickableHndlr buttonSize (\_ _ _ -> return ())
+            } <- mouseAnimatedClickableHelper buttonSize (\_ -> return ())
+                        (\_ _ -> return True)
     rowRf <- newMonadIORef buttonInitPictRow
     mkWidget buttonFlags
             (fromMaybe (formItemsMargin skin) $ formItemMargin buttonFormItemDef)
@@ -203,7 +204,7 @@ pictureButton PictureButtonDef{..} parent skin = do
 
 -- | Параметры настройки кнопки без анимации. Она, впрочем, тоже отзовётся на щелчок,
 -- но внешне это не отразится. Предполагается использовать как картики на форме.
--- Програмно менять ряд отображения, т.е. отображаемую часть картики так же можно
+-- Програмно менять ряд отображения, т.е. отображаемую часть картики, так же можно
 data PictureWidgetDef = PictureWidgetDef {
       pictFormItemDef  :: FormItemWidgetDef -- ^ Общие настройки для всех виджетов для форм
                                             -- в настоящий момент только margin's.
@@ -392,12 +393,13 @@ button ButtonDef{..} parent skin = do
                 maxW = max lw textureW
             let texturePos = P (V2 (MinInsideSpaceX  + (maxW - textureW) `div` 2) ({-2*-}MinInsideSpaceY + lh))
             return (V2 (maxW + 2*MinInsideSpaceX) ({-3-}2*MinInsideSpaceY + lh + textureH),Just (texture,texturePos),p)
-    MouseAnimatedClickableHndlr
+    MouseAnimatedClickableHelper
                 { mouseAnimatedClickableMouseState = mouseState
                 , mouseAnimatedClickableAction = onCLick'
                 , mouseAnimatedClickableFs = fns
-                } <- noChildrenClickableHndlr inSize
-                        (\widget pressed _ -> when pressed $ setWidgetFocus widget)
+                } <- mouseAnimatedClickableHelper inSize
+                        (\widget -> setWidgetFocus widget)
+                        (\_ _ -> return True)
     mkWidget btnFlags
             (fromMaybe (formItemsMargin skin) $ formItemMargin btnFormItemDef)
             (ButtonData onCLick') parent fns{

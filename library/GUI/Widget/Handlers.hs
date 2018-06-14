@@ -1,9 +1,10 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE MultiWayIf #-}
 
 -- |
 -- Module:      GUI.Widget.Handlers
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -14,16 +15,21 @@
 
 module GUI.Widget.Handlers(
     noChildrenFns,colorRectFns,grayRectFns
-    ,MouseAnimatedHndlr(..),MouseAnimatedClickableHndlr(..)
-    ,noChildrenClickableHndlr,noChildrenMouseAnimatedHndlr
+    ,OnClickHandler,OnClickOneArgHandler,AcceptPointHandler
+    ,ClickableHelper'(..),ClickableHelper(..)
+    ,clickableHelper',clickableHelper
+    ,MouseAnimatedClickableHelper'(..),MouseAnimatedClickableHelper(..)
+    ,mouseAnimatedClickableHelper',mouseAnimatedClickableHelper
         ) where
 
 import Control.Monad.IO.Class
 import Control.Monad
 import Data.IORef
+import Control.Monad.Extra
 import Data.Default
 import qualified SDL
 import GUI
+--import GUI.Widget.Types
 
 -- | Набор обработчиков базового виджета, годится для большинства виджетов
 -- не имеющих дочерних виджетов.
@@ -45,43 +51,122 @@ grayRectFns:: GuiSize -> ColorComponent -> WidgetFunctions
 grayRectFns sz = colorRectFns sz . grayColor
 {-# INLINE grayRectFns #-}
 
--- | Запись, которая пригодится для виджета отслеживающего и анимирующего своё положение
--- в зависимости от положения мыши. Она генерируется @noChildrenMouseAnimatedHndlr@.
-data MouseAnimatedHndlr = MouseAnimatedHndlr {
-      -- | Состояние мыши относительно виджета. См. "GUI.Widget.Types".
-      mouseAnimatedMouseState :: IORef WidgetMouseState
+type OnClickHandler = forall m. MonadIO m => Widget -> Bool -> GuiPoint -> m ()
+
+type OnClickOneArgHandler = forall m. MonadIO m => Widget -> m ()
+
+type AcceptPointHandler = forall m. MonadIO m => Widget -> GuiPoint -> m Bool
+
+
+-- | Запись, которая пригодится для виджета который можно "кликать" указателем мыши или
+-- по клавишам Enter и пробел когда виджет в фокусе.
+-- Она генерируется @сlickableHandler@.
+newtype ClickableHelper' = ClickableHelper' {
       -- | Событие, которое отреагирует и на нажатие и на отпускание мыши.
-    , mouseAnimatedOnClick :: forall m. MonadIO m => Widget -> Bool -> GuiPoint -> m ()
+      -- А так же на Enter или пробел если виджет в фокусе.
+--     clickableOnClick' :: OnClickHandler -- forall m. MonadIO m => Widget -> Bool -> GuiPoint -> m ()
       -- | Функции - обработчики событий базового виджета которые предлагается использовать.
       -- Никто не мешает их далее модифицировать.
-    , mouseAnimatedFs :: WidgetFunctions
-        }
+     clickableFs' :: WidgetFunctions
+                                         }
+-- | Функция, создающая 'ClickableHelper\'' из которого просто делается виджет без потомков
+-- реагирующий на "клик" мышью или клавиши Enter/пробел.
+clickableHelper' :: forall m. MonadIO m =>
+        GuiSize -> -- ^ Размеры виджета без полей.
+        OnClickHandler -> -- ^ Обработчик клика.
+        AcceptPointHandler -> -- ^ Предикат разрешающий кликнуть мышью
+        m ClickableHelper'
+clickableHelper' sz onClickAction isClickablePredicate =
+    return (ClickableHelper' (noChildrenFns sz){
+        onKeyboard = \widget motion _repeated keycode km ->
+                        let shiftCtrlAlt = getShftCtrlAlt km in
+                        when (shiftCtrlAlt == ShiftCtrlAlt False False False &&
+                           (motion==SDL.Pressed) &&
+                           (isEnterKey keycode || keycode == SDL.KeycodeSpace)) $ -- do
+{-                                sDbg <- widgetCoordsToStr widget
+                                ms <- readMonadIORef mouseState
+                                liftIO $ putStrLn $ concat ["ClickableFns.onKeyboard ",
+                                    show (motion==SDL.Pressed), "    ", sDbg, "   ", show ms] -}
+                                onClickAction widget True KbdClickSpecPoint
+{-                                ms2 <- readMonadIORef mouseState
+                                liftIO $ putStrLn $ concat ["ClickableFns.onKeyboard after ",
+                                     show ms2] -}
+        ,onMouseButton = \widget motion mouseButton _clicks pnt ->
+            when (mouseButton == SDL.ButtonLeft) $
+                whenM (allWidgetFlags widget WidgetEnable) $
+                    whenM (isClickablePredicate widget pnt) $
+                        onClickAction widget (motion==SDL.Pressed) pnt
+                               })
 
--- | Функция, создающая 'MouseAnimatedHndlr' из которого просто делается виджет без потомков.
+
+-- | Запись, которая пригодится для виджета который можно "кликать" указателем мыши или
+-- по клавишам Enter и пробел когда виджет в фокусе.
+-- Она генерируется @сlickableHandler@.
+data ClickableHelper = ClickableHelper {
+      -- | Событие, которое отреагирует и на нажатие и на отпускание мыши.
+      -- А так же на Enter или пробел если виджет в фокусе.
+      clickableOnClick :: IORef NoArgAction
+      -- | Функции - обработчики событий базового виджета которые предлагается использовать.
+      -- Никто не мешает их далее модифицировать.
+     ,clickableFs :: WidgetFunctions
+                                         }
+-- | Функция, создающая 'ClickableHelper' из которого просто делается виджет без потомков
+-- реагирующий на "клик" мышью или клавиши Enter/пробел.
+-- Например, "GUI.Widget.CheckBox".
+-- От @clickableHelper'@ отличается типом обработчика клика.
+clickableHelper :: forall m. MonadIO m =>
+        GuiSize -> -- ^ Размеры виджета без полей.
+        OnClickOneArgHandler -> -- ^ Обработчик клика.
+        AcceptPointHandler -> -- ^ Предикат разрешающий кликнуть мышью
+        m ClickableHelper
+clickableHelper sz onClickAction isClickablePredicate = do
+    onCLick' <- newMonadIORef $ NoArgAction $ return ()
+    let onClickAction' widget pressed _pnt = when pressed $ do
+            markWidgetForRedraw widget
+            join $ noArgAction <$> readMonadIORef onCLick'
+            onClickAction widget
+    ClickableHelper'{..} <- clickableHelper' sz onClickAction' isClickablePredicate
+    return (ClickableHelper onCLick' clickableFs')
+
+
+-- | Запись, которая пригодится для виджета отслеживающего и анимирующего своё положение
+-- в зависимости от положения мыши и кнопки Enter, когда виджет в фокусе.
+-- Она генерируется @mouseAnimatedClickableHelper'@.
+data MouseAnimatedClickableHelper' = MouseAnimatedClickableHelper' {
+      -- | Состояние мыши относительно виджета. См. "GUI.Widget.Types".
+      mouseAnimatedClickableMouseState' :: IORef WidgetMouseState
+      -- | Функции - обработчики событий базового виджета которые предлагается использовать.
+      -- Никто не мешает их далее модифицировать.
+    , mouseAnimatedClickableFs' :: WidgetFunctions
+                                                               }
+
+-- | Функция, создающая 'MouseAnimatedHelper' из которого просто делается виджет без потомков.
 -- Например, "GUI.Widget.TH.LinearTrackBar".
-noChildrenMouseAnimatedHndlr :: forall m. MonadIO m => GuiSize ->
-        (forall n. MonadIO n => Widget -> Bool -> GuiPoint -> n ()) -> m MouseAnimatedHndlr
-noChildrenMouseAnimatedHndlr sz onClickAction = do
+mouseAnimatedClickableHelper' :: forall m. MonadIO m =>
+        GuiSize -> -- ^ Размеры виджета без полей.
+        OnClickHandler -> -- ^ Обработчик клика.
+        AcceptPointHandler -> -- ^ Предикат разрешающий кликнуть мышью
+        m MouseAnimatedClickableHelper'
+mouseAnimatedClickableHelper' sz onClickAction isClickablePredicate = do
     mouseState <- newMonadIORef WidgetMouseOut
-    let clickHandler widget pressed pnt = do
+    let onClickAction' widget pressed pnt = do
                 writeMonadIORef mouseState $ if | pressed -> WidgetMousePressed
                                                 | pnt == KbdClickSpecPoint -> WidgetMouseOut
                                                 | otherwise -> WidgetMouseIn
                 markWidgetForRedraw widget
                 onClickAction widget pressed pnt
-    return (MouseAnimatedHndlr mouseState clickHandler (noChildrenFns sz){
-        onGainedMouseFocus = \widget _ {--pnt-} ->
+    ClickableHelper'{..} <- clickableHelper' sz onClickAction' isClickablePredicate
+    return (MouseAnimatedClickableHelper' mouseState clickableFs'{
+        onGainedMouseFocus = \widget _pnt ->
             writeMonadIORef mouseState WidgetMouseIn >> markWidgetForRedraw widget
-        ,onLostMouseFocus = \widget -> writeMonadIORef mouseState WidgetMouseOut >> markWidgetForRedraw widget
-        ,onMouseButton = \widget motion mouseButton _ {-clicks -} pnt -> do
-            ena <- allWidgetFlags widget WidgetEnable
-            when (ena && (mouseButton == SDL.ButtonLeft)) $ clickHandler widget (motion==SDL.Pressed) pnt
+        ,onLostMouseFocus = \widget ->
+            writeMonadIORef mouseState WidgetMouseOut >> markWidgetForRedraw widget
                                })
 
 -- | Запись, которая пригодится для виджета отслеживающего и анимирующего своё положение
 -- в зависимости от положения мыши и кнопки Enter, когда виджет в фокусе.
--- Она генерируется @noChildrenClickableHndlr@.
-data MouseAnimatedClickableHndlr = MouseAnimatedClickableHndlr {
+-- Она генерируется @mouseAnimatedClickableHelper@.
+data MouseAnimatedClickableHelper = MouseAnimatedClickableHelper {
       -- | Состояние мыши относительно виджета. См. "GUI.Widget.Types".
       mouseAnimatedClickableMouseState :: IORef WidgetMouseState
       -- | Событие, которое отреагирует на нажатие мыши и кнопки Enter если виджет будет в фокусе.
@@ -91,32 +176,20 @@ data MouseAnimatedClickableHndlr = MouseAnimatedClickableHndlr {
     , mouseAnimatedClickableFs :: WidgetFunctions
                                                                }
 
--- | Функция, создающая 'MouseAnimatedClickableHndlr' из которого просто делается виджет без потомков.
+-- | Функция, создающая 'MouseAnimatedClickableHelper' из которого просто делается виджет без потомков.
 -- Например, @GUI.Widget.Button.button@.
-noChildrenClickableHndlr :: forall m. MonadIO m => GuiSize ->
-        (forall n. MonadIO n => Widget -> Bool -> GuiPoint -> n ()) ->
-        m MouseAnimatedClickableHndlr
-noChildrenClickableHndlr sz onClickAction = do
+mouseAnimatedClickableHelper :: forall m. MonadIO m =>
+        GuiSize -> -- ^ Размеры виджета без полей.
+        OnClickOneArgHandler -> -- ^ Обработчик клика.
+        AcceptPointHandler -> -- ^ Предикат разрешающий кликнуть мышью
+        m MouseAnimatedClickableHelper
+mouseAnimatedClickableHelper sz onClickAction isClickablePredicate = do
     onCLick' <- newMonadIORef $ NoArgAction $ return ()
-    let onClickAction' w b p = when b (join $ noArgAction <$> readMonadIORef onCLick') >>
-                                                   onClickAction w b p
-    MouseAnimatedHndlr{ mouseAnimatedMouseState = mouseState
-                       , mouseAnimatedOnClick = clickHandler
-                       , mouseAnimatedFs = fns }
-                 <- noChildrenMouseAnimatedHndlr sz onClickAction'
-    return (MouseAnimatedClickableHndlr mouseState onCLick' fns{
-        onKeyboard = \widget motion _repeated keycode km ->
-                        let shiftCtrlAlt = getShftCtrlAlt km in
-                        when (shiftCtrlAlt == ShiftCtrlAlt False False False &&
-                           (isEnterKey keycode || keycode== SDL.KeycodeSpace)) $ -- do
-{-                                sDbg <- widgetCoordsToStr widget
-                                ms <- readMonadIORef mouseState
-                                liftIO $ putStrLn $ concat ["ClickableFns.onKeyboard ",
-                                    show (motion==SDL.Pressed), "    ", sDbg, "   ", show ms] -}
-                                clickHandler widget (motion==SDL.Pressed) KbdClickSpecPoint
-{-                                ms2 <- readMonadIORef mouseState
-                                liftIO $ putStrLn $ concat ["ClickableFns.onKeyboard after ",
-                                     show ms2] -}
-                                    })
+    let onClickAction' widget b _p = when b ((join $ noArgAction <$> readMonadIORef onCLick')
+                                        >> onClickAction widget {- b p -})
+    MouseAnimatedClickableHelper'{ mouseAnimatedClickableMouseState' = mouseState
+                                 , mouseAnimatedClickableFs' = fns }
+                 <- mouseAnimatedClickableHelper' sz onClickAction' isClickablePredicate
+    return (MouseAnimatedClickableHelper mouseState onCLick' fns)
 
 

@@ -3,7 +3,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 -- |
 -- Module:      GUI.Widget.TH.LinearTrackBar
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -115,11 +115,12 @@ mkLinearTrackBarQ direction = do
                     setSliderTraceState = writeMonadIORef rfSliderTraceState
                     resetSliderTrace :: MonadIO $m => $m ()
                     resetSliderTrace = setSliderTraceState sliderNoTracing
-                MouseAnimatedHndlr
-                        { mouseAnimatedMouseState = mouseState
-                        , mouseAnimatedFs = fs
-                        } <- noChildrenMouseAnimatedHndlr ( $parallelMkV2 linearTrackBarLn (trackBarWidth $skin))
-                                        (\_ _ _ -> return () )
+                MouseAnimatedClickableHelper'
+                        { mouseAnimatedClickableMouseState' = mouseState
+                        , mouseAnimatedClickableFs' = fs
+                        } <- mouseAnimatedClickableHelper'
+                            ( $parallelMkV2 linearTrackBarLn (trackBarWidth $skin))
+                            (\_ _ _ -> return () ) {- $ OneArgPredicate -} (\_ _ -> return True )
                 mkWidget linearTrackBarFlags linearTrackBarMargin (LinearTrackBarData dataRf) $parent $ fs{
                     onMouseMotion = \widget btnsLst p _ {-relMv-} ->
                         when (SDL.ButtonLeft `elem` btnsLst) $ setValByMouse widget p

@@ -4,7 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 -- |
 -- Module:      Main
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -74,6 +74,7 @@ import GUI.Window.LoadSaveDialog
 import GUI.Widget.HorizontalTabbeds
 import GUI.Widget.HorizontalItems (NeighborSwap(..))
 import GUI.Widget.Container.TabbedPanel
+import GUI.Widget.CheckBox
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -469,8 +470,8 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     setNeighborSwap ht $ \i v -> return $ V.swapNeighb i v
 #elif EXAMPLE_NUM == 16
     vL <- win $+ vLayout def
-    lb <- vL $+ label def{labelSize=V2 350 50
-                 , labelText="Здесь будет отображаться информация о событиях"}
+    lb <- vL $+ label def{ labelSize=V2 350 50
+                         , labelText="Здесь будет отображаться информация о событиях"}
     tp <- vL $+ tabbedPanel def{tabPanelPermutable = True}
     let mkTab s = do
             vLTabbed <- tabbedPanelAppend tp def{tabItemCaption=s} $ vLayout def
@@ -481,6 +482,23 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     mapM_ mkTab $ T.words "Пример панели с закладками которые можно менять местами перетаскивая"
     setIx tp 0
     onMove tp (setText lb . TS.toText . showb)
+#elif EXAMPLE_NUM == 17
+    hL <- win $+ hLayout def
+    brdr <- hL $+ border def  { borderSize = V2 250 (-1), borderType = BorderRect
+                              , borderCaption = "checkBox\'s"
+                              }
+    vbL <- brdr $+ vLayout def  { layoutAlignment= AlignLeftTop }
+    cbs <- mapM (\t -> vbL $+ checkBox def{ checkBoxSize = V2 200 20
+                                          , checkBoxFormItemDef=def{formItemMargin=Just $ WidgetMarginXY 15 0}
+                                          , checkBoxTextWrapMode = TextWrap 100 Nothing
+                                          , checkBoxText = t})
+            ["Это widget checkBox с именем chkb0","Другой checkBox"
+            ,"И ещё один checkBox с самым длинным текстом на три строки"
+            ,"Последний checkBox"]
+    btn1 <- hL $+ button def{btnSize = V2 100 60, btnTextWrapMode = TextWrap 0 Nothing
+                , btnText = "Переключить chkb0"  }
+    let chkb0 = head cbs
+    onClick btn1 $ getValue chkb0 >>=  setValue chkb0 . not
 #else
     #error EXAMPLE_NUM is out of range
 #endif

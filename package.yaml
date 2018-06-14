@@ -96,6 +96,7 @@ library:
   - GUI.Utils.TextWrap
   - GUI.Utils.Wrap
   - GUI.Utils.ViewableItems
+  - GUI.Utils.TandTItem
   - GUI.Widget.Container.Border
   - GUI.Widget.Container.ScrollArea
   - GUI.Widget.Container.TabbedPanel
@@ -118,6 +119,7 @@ library:
   - GUI.Widget.ListView
   - GUI.Widget.Splitter
   - GUI.Widget.EditBox
+  - GUI.Widget.CheckBox
   - GUI.Widget.TH
   - GUI.Widget.Types
   - GUI.Window.LoadSaveDialog

@@ -1,6 +1,6 @@
 -- |
 -- Module:      GUI.BaseLayer.Canvas
--- Copyright:   (c) 2017 KolodeznyDiver
+-- Copyright:   (c) 2017-2018 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
@@ -22,7 +22,7 @@ module GUI.BaseLayer.Canvas(
     -- * Основные настройки режима рисования
     ,setColor,withColor,setBlendMode,withBlendMode,withClipRect
     -- * Рисование графических примитивов.
-    ,drawPoint,drawPoints,drawLine,drawLines,drawRect,drawRects,fillRect,fillRects
+    ,drawPoint,drawPoints,drawLine,drawLines,drawRectWithDiagonals,drawRect,drawRects,fillRect,fillRects
     -- * Текстуры.
     ,getTextureSize
     -- ** Рисование произвольных текстур.
@@ -175,12 +175,16 @@ drawRect :: MonadIO m => GuiRect -> Canvas m ()
 drawRect r = do{ c <- ask; lift $ SDL.drawRect (canvasRenderer c) $ Just $ toSDLRect c r}
 {-# INLINE drawRect #-}
 
+-- | Нарисовать незакрашенный прямоугольник с диагоналями.
+drawRectWithDiagonals :: MonadIO m => GuiRect -> Canvas m ()
+drawRectWithDiagonals r = do{ drawRect r; drawLine (getRectLT r) (getRectRB r); drawLine (getRectLB r) (getRectRT r)}
+
 -- | Нарисовать несколько незакрашенных прямоугольников.
 drawRects :: MonadIO m => V.Vector GuiRect -> Canvas m ()
 drawRects v = do{ c <- ask; lift $ SDL.drawRects (canvasRenderer c) $ V.map (toSDLRect c) v}
 {-# INLINE drawRects #-}
 
--- | Нарисовать незакрашенный прямоугольник.
+-- | Нарисовать закрашенный прямоугольник.
 fillRect :: MonadIO m => GuiRect -> Canvas m ()
 fillRect r = do{ c <- ask; lift $ SDL.fillRect (canvasRenderer c) $ Just $ toSDLRect c r}
 {-# INLINE fillRect #-}
@@ -535,7 +539,7 @@ draw3DFrame lightColor darkColor insideColor thickness r = do
     fillRect r
     draw3DBorder lightColor darkColor thickness r
 
--- | Нарисовать прямоугольник
+-- | Нарисовать прямоугольник из точек.
 drawDotBorder :: MonadIO m => Coord -> GuiRect -> Canvas m ()
 drawDotBorder step = drawPoints . mkDotRectVector step
 {-# INLINE drawDotBorder #-}
