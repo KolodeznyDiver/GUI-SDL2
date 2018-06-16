@@ -8,7 +8,7 @@ category: GUI SDL2
 license: BSD3
 maintainer: KolodeznyDiver
 github: KolodeznyDiver/GUI-SDL2
-version: '0.1.18'
+version: '0.1.19'
 extra-source-files:
 - CHANGELOG.md
 - LICENSE.md
@@ -97,6 +97,7 @@ library:
   - GUI.Utils.Wrap
   - GUI.Utils.ViewableItems
   - GUI.Utils.TandTItem
+  - GUI.Widget.CheckBox
   - GUI.Widget.Container.Border
   - GUI.Widget.Container.ScrollArea
   - GUI.Widget.Container.TabbedPanel
@@ -117,9 +118,9 @@ library:
   - GUI.Widget.Label
   - GUI.Widget.LinearTrackBar
   - GUI.Widget.ListView
+  - GUI.Widget.RadioButton
   - GUI.Widget.Splitter
   - GUI.Widget.EditBox
-  - GUI.Widget.CheckBox
   - GUI.Widget.TH
   - GUI.Widget.Types
   - GUI.Window.LoadSaveDialog

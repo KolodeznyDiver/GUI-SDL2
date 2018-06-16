@@ -75,6 +75,7 @@ import GUI.Widget.HorizontalTabbeds
 import GUI.Widget.HorizontalItems (NeighborSwap(..))
 import GUI.Widget.Container.TabbedPanel
 import GUI.Widget.CheckBox
+import GUI.Widget.RadioButton
 
 main :: IO ()
 main = runGUI defSkin  -- Запуск GUI с оформлением по умолчанию
@@ -498,7 +499,27 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
     btn1 <- hL $+ button def{btnSize = V2 100 60, btnTextWrapMode = TextWrap 0 Nothing
                 , btnText = "Переключить chkb0"  }
     let chkb0 = head cbs
+        chkb1 = cbs !! 1
     onClick btn1 $ getValue chkb0 >>=  setValue chkb0 . not
+    onChanged chkb0 $ \state -> enableWidget chkb1 state
+#elif EXAMPLE_NUM == 18
+    hL <- win $+ hLayout def
+    brdr <- hL $+ border def  { borderSize = V2 250 (-1), borderType = BorderRect
+                              , borderCaption = "radioButton"
+                              }
+    rb <- brdr $+ radioButton def   { radioButtonSize = V2 (-1) (-1)
+                                    , radioButtonTextWrapMode = TextWrap 100 Nothing
+                                    }
+                              (boundBased ["что то весьма небольшое, просто не на что смотреть"
+                                          ,"то что надо"
+                                          ,"ну, это просто огромное" ]) EQ
+    vL <- hL $+ vLayout def
+    lb <- vL $+ label def{ labelSize=V2 100 50
+                         , labelText="- - -"}
+    btn <- vL $+ button def{btnSize = V2 100 60, btnTextWrapMode = TextWrap 0 Nothing
+               , btnText = "Установить GT"  }
+    onClick btn $ setValue rb GT
+    onChanged rb (setText lb . TS.toText . showb)
 #else
     #error EXAMPLE_NUM is out of range
 #endif

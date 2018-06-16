@@ -2,10 +2,10 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: bd90725760fc43888a3766f65216a6f32bc7a194a41cb076df89b9cb555f8bf9
+-- hash: 3df154f23c4e30a1907cfa949f8c9c090fcf168c89a13b288c86115a1a7ef7e0
 
 name:           GUI-SDL2
-version:        0.1.18
+version:        0.1.19
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -112,6 +112,7 @@ library
       GUI.Utils.Wrap
       GUI.Utils.ViewableItems
       GUI.Utils.TandTItem
+      GUI.Widget.CheckBox
       GUI.Widget.Container.Border
       GUI.Widget.Container.ScrollArea
       GUI.Widget.Container.TabbedPanel
@@ -132,9 +133,9 @@ library
       GUI.Widget.Label
       GUI.Widget.LinearTrackBar
       GUI.Widget.ListView
+      GUI.Widget.RadioButton
       GUI.Widget.Splitter
       GUI.Widget.EditBox
-      GUI.Widget.CheckBox
       GUI.Widget.TH
       GUI.Widget.Types
       GUI.Window.LoadSaveDialog
