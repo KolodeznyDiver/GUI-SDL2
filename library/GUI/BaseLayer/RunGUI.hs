@@ -66,7 +66,7 @@ data GUIDef = GUIDef {
       -- | Параметры журналирования. См. "GUI.BaseLayer.Depend1.Logging".
       guiLogDef :: GUILogDef
       -- | Оставлять ли консольное окно видимым и выводить дублировать ли в него сообщения журанала.
-      -- КОнсольное окно скрывается только для Windows.
+      -- Консольное окно скрывается только для Windows.
     , guiConsoleVisible :: Bool
       -- | Явное указание директории данных для программы.
       -- В этой директории по умолчанию создаётся журнал.
@@ -77,6 +77,10 @@ data GUIDef = GUIDef {
       -- | Например "en-US" or "ru-Ru". Если задана пустая строка, будет произведена попытка
       -- определить язык из ОС.
     , guiNaturalLanguage :: String
+      -- | Флаги инициализации различных подсистем SDL.
+      -- По умолчанию [ SDL.InitVideo, SDL.InitEvents]
+      -- которые должны присутствовать в задаваемом списке.
+    , guiSDLInitFlags :: [SDL.InitFlag]
                      }
 
 instance Default GUIDef where
@@ -84,16 +88,17 @@ instance Default GUIDef where
                  , guiConsoleVisible = True
                  , guiDataDirectory = ""
                  , guiNaturalLanguage = ""
+                 , guiSDLInitFlags = [ SDL.InitVideo, SDL.InitEvents {-, SDL.InitTimer -} ]
                  }
 
 -- | Функция с которой начинается выполнения GUI.
 runGUI:: Skin -> -- ^ Текущий 'Skin' описывающий оформление интерфейса.
         [GuiFontDef] -> -- ^ Таблица шрифтов.
         GUIDef ->  -- ^ Необязательные параметры GUI.
-        (Gui -> IO ()) ->  -- ^ Функция конструирующая (нальную часть) GUI.
+        (Gui -> IO ()) ->  -- ^ Функция конструирующая (начальную часть) GUI.
         IO ()
 runGUI skin fntLst GUIDef{..} initFn =
-  bracket_ (SDL.initialize [ SDL.InitVideo, SDL.InitEvents {-, SDL.InitTimer -} ]) SDL.quit $ do
+  bracket_ (SDL.initialize guiSDLInitFlags) SDL.quit $ do
     unless guiConsoleVisible
         hideConsole -- При желании спрячем консольное окно (только Windows, для X11 пока ничего не делает)
     dataDir <- if null guiDataDirectory then
