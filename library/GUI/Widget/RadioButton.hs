@@ -31,7 +31,6 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Data.Bits
 import Data.IORef
-import Data.Maybe
 -- import Data.Monoid
 -- import TextShow
 import qualified SDL
@@ -165,7 +164,7 @@ radioButton RadioButtonDef{..} RadioButtonItems{..} firstSelected parent skin = 
         doMove widget f = do
             readMonadIORef stateRf >>= changeHandler widget . f
     ClickableHelper{ clickableFs = fns} <- clickableHelper initSz (\_ -> return ()) isHotSpot
-    mkWidget radioButtonFlags (fromMaybe (formItemsMargin skin) $ formItemMargin radioButtonFormItemDef)
+    mkFormWidget radioButtonFormItemDef radioButtonFlags skin id
             (RadioButtonData onCLickRf onChangeRf changeHandler (rbItmsMin,rbItmsMax) stateRf) parent fns{
          onDraw= \widget -> do
             fl <- getWidgetFlags widget

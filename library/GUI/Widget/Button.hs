@@ -46,7 +46,6 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Data.Bits
 import Data.IORef
-import Data.Maybe
 import qualified SDL
 import SDL.Vect
 import Control.Monad.Extra (whenJust)
@@ -123,8 +122,7 @@ textureButton TextureButtonDef{..} parent skin = do
             } <- mouseAnimatedClickableHelper buttonSize (\_ -> return ())
                         (\_ _ -> return True)
     rowRf <- newMonadIORef buttonInitPictRow
-    mkWidget buttonFlags
-            (fromMaybe (formItemsMargin skin) $ formItemMargin buttonFormItemDef)
+    mkFormWidget buttonFormItemDef buttonFlags skin id
             (TextureButtonData onCLick' rowRf mouseState) parent fns{
             onDestroy = \_ -> when buttonTextureOwned $ SDL.destroyTexture buttonTexture
             ,onDraw= \widget -> do
@@ -400,9 +398,7 @@ button ButtonDef{..} parent skin = do
                 } <- mouseAnimatedClickableHelper inSize
                         (\widget -> setWidgetFocus widget)
                         (\_ _ -> return True)
-    mkWidget btnFlags
-            (fromMaybe (formItemsMargin skin) $ formItemMargin btnFormItemDef)
-            (ButtonData onCLick') parent fns{
+    mkFormWidget btnFormItemDef btnFlags skin id (ButtonData onCLick') parent fns{
             onDraw= \widget -> do
                 fl <- getWidgetFlags widget
                 let ena = (fl .&. WidgetEnable) /= WidgetNoFlags

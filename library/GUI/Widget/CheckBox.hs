@@ -23,7 +23,6 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Data.Bits
 import Data.IORef
-import Data.Maybe
 {-
 import Data.Monoid
 import TextShow
@@ -111,7 +110,7 @@ checkBox CheckBoxDef{..} parent skin = do
         isHotSpot _ = return . TTI.inPictRect tti
     ClickableHelper{ clickableFs = fns}
         <- clickableHelper (TTI.getSize tti) clickHandler isHotSpot
-    mkWidget checkBoxFlags (fromMaybe (formItemsMargin skin) $ formItemMargin checkBoxFormItemDef)
+    mkFormWidget checkBoxFormItemDef checkBoxFlags skin id
             (CheckBoxData onCLickRf stateRf onChangeRf changeHandler) parent fns{
          onDraw= \widget -> do
             fl <- getWidgetFlags widget

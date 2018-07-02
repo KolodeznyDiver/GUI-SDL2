@@ -136,8 +136,8 @@ dropDownList DropDownListDef{..} a parent skin = do
                 widgetResizingIfChanged child $
                     SDL.Rectangle (P (V2 (widgW-btWH-2*PaddingX) ((widgH - btWH) `div` 2))) (V2 btWH btWH)
 
-    self <- mkWidget ddListFlags (fromMaybe (formItemsMargin skin) $ formItemMargin ddListFormItemDef)
-                        (DropDownListData a rfOnChanged rfIx) parent fns{
+    self <- mkFormWidget ddListFormItemDef ddListFlags skin id
+                (DropDownListData a rfOnChanged rfIx) parent fns{
         onSizeChangedParentNotify = \widget _child _sz -> arrangeChild widget
         , onResizing = \widget newRect -> do
             void $ simpleOnResizing widget newRect

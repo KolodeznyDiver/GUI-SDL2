@@ -109,9 +109,7 @@ label LabelDef{..} parent skin = do
     let bkgrndColor = fromMaybe (decoreBkColor (formDecore skin)) labelBkColor
         bkTxtColor = textWrapModeToMbBkColor labelWrapMode skin bkgrndColor
         fns = noChildrenFns $ sizeRestoreNegative labelSize insideSz
-    mkWidget labelFlags
-            (fromMaybe (formItemsMargin skin) $ formItemMargin labelFormItemDef)
-            (LabelData prepRf colorRf) parent fns{
+    mkFormWidget labelFormItemDef labelFlags skin id (LabelData prepRf colorRf) parent fns{
         onDraw= \widget -> do
             ena <- allWidgetFlags widget WidgetEnable
             c <- if ena then readMonadIORef colorRf else return $ formDisabledFgColor skin

@@ -35,6 +35,7 @@ import Data.Default
 import qualified SDL
 import SDL.Vect
 import GUI
+import GUI.Widget.Handlers
 
 -- | Отступ заголовка от края виджета.
 pattern CaptionPaddingX :: Coord
@@ -121,8 +122,7 @@ border BorderDef{..} parent skin = do
             return (Just fnt,max borderThickness captionH)
         else return (Nothing,borderThickness)
     let shrinkByBorder = rectShrinkByMargin (MarginLTRB borderThickness topSpacing borderThickness borderThickness)
-    mkWidget borderFlags
-            (fromMaybe (formItemsMargin skin) $ formItemMargin borderFormItemDef)
+    mkFormWidget borderFormItemDef borderFlags skin id
             (BorderData borderOnlyOneChild) parent fns{
         onDraw= \widget -> do
             r@(SDL.Rectangle (P (V2 x0 y0)) (V2 w h)) <- getVisibleRect widget

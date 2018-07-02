@@ -33,7 +33,6 @@ import qualified Data.Vector.Unboxed as VU
 import Data.Bits
 import Data.Char
 import Data.IORef
-import Data.Maybe
 import Control.Monad.Extra (whenJust,whenM)
 import Data.Default
 import qualified SDL
@@ -290,9 +289,7 @@ editBox EditBoxDef{..} parent skin = do
     gui <- getWindowGui win
     blikPipe <- newGuiPipe gui $ \ _ (_ :: V.Vector Int) -> return ()
     void $ onSetText editBoxText
-    mkWidget editBoxFlags
-            (fromMaybe (formItemsMargin skin) $ formItemMargin editBoxFormItemDef)
-            (EditBoxData d) parent fns{
+    mkFormWidget editBoxFormItemDef editBoxFlags skin id (EditBoxData d) parent fns{
         onCreate = \widget -> do
             onCreate fns widget
             replaceGuiPipeHandler gui blikPipe $ \ _ (_ :: V.Vector Int) -> do

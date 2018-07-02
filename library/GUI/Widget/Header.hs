@@ -193,11 +193,8 @@ header HeaderDef{..} parent skin = do
             i <- readMonadIORef rfBtnPressed
             when (i>=0)
                 (writeMonadIORef rfBtnPressed (-1) >> markWidgetForRedraw widget)
-    mkWidget headerFlags
-            (fromMaybe (
-                let (MarginLTRB l t r _) = marginToLTRB $ formItemsMargin skin
-                in WidgetMarginLTRB l t r 0
-            ) $ formItemMargin headerFormItemDef)
+    mkFormWidget headerFormItemDef headerFlags skin
+            (\(MarginLTRB l t r _) -> MarginLTRB l t r 0)
             (HeaderData widths sortMode rfH) parent (noChildrenFns widgSz){
       onDestroy = \ _widget -> SDL.destroyTexture textureUp >> SDL.destroyTexture textureDn
       ,onMouseMotion = \widget btnsLst (P (V2 x _)) (V2 relX _) ->

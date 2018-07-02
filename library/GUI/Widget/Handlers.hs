@@ -20,10 +20,13 @@ module GUI.Widget.Handlers(
     ,clickableHelper',clickableHelper
     ,MouseAnimatedClickableHelper'(..),MouseAnimatedClickableHelper(..)
     ,mouseAnimatedClickableHelper',mouseAnimatedClickableHelper
+    -- * Упрощённый вариант создания виджетов без коррекцци margins при инициализации.
+    ,mkFormWidget
         ) where
 
 import Control.Monad.IO.Class
 import Control.Monad
+import Data.Maybe
 import Data.IORef
 import Control.Monad.Extra
 import Data.Default
@@ -192,4 +195,22 @@ mouseAnimatedClickableHelper sz onClickAction isClickablePredicate = do
                  <- mouseAnimatedClickableHelper' sz onClickAction' isClickablePredicate
     return (MouseAnimatedClickableHelper mouseState onCLick' fns)
 
+
+-- | Эта функция используется в функциях создания конкретных, пользовательских, виджетов на формах.
+-- В отличии от @GUI.BaseLayer.Widget.mkWidget@ поля виджета определяются по FormItemWidgetDef и Skin
+mkFormWidget :: MonadIO m => FormItemWidgetDef -> -- ^ Общие настройки для всех виджетов для форм.
+                             WidgetFlags -> -- ^ Флаги виджета.
+                             Skin -> -- ^ Skin
+                             (GuiMargin -> GuiMargin) -> -- ^ Функция возможной корркции полей при инициализации.
+                                                         -- часто @id@.
+                             a -> -- ^ Данные виджета верхнего уровня.
+                             Widget ->  -- ^ Родительский виджет
+                             WidgetFunctions -> -- ^ запись с функциями - обработчиками событий
+                                                        -- базового уровня.
+                             m (GuiWidget a)
+mkFormWidget formDef fl skin margFn =
+    mkWidget fl (fromMaybe (
+                    let (MarginLTRB l t r b) = margFn $ marginToLTRB $ formItemsMargin skin
+                    in  WidgetMarginLTRB l t r b
+                           ) $ formItemMargin formDef)
 

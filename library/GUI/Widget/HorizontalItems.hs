@@ -34,7 +34,6 @@ module GUI.Widget.HorizontalItems(
     ) where
 
 import Control.Monad
-import Data.Maybe
 import Control.Monad.IO.Class
 import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
@@ -299,8 +298,7 @@ horizItems HorizItsDef{..} separatorsData initData parent skin = do
 
     modifyMonadIORef' refH $ \h -> h{hndlrDataUpdate= dataUpdate, hndlrIxUpdate = ixUpdate}
 
-    mkWidget horizItsFlags
-            (fromMaybe (formItemsMargin skin) $ formItemMargin horizItsFormItemDef)
+    mkFormWidget horizItsFormItemDef horizItsFlags skin id
             (HorizItsData refD refH refC) parent fns{
       onDestroy = \ _widget -> do
             horizSepUnprepare gui horizSepPrData separatorsData

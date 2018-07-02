@@ -127,8 +127,7 @@ scrollArea ScrollAreaDef{..} parent skin = do
 --    state <- newMonadIORef $ ScrollAreaStruct ScrollAreaNoFlags
         -- getChild = fmap fromJust . getWidgetChild selfWidget . fromEnum
     let initScrllArFns = noChildrenFns scrollAreaSize
-    self <- mkWidget scrollAreaFlags
-                        (fromMaybe (formItemsMargin skin) $ formItemMargin scrollAreaItemDef)
+    self <- mkFormWidget scrollAreaItemDef scrollAreaFlags skin id
                         ScrollAreaData parent initScrllArFns
     let selfWidget = baseWidget self
     -- временно создаём widget скроллируемой области. Она должна быть в начале childs.
