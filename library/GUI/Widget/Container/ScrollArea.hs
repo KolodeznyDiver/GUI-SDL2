@@ -120,7 +120,7 @@ data ScrollAreaChilds = Scrolled -- ^ Собственно, прокручива
 
 -- | Функция создания виджета-контейнера прокручивамой области.
 scrollArea :: MonadIO m => ScrollAreaDef ->  -- ^ Параметры виджета.
-                           Widget -> -- ^ Будующий предок в дереве виджетов.
+                           Widget -> -- ^ Будущий предок в дереве виджетов.
                            Skin -> -- ^ Skin.
                            m (GuiWidget ScrollAreaData)
 scrollArea ScrollAreaDef{..} parent skin = do

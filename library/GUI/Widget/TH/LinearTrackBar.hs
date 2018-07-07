@@ -121,7 +121,8 @@ mkLinearTrackBarQ direction = do
                         } <- mouseAnimatedClickableHelper'
                             ( $parallelMkV2 linearTrackBarLn (trackBarWidth $skin))
                             (\_ _ _ -> return () ) {- $ OneArgPredicate -} (\_ _ -> return True )
-                mkWidget linearTrackBarFlags linearTrackBarMargin (LinearTrackBarData dataRf) $parent $ fs{
+                mkFormWidget linearTrackBarFormItemDef linearTrackBarFlags $skin id
+                                 (LinearTrackBarData dataRf) $parent $ fs{
                     onMouseMotion = \widget btnsLst p _ {-relMv-} ->
                         when (SDL.ButtonLeft `elem` btnsLst) $ setValByMouse widget p
                     ,onLostMouseFocus = \widget -> resetSliderTrace >> onLostMouseFocus fs widget
@@ -133,7 +134,6 @@ mkLinearTrackBarQ direction = do
                                         d <- readMonadIORef dataRf
                                         let  newC = $parallelGetFst p
                                              (c0,c1) = getSlideFromTo d r
---                                        (c0,c1) <- getSlideFromTo d r
                                         if c0<newC && newC<c1 then do
                                             setSliderTraceState (newC,lnrTrBrVal d)
                                             writeMonadIORef mouseState WidgetMousePressed

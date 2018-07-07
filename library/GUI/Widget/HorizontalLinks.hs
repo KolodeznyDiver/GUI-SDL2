@@ -174,7 +174,7 @@ instance ValueProperty (GuiWidget HorizLinksData) LinkVector where
 
 -- | Функция создания виджета с текстовыми ссылками разделёнными текстовым разделителем.
 horizLinks :: MonadIO m => HorizLinksDef -> -- ^ Параметры виджета.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget HorizLinksData)
 horizLinks HorizLinksDef{..} parent skin = do

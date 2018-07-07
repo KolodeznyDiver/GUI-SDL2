@@ -22,7 +22,8 @@ module GUI.Widget.Types(
     -- * Распрстранённые для виджетов динамические \"проперти\".
     ,Clickable(..),Clickable1(..),DoubleClickable(..),DoubleClickable1(..),RightClickable(..),RightClickable1(..)
     ,Changeable(..)
-    ,TextProperty(..),TextColorProperty(..),MinMaxValueProperty(..),ValueProperty(..),IxProperty(..)
+    ,TextProperty(..),TextColorProperty(..),ForegroundColorProperty(..),BackgroundColorProperty(..)
+    ,MinMaxValueProperty(..),ValueProperty(..),IxProperty(..)
     ,IndexedValueProperty(..),RowNumProperty(..),ColNumProperty(..)
     ,MouseStateProperty(..),OnEnd(..),Verifiable(..),Moveable(..),MarkersPropertyType,MarkersProperty(..)
     ,GetStateForSave(..)
@@ -118,6 +119,16 @@ class TextProperty a where
 class TextColorProperty a where
     setTextColor :: MonadIO m => a -> GuiColor -> m ()
     getTextColor :: MonadIO m => a -> m GuiColor
+
+-- | Для экземпляров этого класса типов можно назначить установку и извлечение цвета переднего плана.
+class ForegroundColorProperty a where
+    setForegroundColor :: MonadIO m => a -> GuiColor -> m ()
+    getForegroundColor :: MonadIO m => a -> m GuiColor
+
+-- | Для экземпляров этого класса типов можно назначить установку и извлечение цвета заднего плана (фона).
+class BackgroundColorProperty a where
+    setBackgroundColor :: MonadIO m => a -> GuiColor -> m ()
+    getBackgroundColor :: MonadIO m => a -> m GuiColor
 
 -- | Для экземпляров этого класса типов можно назначить установку и извлечение некоего диапазона значений.
 class MinMaxValueProperty a b | a -> b where

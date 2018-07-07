@@ -116,7 +116,7 @@ data AreaOfMouse = Btn  Int -- ^ На кнопке.
 
 -- | Функция создания виджета.
 header :: MonadIO m => HeaderDef -> -- ^ Параметры виджета.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget HeaderData)
 header HeaderDef{..} parent skin = do

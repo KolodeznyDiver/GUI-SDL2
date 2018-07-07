@@ -102,7 +102,7 @@ data HorizontalMenuData = HorizontalMenuData
 
 -- | Функция создания виджета горизонтального меню.
 horizontalMenu :: MonadIO m => HorizontalMenuDef ->  -- ^ Параметры виджета.
-                               Widget -> -- ^ Будующий предок в дереве виджетов (обычно @vLayout@).
+                               Widget -> -- ^ Будущий предок в дереве виджетов (обычно @vLayout@).
                                Skin -> -- ^ Skin.
                                m (GuiWidget HorizontalMenuData)
 horizontalMenu HorizontalMenuDef{..} parent skin = do

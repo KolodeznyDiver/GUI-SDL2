@@ -113,7 +113,7 @@ instance IndexedValueProperty (GuiWidget TabbedPanelData) TabItem where
 
 -- | Функция создания виджета-контейнера прокручивамой области.
 tabbedPanel :: MonadIO m => TabbedPanelDef ->  -- ^ Параметры виджета.
-                           Widget -> -- ^ Будующий предок в дереве виджетов.
+                           Widget -> -- ^ Будущий предок в дереве виджетов.
                            Skin -> -- ^ Skin.
                            m (GuiWidget TabbedPanelData)
 tabbedPanel TabbedPanelDef{..} parent skin = do

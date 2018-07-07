@@ -91,7 +91,7 @@ instance TextColorProperty (GuiWidget LabelData) where
 
 -- | Функция создания текстовой надписи.
 label :: MonadIO m => LabelDef -> -- ^ Параметры виджета.
-                      Widget -> -- ^ Будующий предок в дереве виджетов.
+                      Widget -> -- ^ Будущий предок в дереве виджетов.
                       Skin -> -- ^ Skin.
                       m (GuiWidget LabelData)
 label LabelDef{..} parent skin = do

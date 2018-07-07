@@ -97,7 +97,7 @@ instance Changeable (GuiWidget PathBoxData) FilePath where
 
 -- | Функция создания виджета отображения и выбора пути.
 pathBox :: MonadIO m => PathBoxDef -> -- ^ Параметры виджета.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget PathBoxData)
 pathBox PathBoxDef{..} parent skin = do

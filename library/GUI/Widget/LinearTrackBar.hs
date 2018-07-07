@@ -21,7 +21,7 @@ module GUI.Widget.LinearTrackBar(
     -- GUI.Widget.Internal.LinearTrackBar
     LinearTrackValueType,LinearTrackBarDef(..),LinearTrackBarData
     -- GUI.Widget.LinearTrackBar
-    ,hLinearTrackBar,vLinearTrackBar,hTrackBar,vTrackBar,setLinearTrackBarSliderLn
+    ,hLinearTrackBar,vLinearTrackBar,hTrackBar',hTrackBar,vTrackBar',vTrackBar,setLinearTrackBarSliderLn
                                    ) where
 
 import Control.Monad
@@ -40,24 +40,48 @@ mkLinearTrackBarQ DirectionV
 -- | Не экспортируемая вспомогательная функция для создания упрощённых трекбаров с отрисовкой по умолчанию.
 hvTrackBar :: forall m. MonadIO m =>
     (LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)) ->
-    LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)
-hvTrackBar f dat parent skin@Skin{..} = f dat{
+    LinearTrackBarDef ->
+    (LinearTrackBarDef -> LinearTrackBarDef) -> -- ^ функция изменения LinearTrackBarDef после установки обработчиков отрисовки.
+    Widget ->
+    Skin ->
+    m (GuiWidget LinearTrackBarData)
+hvTrackBar f dat defPostF parent skin@Skin{..} = f (defPostF dat{
           linearTrackBarDraw = \ _ _ r -> do
             setColor trackBarBkColor
             fillRect r
         , linearTrackBarSliderDraw = \ _ mbSt r -> do
             let decoreSt = getButtonDecoreState mbSt trackBarSlider
             drawButtonFrame decoreSt (btnDecoreBorder trackBarSlider) r
-                                             } parent skin
+                                             }) parent skin
+
+-- | Горизонтальный трекбар с отрисовкой по умолчанию.
+hTrackBar' :: MonadIO m =>
+              LinearTrackBarDef ->
+              (LinearTrackBarDef -> LinearTrackBarDef) -> -- ^ функция изменения LinearTrackBarDef после установки обработчиков отрисовки.
+              Widget ->
+              Skin ->
+              m (GuiWidget LinearTrackBarData)
+hTrackBar' = hvTrackBar hLinearTrackBar
+{-# INLINE hTrackBar' #-}
 
 -- | Горизонтальный трекбар с отрисовкой по умолчанию.
 hTrackBar :: MonadIO m => LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)
-hTrackBar = hvTrackBar hLinearTrackBar
+hTrackBar d = hTrackBar' d id
 {-# INLINE hTrackBar #-}
 
 -- | Вертикальный трекбар с отрисовкой по умолчанию.
+vTrackBar' :: MonadIO m =>
+              LinearTrackBarDef ->
+              (LinearTrackBarDef -> LinearTrackBarDef) -> -- ^ функция изменения LinearTrackBarDef после установки обработчиков отрисовки.
+              Widget ->
+              Skin ->
+              m (GuiWidget LinearTrackBarData)
+vTrackBar' = hvTrackBar vLinearTrackBar
+{-# INLINE vTrackBar' #-}
+
+-- | Вертикальный трекбар с отрисовкой по умолчанию.
 vTrackBar :: MonadIO m => LinearTrackBarDef -> Widget -> Skin -> m (GuiWidget LinearTrackBarData)
-vTrackBar = hvTrackBar vLinearTrackBar
+vTrackBar d = vTrackBar' d id
 {-# INLINE vTrackBar #-}
 
 -- | Установить новую длину ползунка в пикселях.

@@ -125,7 +125,7 @@ data EditBoxState = EditBoxState      { edBxPos :: Int -- Caret pos. or start se
 
 -- | Функция создания виджета для редактирования текста.
 editBox :: MonadIO m => EditBoxDef -> -- ^ Параметры виджета.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget EditBoxData)
 editBox EditBoxDef{..} parent skin = do

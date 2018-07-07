@@ -102,7 +102,7 @@ dropDownList :: (MonadIO m, ViewableItems a p) =>
                          DropDownListDef -> -- ^ Параметры виджета.
                          a -> -- ^ Отображаемые в виде списка данные. Выбранный элемент отображается в
                               -- основном поле виджета.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget (DropDownListData a p))
 dropDownList DropDownListDef{..} a parent skin = do

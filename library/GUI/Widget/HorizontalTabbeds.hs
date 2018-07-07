@@ -175,7 +175,7 @@ instance ValueProperty (GuiWidget HorizTabData) TabVector where
 
 -- | Функция создания виджета с текстовыми ссылками разделёнными текстовым разделителем.
 horizTab :: MonadIO m => HorizTabDef -> -- ^ Параметры виджета.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget HorizTabData)
 horizTab HorizTabDef{..} parent skin = do

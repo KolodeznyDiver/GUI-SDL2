@@ -65,7 +65,7 @@ defSkin = Skin  {
     , linkFgColor = rgb 0 0 255
     , linkInFgColor = rgb 64 64 255
     , trackBarWidth = 15
-    , trackBarBkColor  = rgb 0 255 255
+    , trackBarBkColor  = grayColor 200
 {-    , arrowBtns =
         ButtonDecore { btnDecoreOut =
                              DecoreState { decoreBkColor = formBkColor
@@ -92,11 +92,11 @@ defSkin = Skin  {
                      } -}
     , trackBarSlider =
         ButtonDecore { btnDecoreOut =
-                            DecoreState { decoreBkColor = rgb 255 255 0 --   grayColor 220
+                            DecoreState { decoreBkColor = grayColor 220
                                         , decoreFgColor = grayColor 220
                                         }
                      , btnDecoreFocused = -- unused
-                            DecoreState { decoreBkColor = rgb 255 255 0 --   grayColor 220
+                            DecoreState { decoreBkColor = grayColor 220
                                         , decoreFgColor = grayColor 220
                                         }
                      , btnDecoreIn  =

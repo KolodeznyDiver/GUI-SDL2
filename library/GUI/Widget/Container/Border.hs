@@ -105,7 +105,7 @@ data BorderData = BorderData {brdbrDataOnlyOneChild :: Bool}
 
 -- | Функция создания бордера.
 border :: MonadIO m => BorderDef ->  -- ^ Параметры виджета.
-                       Widget -> -- ^ Будующий предок в дереве виджетов.
+                       Widget -> -- ^ Будущий предок в дереве виджетов.
                        Skin -> -- ^ Skin.
                        m (GuiWidget BorderData)
 border BorderDef{..} parent skin = do

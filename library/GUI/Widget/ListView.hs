@@ -172,7 +172,7 @@ instance ViewableItems a p => MarkersProperty (GuiWidget (ListViewData a p)) whe
 listView :: (MonadIO m, ViewableItems a p) =>
                          ListViewDef -> -- ^ Параметры виджета.
                          a -> -- ^ Исходные отображаемые данные.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget (ListViewData a p))
 listView ListViewDef{..} a parent skin = do

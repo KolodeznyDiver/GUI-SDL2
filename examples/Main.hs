@@ -155,7 +155,7 @@ main = runGUI defSkin  -- Запуск GUI с оформлением по умо
 
     trBar <- hL0 $+ hTrackBar def{
                                linearTrackBarLn = 200
-                             , linearTrackBarMargin = WidgetMarginXY 10 0
+                             , linearTrackBarFormItemDef = def{formItemMargin= Just $ WidgetMarginXY 10 0}
                              , linearTrackMinValue = 0
                              , linearTrackMaxValue = 1000
                              , linearTrackBarPos  = 300

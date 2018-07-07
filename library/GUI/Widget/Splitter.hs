@@ -41,7 +41,7 @@ data SplitterType = SplitterUnknown | HSplitter | VSplitter
 data SplitterData = SplitterData
 
 -- | Функция создания сплиттера. Сплиттер не имеет своих специальных параметров.
-splitter :: MonadIO m => Widget -> -- ^ Будующий предок в дереве виджетов.
+splitter :: MonadIO m => Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget SplitterData)
 splitter parent skin = do

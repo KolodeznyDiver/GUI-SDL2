@@ -33,7 +33,7 @@ type LinearTrackValueType = Int
 -- | Параметры настройки трекбара.
 data LinearTrackBarDef = LinearTrackBarDef {
       -- | Общие настройки для всех виджетов для форм, в настоящий момент только margin's.
-      linearTrackBarMargin  :: WidgetMargin
+      linearTrackBarFormItemDef  :: FormItemWidgetDef
       -- | Для hLinearTrackBar,hTrackBar длина виджета, для vLinearTrackBar,vTrackBar высота.
     , linearTrackBarLn      :: Coord
       -- | Флаги базового виджета.
@@ -67,7 +67,7 @@ data LinearTrackBarDef = LinearTrackBarDef {
                                             }
 
 instance Default LinearTrackBarDef where
-    def = LinearTrackBarDef  { linearTrackBarMargin = WidgetMarginNone
+    def = LinearTrackBarDef  { linearTrackBarFormItemDef = def{formItemMargin=Just WidgetMarginNone}
                              , linearTrackBarLn = -1
                              , linearTrackBarFlags  = WidgetVisible .|. WidgetEnable
                              , linearTrackMinValue = 0

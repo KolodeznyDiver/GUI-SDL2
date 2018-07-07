@@ -122,7 +122,7 @@ radioButton :: (Ord a, Enum a, MonadIO m) =>
                  RadioButtonDef ->      -- ^ Параметры виджета.
                  RadioButtonItems a ->  -- ^ Способы задания текста пунктов выбора и их нумерации.
                  a ->                   -- ^ Выбранный первоначально элемент.
-                 Widget ->              -- ^ Будующий предок в дереве виджетов.
+                 Widget ->              -- ^ Будущий предок в дереве виджетов.
                  Skin ->                -- ^ Skin.
                  m (GuiWidget (RadioButtonData a))
 radioButton RadioButtonDef{..} RadioButtonItems{..} firstSelected parent skin = do

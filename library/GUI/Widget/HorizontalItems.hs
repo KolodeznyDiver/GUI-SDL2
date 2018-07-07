@@ -170,7 +170,7 @@ horizItems :: (MonadIO m, ViewableVarWidthItems a p, HorizontalSeparator b _q, E
                          HorizItsDef -> -- ^ Параметры виджета.
                          b -> -- ^ Данные для отображения разделителей.
                          a -> -- ^ Исходные отображаемые данные.
-                         Widget -> -- ^ Будующий предок в дереве виджетов.
+                         Widget -> -- ^ Будущий предок в дереве виджетов.
                          Skin -> -- ^ Skin.
                          m (GuiWidget (HorizItsData a p))
 horizItems HorizItsDef{..} separatorsData initData parent skin = do

@@ -83,7 +83,7 @@ instance Default CheckBoxDef where
 -- | Создание виджета @checkBox@.
 checkBox :: MonadIO m =>
                  CheckBoxDef ->  -- ^ Параметры виджета.
-                 Widget ->  -- ^ Будующий предок в дереве виджетов.
+                 Widget ->  -- ^ Будущий предок в дереве виджетов.
                  Skin -> -- ^ Skin.
                  m (GuiWidget CheckBoxData)
 checkBox CheckBoxDef{..} parent skin = do

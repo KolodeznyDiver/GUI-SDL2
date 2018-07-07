@@ -111,7 +111,7 @@ instance MouseStateProperty (GuiWidget TextureButtonData) where
 -- | Универсальная кнопка с текстурой.
 textureButton :: MonadIO m =>
                  TextureButtonDef ->  -- ^ Параметры виджета.
-                 Widget ->  -- ^ Будующий предок в дереве виджетов.
+                 Widget ->  -- ^ Будущий предок в дереве виджетов.
                  Skin -> -- ^ Skin.
                  m (GuiWidget TextureButtonData)
 textureButton TextureButtonDef{..} parent skin = do
@@ -178,7 +178,7 @@ instance Default PictureButtonDef where
 
 -- | Кнопка с картинкой из ресурса.
 pictureButton :: MonadIO m => PictureButtonDef ->  -- ^ Параметры виджета.
-                              Widget ->  -- ^ Будующий предок в дереве виджетов.
+                              Widget ->  -- ^ Будущий предок в дереве виджетов.
                               Skin -> -- ^ Skin.
                               m (GuiWidget TextureButtonData)
 pictureButton PictureButtonDef{..} parent skin = do
@@ -267,7 +267,7 @@ instance Clickable (GuiWidget ButtonData) where
 -- Вообще то не так и нужен. Можно просто нарисовать картинку и использовать @pictureButton@.
 -- В данной функции демонстрируется динамическое создание текстуры перед созданием собственно виджета.
 buttonWithTriangle :: MonadIO m => ButtonWithTriangleDef -> -- ^ Параметры виджета.
-                                   Widget -> -- ^ Будующий предок в дереве виджетов.
+                                   Widget -> -- ^ Будущий предок в дереве виджетов.
                                    Skin -> -- ^ Skin.
                                    m (GuiWidget ButtonData)
 buttonWithTriangle ButtonWithTriangleDef{..} parent skin = do
@@ -336,7 +336,7 @@ instance Default ButtonDef where
 
 -- | Виджет - кнопка с текстом и картинкой.
 button :: MonadIO m => ButtonDef ->  -- ^ Параметры виджета.
-                       Widget -> -- ^ Будующий предок в дереве виджетов.
+                       Widget -> -- ^ Будущий предок в дереве виджетов.
                        Skin -> -- ^ Skin.
                        m (GuiWidget ButtonData)
 button ButtonDef{..} parent skin = do
