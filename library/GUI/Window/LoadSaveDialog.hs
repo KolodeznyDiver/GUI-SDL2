@@ -22,7 +22,6 @@ module GUI.Window.LoadSaveDialog(
     ) where
 
 
-import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Bits

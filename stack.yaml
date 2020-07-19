@@ -8,14 +8,9 @@
 # A snapshot resolver dictates the compiler version and the set of packages
 # to be used for project dependencies. For example:
 #
-# resolver: lts-3.5
-# resolver: nightly-2015-09-21
-# resolver: ghc-7.10.2
-# resolver: ghcjs-0.1.0_ghc-7.10.2
-# resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-11.16
+resolver: lts-16.5
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -59,8 +54,8 @@ extra-deps:
 #     commit: b61f9b16f48f815c97f300d5bda39a7379460312
 # -   git: https://github.com/haskell-game/sdl2-ttf
 #     commit: bc9ee94960c70151e41d3172035ad7580b724cc2
--  git: https://github.com/e45lee/sdl2-image
-   commit: e4117ae11621294af3052762ff08867c62df6064
+-   git: https://github.com/haskell-game/sdl2-image
+    commit: 382395c763b473032721c71921b5c9241142178f
 
 # Override default flag values for local packages and extra-deps
 flags: {}

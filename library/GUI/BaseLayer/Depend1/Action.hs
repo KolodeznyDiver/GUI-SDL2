@@ -55,7 +55,6 @@ import Data.Maybe
 import Data.Bits
 import Control.Monad.IO.Class (MonadIO)
 import Data.Word
-import Control.Monad.Plus (partial)
 import qualified Data.Vector as V
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
@@ -330,3 +329,7 @@ actionSetOnAction :: (forall m. MonadIO m => m ()) -> -- ^ Новая функц
 actionSetOnAction f = actionUpdateByGroupAndIdUnsafe' (\a -> a{onAction=f})
 {-# INLINE actionSetOnAction #-}
 
+-- Было в import Control.Monad.Plus (partial) пакета monadplus который исключён из stackage
+partial :: (a -> Bool) -> a -> Maybe a
+partial predicate a | predicate a = Just a
+                    | otherwise   = Nothing

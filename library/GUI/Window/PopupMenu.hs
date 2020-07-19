@@ -31,7 +31,6 @@ module GUI.Window.PopupMenu(
     ,popupMenu
     ) where
 
-import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class
 import qualified Data.Text as T

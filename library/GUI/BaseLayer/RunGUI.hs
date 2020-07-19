@@ -17,7 +17,6 @@ module GUI.BaseLayer.RunGUI(
   ) where
 
 import Foreign
-import Data.Monoid
 import Control.Monad.IO.Class -- (MonadIO)
 import qualified Data.Map.Strict as Map (empty)
 import Control.Exception.Safe

@@ -35,7 +35,6 @@ module GUI.BaseLayer.Core(
     ,runProxyWinCanvas,runProxyCanvas
                  ) where
 
-import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class -- (MonadIO)
 import Data.Bits

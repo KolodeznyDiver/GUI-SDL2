@@ -8,7 +8,7 @@ category: GUI SDL2
 license: BSD3
 maintainer: KolodeznyDiver
 github: KolodeznyDiver/GUI-SDL2
-version: '0.1.22'
+version: '0.1.23'
 extra-source-files:
 - CHANGELOG.md
 - LICENSE.md
@@ -134,18 +134,6 @@ library:
   - Data.Vector.Unboxed.Mutable.Utils
   - System.Utils
   - System.FileSystem
-  when:
-    - condition: os(windows)
-      then:
-        other-modules:
-        - System.Win32.Utils
-      else:
-        other-modules:
-        - System.X11.Utils
-  extra-libraries:
-  - SDL2
-  - SDL2_ttf
-  - SDL2_image
   dependencies:
   - base
   - template-haskell
@@ -166,18 +154,22 @@ library:
   - text-show
   - filepath
   - directory
-  - monadplus
   - sdl2
   - sdl2-ttf
   - sdl2-image
   when:
     - condition: os(windows)
       then:
-        dependencies: Win32
+        dependencies:
+        - Win32
+        other-modules:
+        - System.Win32.Utils
       else:
         dependencies: 
         - setlocale
         - X11
+        other-modules:
+        - System.X11.Utils
   ghc-options:
   - -Wall
   - -Wname-shadowing

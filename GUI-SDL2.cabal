@@ -1,11 +1,13 @@
--- This file has been generated from package.yaml by hpack version 0.28.2.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8c7560078bce4b469554b5f92498c9251f422d8fe3767bc7902a58b038ec979b
+-- hash: 9e40ef7a49cef463e11a0eb2d9c8a07e3a1a280152f2b35b302e2b547f018d30
 
 name:           GUI-SDL2
-version:        0.1.22
+version:        0.1.23
 synopsis:       GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 description:    GUI-SDL2 is SDL2, SDL2_image and SDL2_ttf based desktop GUI that is completely written in Haskell.
 category:       GUI SDL2
@@ -14,18 +16,17 @@ bug-reports:    https://github.com/KolodeznyDiver/GUI-SDL2/issues
 maintainer:     KolodeznyDiver
 license:        BSD3
 build-type:     Simple
-cabal-version:  >= 1.10
 extra-source-files:
     CHANGELOG.md
+    LICENSE.md
+    package.yaml
+    README.md
+    stack.yaml
     GUI.Resources/check.png
     GUI.Resources/PTM55F.ttf
     GUI.Resources/PTN57F.ttf
     GUI.Resources/rss_circle.png
     GUI.Resources/sync.png
-    LICENSE.md
-    package.yaml
-    README.md
-    stack.yaml
 
 source-repository head
   type: git
@@ -40,10 +41,6 @@ library
   hs-source-dirs:
       library
   ghc-options: -Wall -Wname-shadowing -fwarn-tabs -Werror
-  extra-libraries:
-      SDL2
-      SDL2_ttf
-      SDL2_image
   build-depends:
       StateVar
     , base
@@ -54,7 +51,6 @@ library
     , extra
     , filepath
     , linear
-    , monadplus
     , primitive
     , safe-exceptions
     , sdl2
@@ -69,9 +65,13 @@ library
     , vector
     , vector-algorithms
   if os(windows)
+    other-modules:
+        System.Win32.Utils
     build-depends:
         Win32
   else
+    other-modules:
+        System.X11.Utils
     build-depends:
         X11
       , setlocale
@@ -152,8 +152,6 @@ library
   other-modules:
       GUI.BaseLayer.Depend0.SDLWindow
       GUI.BaseLayer.SpecStateWidget
-      System.Win32.Utils
-      System.X11.Utils
       Paths_GUI_SDL2
   default-language: Haskell2010
 

@@ -24,7 +24,6 @@ module GUI.BaseLayer.NaturalLangIO(
     loadLangFiles
     ) where
 
-import Data.Monoid
 import Control.Monad
 import Control.Exception.Safe
 import System.IO

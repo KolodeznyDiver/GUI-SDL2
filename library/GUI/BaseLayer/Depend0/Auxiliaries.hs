@@ -18,7 +18,6 @@ module GUI.BaseLayer.Depend0.Auxiliaries(
     ,showbV2,showbPoint
     ) where
 
-import Data.Monoid
 import System.Environment (getProgName)
 import Control.Exception.Safe
 import GHC.IO.Encoding

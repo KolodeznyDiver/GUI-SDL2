@@ -18,7 +18,6 @@ module GUI.BaseLayer.Depend0.Keyboard(
     ,scaToKeyModifiers,getActualShiftCtrlAlt,getActualKeyModifiers
     ) where
 
-import Data.Monoid
 import Control.Monad.IO.Class
 import GHC.Generics (Generic)
 import Data.Data (Data)

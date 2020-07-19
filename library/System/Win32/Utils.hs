@@ -89,9 +89,7 @@ withRemoveFromTaskbar title f = do
     wParent <- liftIO getActiveWindow
     r <- f
     liftIO $ do
---        mbW <- findWindow Nothing $ Just title -- в версии пакета Win32 2.8.0.0 можно будет так.
-                                                 -- Пока Win32 не обновлён на stackage.
-        mbW <- findWindowByName title
+        mbW <- findWindow Nothing $ Just title
         whenJust mbW $ \ w ->
             void $ c_SetWindowLongPtr w GWLP_HWNDPARENT $ castPtr wParent
     return r

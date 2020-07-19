@@ -91,7 +91,6 @@ module GUI.BaseLayer.Resource(
     ) where
 
 import Data.List
-import Data.Monoid
 import Control.Monad
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Exception.Safe

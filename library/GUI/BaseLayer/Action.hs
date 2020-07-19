@@ -30,7 +30,6 @@ module GUI.BaseLayer.Action(
     ,kNoModifier,kCtrl,kShift,kAlt,kCtrlShift,kCtrlAlt,kShiftAlt
     ) where
 
-import Data.Monoid
 import Control.Monad.IO.Class -- (MonadIO)
 import Data.Maybe
 import qualified Data.Vector as V
