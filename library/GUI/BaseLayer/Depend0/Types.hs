@@ -4,7 +4,7 @@
 
 -- |
 -- Module:      GUI.BaseLayer.Depend0.Types
--- Copyright:   (c) 2017-2018 KolodeznyDiver
+-- Copyright:   (c) 2017-2020 KolodeznyDiver
 -- License:     BSD3
 -- Maintainer:  KolodeznyDiver <KldznDvr@gmail.com>
 -- Stability:   experimental
